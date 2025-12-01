@@ -66,13 +66,15 @@ router.post('/suggest', async (req, res) => {
  */
 router.post('/chat', async (req, res) => {
   try {
-    const { message, actionPart, context, conversationHistory } = req.body;
+    const { message, actionPart, context, conversationHistory, wideReasoning, similarTestCases } = req.body;
 
     console.log('Richiesta chat ricevuta:', { 
       messageLength: message?.length, 
       hasActionPart: !!actionPart, 
       hasContext: !!context,
-      historyLength: conversationHistory?.length || 0
+      historyLength: conversationHistory?.length || 0,
+      wideReasoning: wideReasoning || false,
+      similarTestCasesCount: similarTestCases?.length || 0
     });
 
     if (!message) {
@@ -83,7 +85,9 @@ router.post('/chat', async (req, res) => {
       message,
       actionPart || {},
       context || {},
-      conversationHistory || []
+      conversationHistory || [],
+      wideReasoning || false,
+      similarTestCases || []
     );
 
     console.log('Risposta chat generata:', response?.substring(0, 100));

@@ -7,7 +7,7 @@ import '../styles/CypressRunner.css';
 /**
  * Componente per eseguire e testare codice Cypress
  */
-export function CypressRunner({ code, onClose, onLogEvent }) {
+export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
   const [selectedCode, setSelectedCode] = useState('');
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState(null);
@@ -36,7 +36,7 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
       onLogEvent?.('error', 'Nessun codice da eseguire');
       return;
     }
-    await runCypressCode(code);
+    await runCypressCode(code, true);
   };
 
   const handleRunSelectedCode = async () => {
@@ -87,10 +87,10 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
       }
     }
     
-    await runCypressCode(codeToRun);
+    await runCypressCode(codeToRun, false);
   };
 
-  const runCypressCode = async (codeToRun) => {
+  const runCypressCode = async (codeToRun, shouldSaveFile) => {
     setRunning(true);
     setResults(null);
     setLogs(prev => [...prev, { type: 'info', message: 'Avvio esecuzione Cypress...', timestamp: new Date() }]);
@@ -100,7 +100,11 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
     onLogEvent?.('info', 'Esecuzione codice Cypress in corso...');
 
     try {
-      const result = await api.runCypressCode(codeToRun, targetUrl, { headed: headedMode });
+      const result = await api.runCypressCode(codeToRun, targetUrl, { 
+        headed: headedMode,
+        keepBrowserOpen: headedMode,
+        outputFilePath: shouldSaveFile && outputFilePath ? outputFilePath : null
+      });
       
       setResults(result);
       setLogs(prev => [...prev, { 
@@ -111,6 +115,21 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
       
       if (result.success) {
         onLogEvent?.('success', 'Codice Cypress eseguito con successo');
+        if (result.savedFilePath) {
+          onLogEvent?.('success', `File Cypress aggiornato: ${result.savedFilePath}`);
+          setLogs(prev => [...prev, {
+            type: 'success',
+            message: `File aggiornato: ${result.savedFilePath}`,
+            timestamp: new Date()
+          }]);
+        } else if (result.saveFileError) {
+          onLogEvent?.('error', `Salvataggio file fallito: ${result.saveFileError}`);
+          setLogs(prev => [...prev, {
+            type: 'error',
+            message: `Salvataggio file fallito: ${result.saveFileError}`,
+            timestamp: new Date()
+          }]);
+        }
         if (result.output) {
           setLogs(prev => [...prev, { 
             type: 'info', 
@@ -137,6 +156,11 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
             message: `Output: ${result.output.substring(0, 300)}`,
             timestamp: new Date()
           }]);
+        }
+        if (result.saveFileError) {
+          onLogEvent?.('error', `Salvataggio file fallito: ${result.saveFileError}`);
+        } else if (result.savedFilePath) {
+          onLogEvent?.('success', `File Cypress aggiornato: ${result.savedFilePath}`);
         }
       }
     } catch (error) {
@@ -268,6 +292,12 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
                   {results.output && (
                     <pre className="output">{results.output}</pre>
                   )}
+                  {results.savedFilePath && (
+                    <p className="saved-file">📁 File aggiornato: {results.savedFilePath}</p>
+                  )}
+                  {results.saveFileError && (
+                    <p className="error">❌ Salvataggio file fallito: {results.saveFileError}</p>
+                  )}
                 </div>
               ) : (
                 <div className="error-content">
@@ -295,6 +325,12 @@ export function CypressRunner({ code, onClose, onLogEvent }) {
                       <summary><strong>🔍 Output completo (espandi per vedere tutto)</strong></summary>
                       <pre className="error-full-output-text">{results.fullOutput}</pre>
                     </details>
+                  )}
+                  {results.savedFilePath && (
+                    <p className="saved-file">📁 File aggiornato: {results.savedFilePath}</p>
+                  )}
+                  {results.saveFileError && (
+                    <p className="error">❌ Salvataggio file fallito: {results.saveFileError}</p>
                   )}
                 </div>
               )}

@@ -174,7 +174,7 @@ Se hai bisogno di più informazioni dall'utente, imposta needsClarification: tru
 /**
  * Chat interattiva per raffinare una soluzione
  */
-export async function chatWithAI(message, actionPart, context = {}, conversationHistory = []) {
+export async function chatWithAI(message, actionPart, context = {}, conversationHistory = [], wideReasoning = false, similarTestCases = []) {
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || 'gpt-4';
 
@@ -196,6 +196,100 @@ export async function chatWithAI(message, actionPart, context = {}, conversation
     optimizedContext += `\n\nMetodi disponibili (${context.methods.length} totali, mostrati i primi 10):\n${relevantMethods}`;
   }
 
+  // AGGIUNGI CONTESTO DELLE ALTRE FASI
+  let otherPhasesInfo = '';
+  if (context && context.otherPhases) {
+    const phases = [];
+    if (context.otherPhases.given) {
+      phases.push(`GIVEN: "${context.otherPhases.given.text}"${context.otherPhases.given.code ? `\n  Codice già generato:\n  ${context.otherPhases.given.code.split('\n').map(l => '  ' + l).join('\n')}` : ' (non ancora generato)'}`);
+    }
+    if (context.otherPhases.when) {
+      phases.push(`WHEN: "${context.otherPhases.when.text}"${context.otherPhases.when.code ? `\n  Codice già generato:\n  ${context.otherPhases.when.code.split('\n').map(l => '  ' + l).join('\n')}` : ' (non ancora generato)'}`);
+    }
+    if (context.otherPhases.then) {
+      phases.push(`THEN: "${context.otherPhases.then.text}"${context.otherPhases.then.code ? `\n  Codice già generato:\n  ${context.otherPhases.then.code.split('\n').map(l => '  ' + l).join('\n')}` : ' (non ancora generato)'}`);
+    }
+    
+    if (phases.length > 0) {
+      otherPhasesInfo = `\n\n⚠️ IMPORTANTE: Questo test case ha altre fasi già definite:\n${phases.join('\n\n')}\n\nQuando generi il codice per questa fase, assicurati che sia compatibile e si integri bene con le altre fasi. Il codice che generi verrà combinato in sequenza con le altre fasi in un unico test Cypress.`;
+    }
+  }
+
+  // AGGIUNGI CONTESTO WIDE REASONING CON TEST CASE SIMILI
+  let wideReasoningInfo = '';
+  if (wideReasoning && similarTestCases && similarTestCases.length > 0) {
+    console.log(`[Backend Wide Reasoning] Ricevuti ${similarTestCases.length} test case simili`);
+    console.log(`[Backend Wide Reasoning] Test case IDs:`, similarTestCases.map(tc => tc.id));
+    
+    wideReasoningInfo = `\n\n═══════════════════════════════════════════════════════════════\n`;
+    wideReasoningInfo += `🔍 WIDE REASONING MODE ATTIVO - HAI ACCESSO DIRETTO AL REPOSITORY DI TEST\n`;
+    wideReasoningInfo += `═══════════════════════════════════════════════════════════════\n\n`;
+    wideReasoningInfo += `✅ SÌ, HAI ACCESSO DIRETTO AI TEST CASE DEL REPOSITORY!\n\n`;
+    wideReasoningInfo += `Ho trovato ${similarTestCases.length} test case che hanno già risolto problemi SIMILI a quello attuale.\n`;
+    wideReasoningInfo += `Questi test case sono REALI e sono stati già implementati nel repository. DEVI usarli come riferimento concreto.\n\n`;
+    wideReasoningInfo += `⚠️ NON dire "non ho accesso diretto al repository" - HAI ACCESSO a questi test case:\n\n`;
+    
+    similarTestCases.forEach((similar, idx) => {
+      wideReasoningInfo += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      wideReasoningInfo += `📋 ESEMPIO #${idx + 1}: Test Case ID ${similar.id} (Similarità: ${(similar.similarity * 100).toFixed(1)}%)\n`;
+      wideReasoningInfo += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      
+      wideReasoningInfo += `📝 PROBLEMA RISOLTO:\n`;
+      const sourcePhase = similar.blockType || actionPart.type || 'CURRENT';
+      wideReasoningInfo += `Fase ${sourcePhase.toUpperCase()}: "${similar.blockText}"\n`;
+      if (sourcePhase !== actionPart.type) {
+        wideReasoningInfo += `⚠️ NOTA: Questo codice proviene dalla fase ${sourcePhase.toUpperCase()}, ma può essere adattato per la fase ${actionPart.type?.toUpperCase() || 'CURRENT'} corrente.\n`;
+      }
+      wideReasoningInfo += `\n`;
+      
+      if (similar.allPhases) {
+        wideReasoningInfo += `📋 CONTESTO COMPLETO DEL TEST CASE:\n`;
+        if (similar.allPhases.given) wideReasoningInfo += `  • GIVEN: "${similar.allPhases.given}"\n`;
+        if (similar.allPhases.when) wideReasoningInfo += `  • WHEN: "${similar.allPhases.when}"\n`;
+        if (similar.allPhases.then) wideReasoningInfo += `  • THEN: "${similar.allPhases.then}"\n`;
+        wideReasoningInfo += `\n`;
+      }
+      
+      if (similar.code) {
+        wideReasoningInfo += `✅ SOLUZIONE IMPLEMENTATA (USA QUESTO COME RIFERIMENTO):\n`;
+        wideReasoningInfo += `\`\`\`javascript\n`;
+        wideReasoningInfo += similar.code.split('\n').map(l => l).join('\n');
+        wideReasoningInfo += `\n\`\`\`\n\n`;
+      }
+      
+      if (similar.allCode && (similar.allCode.given || similar.allCode.when || similar.allCode.then)) {
+        wideReasoningInfo += `📦 CODICE COMPLETO DEL TEST CASE (per contesto):\n`;
+        if (similar.allCode.given) {
+          wideReasoningInfo += `\n// GIVEN:\n${similar.allCode.given.substring(0, 500)}${similar.allCode.given.length > 500 ? '...' : ''}\n`;
+        }
+        if (similar.allCode.when) {
+          wideReasoningInfo += `\n// WHEN:\n${similar.allCode.when.substring(0, 500)}${similar.allCode.when.length > 500 ? '...' : ''}\n`;
+        }
+        if (similar.allCode.then) {
+          wideReasoningInfo += `\n// THEN:\n${similar.allCode.then.substring(0, 500)}${similar.allCode.then.length > 500 ? '...' : ''}\n`;
+        }
+        wideReasoningInfo += `\n`;
+      }
+    });
+    
+    wideReasoningInfo += `\n═══════════════════════════════════════════════════════════════\n`;
+    wideReasoningInfo += `📝 ISTRUZIONI OBBLIGATORIE PER LA TUA RISPOSTA:\n`;
+    wideReasoningInfo += `═══════════════════════════════════════════════════════════════\n\n`;
+    wideReasoningInfo += `1. ✅ INIZIA la tua risposta dicendo: "Sì, ho trovato nei test case simili..." o "Basandomi sul Test Case #X..."\n\n`;
+    wideReasoningInfo += `2. ✅ NON dire mai "non ho accesso diretto" - HAI ACCESSO a questi test case reali sopra!\n\n`;
+    wideReasoningInfo += `3. ✅ CITARE ESPLICITAMENTE gli ID dei test case che usi (es: "Nel Test Case #${similarTestCases[0]?.id || 'X'} ho visto che...").\n\n`;
+    wideReasoningInfo += `4. ✅ MOSTRARE il codice specifico preso dai test case simili, spiegando cosa fa e come l'hai adattato.\n\n`;
+    wideReasoningInfo += `5. ✅ Se l'utente chiede di "ritrovare" o "cercare" qualcosa, DEVI cercare nei test case sopra e citare esattamente dove l'hai trovato.\n\n`;
+    wideReasoningInfo += `6. ✅ IDENTIFICA i pattern comuni (selettori CSS, metodi Cypress, sequenze di azioni) dai test case simili e riutilizzali.\n\n`;
+    wideReasoningInfo += `7. ❌ NON dare risposte generiche come "potresti aver fatto" o "suggerisco" - USA i test case sopra come FONTE DIRETTA!\n\n`;
+    wideReasoningInfo += `\n⚠️ IMPORTANTE: L'utente HA RICHIESTO ESPLICITAMENTE di cercare in altri test case. DEVI rispondere con riferimenti concreti ai test case sopra!\n`;
+    wideReasoningInfo += `═══════════════════════════════════════════════════════════════\n`;
+  } else if (wideReasoning) {
+    wideReasoningInfo = `\n\n⚠️ WIDE REASONING MODE ATTIVO ma nessun test case simile trovato.\n`;
+    wideReasoningInfo += `L'utente ha richiesto di basare la soluzione su casi simili, ma non ci sono test case simili disponibili nel repository.\n`;
+    wideReasoningInfo += `Procedi con una soluzione standard basata sul contesto disponibile.\n\n`;
+  }
+
   const messages = [
     {
       role: 'system',
@@ -204,9 +298,13 @@ export async function chatWithAI(message, actionPart, context = {}, conversation
 Azione: ${actionPart.type || 'sconosciuta'} - ${actionPart.description || 'da determinare'}
 Target: ${actionPart.target || 'da determinare'}
 Valore: ${actionPart.value || 'da determinare'}
-${optimizedContext}
+${optimizedContext}${otherPhasesInfo}${wideReasoningInfo}
 
-Usa il contesto fornito (selettori e metodi disponibili) per suggerire soluzioni concrete.`
+IMPORTANTE: Quando generi codice Cypress, genera SOLO il codice della fase corrente (${actionPart.type ? actionPart.type.toUpperCase() : 'CURRENT'}), senza wrapper describe/it. Il codice verrà automaticamente combinato con le altre fasi. Inizia sempre con un commento che indica la fase (es: // ===== GIVEN PHASE =====) e un cy.log() che descrive la fase.
+
+${actionPart.type === 'when' || actionPart.type === 'then' ? '⚠️ CRITICO: NON includere cy.visit() in questa fase. La navigazione alla pagina è già stata gestita nella fase GIVEN. Questa fase contiene SOLO azioni (WHEN) o verifiche (THEN).' : actionPart.type === 'given' ? 'La fase GIVEN può contenere cy.visit() se necessario per navigare alla pagina iniziale.' : ''}
+
+Usa il contesto fornito (selettori e metodi disponibili) per suggerire soluzioni concrete.${wideReasoning && similarTestCases && similarTestCases.length > 0 ? `\n\n🎯 PRIORITÀ ASSOLUTA: L'utente ti ha chiesto di cercare in altri test case. HAI ACCESSO DIRETTO a ${similarTestCases.length} test case reali sopra. DEVI:\n- Cercare nei test case sopra quello che l'utente richiede\n- Citare ESPLICITAMENTE gli ID dei test case\n- Mostrare il codice specifico trovato\n- NON dire mai "non ho accesso" - HAI ACCESSO COMPLETO ai test case sopra!\n\n⚠️ Se l'utente chiede "Riesci a ritrovarli?" o "Cerca in altri test case", DEVI cercare nei test case simili sopra e rispondere con riferimenti concreti!` : ''}`
     },
     ...conversationHistory.map(msg => ({
       role: msg.role,

@@ -2,6 +2,9 @@
   max-width: 1600px;
   margin: 0 auto;
   padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .builder-header {
@@ -14,6 +17,61 @@
 .builder-header h2 {
   color: #333;
   margin: 0;
+}
+
+.test-file-path-section {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 25px;
+}
+
+.test-file-path-section label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.test-file-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.test-file-input-group input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.test-file-input-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.test-file-input-group .browse-button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #6c757d;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.test-file-input-group .browse-button:hover {
+  background: #5a6268;
+}
+
+.test-file-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #555;
 }
 
 .warning-message {
@@ -118,12 +176,23 @@
 .gherkin-block-content {
   padding: 30px;
   background: #fafbfc;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .construction-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 30px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.construction-panel > * {
+  min-width: 0; /* Permette ai figli di ridursi sotto il loro contenuto minimo */
+  max-width: 100%;
+  overflow: hidden;
 }
 
 @media (max-width: 1200px) {
@@ -138,6 +207,9 @@
   border-radius: 12px;
   padding: 25px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .chat-section h4 {
@@ -268,6 +340,85 @@
   align-items: flex-end;
 }
 
+.send-buttons-group {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  position: relative;
+}
+
+.wide-reasoning-dropdown-container {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.wide-reasoning-arrow-button {
+  padding: 15px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-width: 40px;
+}
+
+.wide-reasoning-arrow-button:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.wide-reasoning-arrow-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wide-reasoning-menu {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 280px;
+  overflow: hidden;
+}
+
+.wide-reasoning-menu-item {
+  width: 100%;
+  padding: 12px 20px;
+  background: white;
+  color: #333;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wide-reasoning-menu-item:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.wide-reasoning-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .prompt-input {
   flex: 1;
   padding: 15px;
@@ -295,7 +446,9 @@
   background: #667eea;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
@@ -319,6 +472,8 @@
   border-radius: 12px;
   padding: 25px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .code-section-header {
@@ -367,6 +522,28 @@
   border: 1px solid #e9ecef;
   border-radius: 8px;
   overflow: hidden;
+  max-width: 100%;
+  position: relative;
+}
+
+/* Assicura che il codice non esca dai limiti */
+.code-display pre {
+  margin: 0 !important;
+  padding: 20px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  max-width: 100% !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.code-display code {
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+  display: block !important;
 }
 
 .code-actions {

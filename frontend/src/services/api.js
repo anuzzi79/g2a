@@ -117,7 +117,14 @@ export const api = {
     const response = await fetch(`${API_BASE}/llm/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, actionPart, context, conversationHistory })
+      body: JSON.stringify({ 
+        message, 
+        actionPart, 
+        context, 
+        conversationHistory,
+        wideReasoning: context.wideReasoning || false,
+        similarTestCases: context.similarTestCases || []
+      })
     });
     
     if (!response.ok) {
@@ -156,6 +163,42 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, targetUrl, options })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Salva codice Cypress in un file senza eseguirlo
+   */
+  async saveCypressFile(code, filePath) {
+    const response = await fetch(`${API_BASE}/cypress/save-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, filePath })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Parsa un file Cypress e estrae le fasi Given/When/Then
+   */
+  async parseTestFile(filePath) {
+    const response = await fetch(`${API_BASE}/cypress/parse-test-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath })
     });
     
     if (!response.ok) {

@@ -288,6 +288,12 @@
   margin-top: 15px;
 }
 
+.saved-file {
+  margin-top: 15px;
+  font-weight: 600;
+  color: #0a6d37;
+}
+
 .error-content p {
   color: #721c24;
   margin-bottom: 10px;

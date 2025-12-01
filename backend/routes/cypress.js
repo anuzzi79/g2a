@@ -14,6 +14,25 @@ const CYPRESS_WORKSPACE = path.resolve(process.cwd(), 'cypress-workspace');
 const CYPRESS_BIN_WIN = path.join(CYPRESS_WORKSPACE, 'node_modules', '.bin', 'cypress.cmd');
 const CYPRESS_BIN_UNIX = path.join(CYPRESS_WORKSPACE, 'node_modules', '.bin', 'cypress');
 
+const PREVIEW_WAIT_MS = 60 * 60 * 1000; // 60 minuti per lasciare il browser aperto
+const PREVIEW_TERMINATION_PATTERNS = [
+  'The automation client disconnected',
+  'Cannot continue running tests',
+  'Renderer process closed',
+  'Renderer process crashed',
+  'Browser exited unexpectedly',
+  'The browser process unexpectedly exited',
+  'The Test Runner unexpectedly exited',
+  'Timed out waiting for the browser to connect',
+  'App process exited unexpectedly'
+];
+
+let previewProcess = null;
+let previewSpecFile = null;
+let lastResolvedLauncher = 'npx cypress';
+let previewStdoutListener = null;
+let previewStderrListener = null;
+
 function buildCypressConfig(baseUrl = 'http://localhost:3000') {
   const safeBaseUrl = (baseUrl || 'http://localhost:3000').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `export default {
@@ -27,21 +46,132 @@ function buildCypressConfig(baseUrl = 'http://localhost:3000') {
 };`;
 }
 
-function buildRunArguments(headedMode, specFile) {
+function buildRunArguments(headedMode, specFile, options = {}) {
+  const { disableVideo = false } = options;
+  const configParts = [];
+  if (!disableVideo) {
+    configParts.push('video=true');
+  } else {
+    configParts.push('video=false');
+  }
+  configParts.push('screenshotOnRunFailure=true');
+
   const args = [
     'run',
-    '--config video=true,screenshotOnRunFailure=true'
+    `--config ${configParts.join(',')}`
   ];
   if (specFile) {
     // Specifica il file da eseguire per evitare di eseguire tutti i test
     args.push('--spec', specFile);
   }
   if (headedMode) {
-    args.push('--headed', '--browser', 'chrome');
+    args.push('--headed', '--browser', 'chrome', '--no-exit');
   } else {
     args.push('--headless');
   }
   return args.join(' ');
+}
+
+async function saveUserTestFile(targetPath, testCode) {
+  if (!targetPath) return null;
+  const normalizedPath = path.resolve(targetPath);
+  const dirPath = path.dirname(normalizedPath);
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.writeFile(normalizedPath, testCode, 'utf8');
+  console.log('Test Cypress salvato su file locale:', normalizedPath);
+  return normalizedPath;
+}
+
+async function stopPreviewSession(reason = 'manual') {
+  const processToKill = previewProcess;
+  previewProcess = null;
+
+  if (processToKill) {
+    console.log(`Chiusura sessione di anteprima (${reason})...`);
+    if (previewStdoutListener) {
+      processToKill.stdout?.off('data', previewStdoutListener);
+    }
+    if (previewStderrListener) {
+      processToKill.stderr?.off('data', previewStderrListener);
+    }
+    previewStdoutListener = null;
+    previewStderrListener = null;
+
+    if (!processToKill.killed) {
+      try {
+        processToKill.kill('SIGTERM');
+      } catch (error) {
+        console.warn('Impossibile terminare il processo di preview:', error.message);
+      }
+    }
+  }
+
+  if (previewSpecFile) {
+    await fs.unlink(previewSpecFile).catch(() => {});
+    previewSpecFile = null;
+  }
+}
+
+async function startPreviewSession(testCode, targetUrl) {
+  try {
+    await stopPreviewSession();
+
+    const e2eDir = path.join(CYPRESS_WORKSPACE, 'cypress', 'e2e');
+    await fs.mkdir(e2eDir, { recursive: true });
+
+    const previewFile = path.join(e2eDir, 'g2a-preview.cy.js');
+    const previewCode = `${testCode}
+
+after(() => {
+  cy.log('🔍 Anteprima attiva: la finestra di Cypress resterà aperta finché non la chiudi manualmente.');
+  cy.wait(${PREVIEW_WAIT_MS});
+});
+`;
+    await fs.writeFile(previewFile, previewCode, 'utf8');
+    previewSpecFile = previewFile;
+
+    const specRelative = path.relative(CYPRESS_WORKSPACE, previewFile).replace(/\\/g, '/');
+    const previewArgs = buildRunArguments(true, specRelative, { disableVideo: true });
+    const command = `${lastResolvedLauncher} ${previewArgs} 2>&1`;
+
+    console.log('Avvio anteprima Cypress (browser resterà aperto)...');
+    previewProcess = exec(command, {
+      cwd: CYPRESS_WORKSPACE,
+      env: {
+        ...process.env,
+        CYPRESS_baseUrl: targetUrl || 'http://localhost:3000'
+      }
+    }, (err) => {
+      if (err) {
+        console.error('La sessione di anteprima si è chiusa con errore:', err.message);
+      } else {
+        console.log('Sessione di anteprima terminata.');
+      }
+    });
+
+    const handlePreviewOutput = (chunk) => {
+      const text = chunk?.toString?.() || '';
+      if (!text) return;
+      if (PREVIEW_TERMINATION_PATTERNS.some(pattern => text.includes(pattern))) {
+        stopPreviewSession('browser-closed');
+      }
+    };
+
+    previewStdoutListener = handlePreviewOutput;
+    previewStderrListener = handlePreviewOutput;
+    previewProcess.stdout?.on('data', previewStdoutListener);
+    previewProcess.stderr?.on('data', previewStderrListener);
+
+    previewProcess.on('exit', async () => {
+      previewProcess = null;
+      previewStdoutListener = null;
+      previewStderrListener = null;
+      await fs.unlink(previewFile).catch(() => {});
+      previewSpecFile = null;
+    });
+  } catch (error) {
+    console.error('Impossibile avviare la sessione di anteprima:', error);
+  }
 }
 
 async function cleanE2EDirectory() {
@@ -132,6 +262,10 @@ router.post('/run', async (req, res) => {
   try {
     const { code, targetUrl, options = {} } = req.body;
     const headedMode = options.headed ?? false;
+    const keepBrowserOpen = options.keepBrowserOpen ?? false;
+    const outputFilePath = typeof options.outputFilePath === 'string'
+      ? options.outputFilePath.trim()
+      : '';
 
     if (!code || !code.trim()) {
       return res.status(400).json({ error: 'Codice Cypress richiesto' });
@@ -143,6 +277,9 @@ router.post('/run', async (req, res) => {
     console.log('Preparazione test Cypress...');
     console.log('URL target:', targetUrl || 'non specificato');
     console.log('Modalità visualizzazione:', headedMode ? 'headed (browser visibile)' : 'headless');
+
+    // Termina eventuale sessione di anteprima precedente
+    await stopPreviewSession();
 
     // Pulisci la cartella e2e per evitare file residui
     const e2eDir = await cleanE2EDirectory();
@@ -185,6 +322,19 @@ router.post('/run', async (req, res) => {
     // Prepara il comando Cypress (dichiarato fuori dal try per accesso in catch)
     let cypressCommand = '';
     
+    const normalizedOutputPath = outputFilePath ? path.resolve(outputFilePath) : '';
+    let savedFilePath = null;
+    let saveFileError = null;
+
+    if (normalizedOutputPath) {
+      try {
+        savedFilePath = await saveUserTestFile(normalizedOutputPath, testCode);
+      } catch (fileError) {
+        saveFileError = fileError.message;
+        console.error('Errore salvataggio file utente:', fileError);
+      }
+    }
+
     try {
       // Esegui il test (NON reinstalla Cypress!)
       console.log('Esecuzione test Cypress...');
@@ -204,7 +354,8 @@ router.post('/run', async (req, res) => {
         // Prova prima con il binario locale (Windows)
         await fs.access(cypressBinPathWin);
         const runArgs = buildRunArguments(headedMode, specFileRelative);
-        cypressCommand = `"${cypressBinPathWin}" ${runArgs} 2>&1`;
+        lastResolvedLauncher = `"${cypressBinPathWin}"`;
+        cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
         console.log('✓ Usando Cypress locale (Windows):', cypressCommand);
       } catch (e1) {
         console.log('✗ Binario Windows non trovato:', e1.message);
@@ -212,13 +363,15 @@ router.post('/run', async (req, res) => {
           // Prova con il binario locale (Unix)
           await fs.access(cypressBinPath);
           const runArgs = buildRunArguments(headedMode, specFileRelative);
-          cypressCommand = `"${cypressBinPath}" ${runArgs} 2>&1`;
+          lastResolvedLauncher = `"${cypressBinPath}"`;
+          cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
           console.log('✓ Usando Cypress locale (Unix):', cypressCommand);
         } catch (e2) {
           console.log('✗ Binario Unix non trovato:', e2.message);
           // Fallback a npm run che trova automaticamente il binario locale
           const runArgs = buildRunArguments(headedMode, specFileRelative);
-          cypressCommand = `npx cypress ${runArgs} 2>&1`;
+          lastResolvedLauncher = 'npx cypress';
+          cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
           console.log('⚠ Usando npm run (fallback):', cypressCommand);
         }
       }
@@ -268,11 +421,17 @@ router.post('/run', async (req, res) => {
       // NON eliminare il workspace! Solo pulisci il file di test
       await fs.unlink(testFile).catch(() => {});
 
+      if (headedMode && keepBrowserOpen) {
+        startPreviewSession(testCode, targetUrl);
+      }
+
       res.json({
         success: true,
         output: stdout,
         screenshots,
-        video
+        video,
+        savedFilePath,
+        saveFileError
       });
 
     } catch (execError) {
@@ -367,6 +526,10 @@ router.post('/run', async (req, res) => {
         if (match) cypressError = match[1];
       }
       
+      if (headedMode && keepBrowserOpen) {
+        startPreviewSession(testCode, targetUrl);
+      }
+
       res.status(500).json({
         success: false,
         error: errorMessage,
@@ -375,7 +538,9 @@ router.post('/run', async (req, res) => {
         stderr: stderr || '',
         details: lastLines.substring(0, 3000), // Ultimi 3000 caratteri
         fullOutput: combinedOutput.substring(0, 8000), // Primi 8000 caratteri per debug
-        testFileContent: testFileContent.substring(0, 1000) // Contenuto del file di test
+        testFileContent: testFileContent.substring(0, 1000), // Contenuto del file di test
+        savedFilePath,
+        saveFileError
       });
     }
 
@@ -384,6 +549,236 @@ router.post('/run', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Errore esecuzione Cypress: ' + error.message
+    });
+  }
+});
+
+/**
+ * POST /api/cypress/save-file
+ * Salva codice Cypress in un file senza eseguirlo
+ */
+router.post('/save-file', async (req, res) => {
+  try {
+    console.log('=== SAVE FILE REQUEST ===');
+    console.log('Body ricevuto:', { 
+      hasCode: !!req.body.code, 
+      codeLength: req.body.code?.length || 0,
+      filePath: req.body.filePath 
+    });
+
+    const { code, filePath } = req.body;
+
+    if (!code || !code.trim()) {
+      console.error('ERRORE: Codice Cypress mancante');
+      return res.status(400).json({ error: 'Codice Cypress richiesto' });
+    }
+
+    if (!filePath || !filePath.trim()) {
+      console.error('ERRORE: Percorso file mancante');
+      return res.status(400).json({ error: 'Percorso file richiesto' });
+    }
+
+    const normalizedPath = path.resolve(filePath.trim());
+    console.log('Percorso normalizzato:', normalizedPath);
+    
+    // Crea la directory se non esiste
+    const dir = path.dirname(normalizedPath);
+    console.log('Directory da creare:', dir);
+    
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      console.log('Directory creata/verificata con successo');
+    } catch (mkdirError) {
+      console.error('ERRORE creazione directory:', mkdirError);
+      throw new Error(`Impossibile creare directory: ${mkdirError.message}`);
+    }
+
+    // Verifica che la directory esista
+    try {
+      const dirStats = await fs.stat(dir);
+      if (!dirStats.isDirectory()) {
+        throw new Error(`Il percorso ${dir} non è una directory`);
+      }
+      console.log('Directory verificata:', dir);
+    } catch (statError) {
+      console.error('ERRORE verifica directory:', statError);
+      throw new Error(`Directory non accessibile: ${statError.message}`);
+    }
+
+    // Salva il file
+    console.log('Tentativo salvataggio file...');
+    try {
+      await fs.writeFile(normalizedPath, code, 'utf8');
+      console.log(`✅ File salvato con successo: ${normalizedPath}`);
+      
+      // Verifica che il file sia stato creato
+      const fileStats = await fs.stat(normalizedPath);
+      console.log(`File verificato - Dimensione: ${fileStats.size} bytes`);
+    } catch (writeError) {
+      console.error('ERRORE scrittura file:', writeError);
+      console.error('Stack:', writeError.stack);
+      throw new Error(`Impossibile scrivere file: ${writeError.message}`);
+    }
+
+    res.json({
+      success: true,
+      filePath: normalizedPath,
+      message: `File salvato: ${normalizedPath}`
+    });
+  } catch (error) {
+    console.error('=== ERRORE SALVATAGGIO FILE ===');
+    console.error('Errore:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      error: 'Errore salvataggio file: ' + error.message,
+      details: error.stack
+    });
+  }
+});
+
+/**
+ * POST /api/cypress/parse-test-file
+ * Parsa un file Cypress e estrae le fasi Given/When/Then
+ */
+router.post('/parse-test-file', async (req, res) => {
+  try {
+    const { filePath } = req.body;
+
+    if (!filePath || !filePath.trim()) {
+      return res.status(400).json({ error: 'Percorso file richiesto' });
+    }
+
+    const normalizedPath = path.resolve(filePath.trim());
+    
+    console.log('=== PARSING TEST FILE ===');
+    console.log('Percorso file:', normalizedPath);
+    
+    // Leggi il file
+    let fileContent;
+    try {
+      fileContent = await fs.readFile(normalizedPath, 'utf8');
+      console.log('File letto, dimensione:', fileContent.length, 'caratteri');
+    } catch (readError) {
+      console.error('Errore lettura file:', readError);
+      return res.status(404).json({ error: `File non trovato: ${normalizedPath}` });
+    }
+
+    // Estrai le fasi dal codice
+    const phases = {
+      given: '',
+      when: '',
+      then: ''
+    };
+
+    // Pattern per trovare le fasi usando i commenti ===== PHASE =====
+    const givenMatch = fileContent.match(/\/\/\s*=====\s*GIVEN\s*PHASE\s*=====([\s\S]*?)(?=\/\/\s*=====\s*(WHEN|THEN)\s*PHASE\s*=====|it\(|describe\(|$)/i);
+    const whenMatch = fileContent.match(/\/\/\s*=====\s*WHEN\s*PHASE\s*=====([\s\S]*?)(?=\/\/\s*=====\s*(THEN|GIVEN)\s*PHASE\s*=====|it\(|describe\(|$)/i);
+    const thenMatch = fileContent.match(/\/\/\s*=====\s*THEN\s*PHASE\s*=====([\s\S]*?)(?=\/\/\s*=====\s*(GIVEN|WHEN)\s*PHASE\s*=====|it\(|describe\(|$)/i);
+
+    console.log('Match trovati:', {
+      given: !!givenMatch,
+      when: !!whenMatch,
+      then: !!thenMatch
+    });
+
+    if (givenMatch) {
+      let givenCode = givenMatch[1].trim();
+      // Rimuovi cy.log se presente
+      givenCode = givenCode.replace(/cy\.log\(['"][🔵🟡🟢]\s*(GIVEN|WHEN|THEN):.*?['"]\);/g, '').trim();
+      // Rimuovi indentazione eccessiva (mantieni solo quella necessaria)
+      const lines = givenCode.split('\n');
+      if (lines.length > 0) {
+        // Trova l'indentazione minima
+        const minIndent = lines
+          .filter(line => line.trim())
+          .reduce((min, line) => {
+            const indent = line.match(/^(\s*)/)?.[1]?.length || 0;
+            return Math.min(min, indent);
+          }, Infinity);
+        
+        // Rimuovi indentazione comune
+        if (minIndent > 0 && minIndent < Infinity) {
+          givenCode = lines.map(line => {
+            if (line.trim()) {
+              return line.substring(minIndent);
+            }
+            return line;
+          }).join('\n');
+        }
+      }
+      phases.given = givenCode.trim();
+      console.log('Given code estratto, lunghezza:', phases.given.length);
+    }
+
+    if (whenMatch) {
+      let whenCode = whenMatch[1].trim();
+      whenCode = whenCode.replace(/cy\.log\(['"][🔵🟡🟢]\s*(GIVEN|WHEN|THEN):.*?['"]\);/g, '').trim();
+      // Rimuovi indentazione eccessiva
+      const lines = whenCode.split('\n');
+      if (lines.length > 0) {
+        const minIndent = lines
+          .filter(line => line.trim())
+          .reduce((min, line) => {
+            const indent = line.match(/^(\s*)/)?.[1]?.length || 0;
+            return Math.min(min, indent);
+          }, Infinity);
+        
+        if (minIndent > 0 && minIndent < Infinity) {
+          whenCode = lines.map(line => {
+            if (line.trim()) {
+              return line.substring(minIndent);
+            }
+            return line;
+          }).join('\n');
+        }
+      }
+      phases.when = whenCode.trim();
+      console.log('When code estratto, lunghezza:', phases.when.length);
+    }
+
+    if (thenMatch) {
+      let thenCode = thenMatch[1].trim();
+      thenCode = thenCode.replace(/cy\.log\(['"][🔵🟡🟢]\s*(GIVEN|WHEN|THEN):.*?['"]\);/g, '').trim();
+      // Rimuovi indentazione eccessiva
+      const lines = thenCode.split('\n');
+      if (lines.length > 0) {
+        const minIndent = lines
+          .filter(line => line.trim())
+          .reduce((min, line) => {
+            const indent = line.match(/^(\s*)/)?.[1]?.length || 0;
+            return Math.min(min, indent);
+          }, Infinity);
+        
+        if (minIndent > 0 && minIndent < Infinity) {
+          thenCode = lines.map(line => {
+            if (line.trim()) {
+              return line.substring(minIndent);
+            }
+            return line;
+          }).join('\n');
+        }
+      }
+      phases.then = thenCode.trim();
+      console.log('Then code estratto, lunghezza:', phases.then.length);
+    }
+
+    console.log('Parsing completato:', {
+      hasGiven: phases.given.length > 0,
+      hasWhen: phases.when.length > 0,
+      hasThen: phases.then.length > 0
+    });
+
+    res.json({
+      success: true,
+      phases,
+      message: 'File parsato con successo'
+    });
+  } catch (error) {
+    console.error('Errore parsing file:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Errore parsing file: ' + error.message
     });
   }
 });

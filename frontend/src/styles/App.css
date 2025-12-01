@@ -263,6 +263,13 @@ input[type="file"]:hover {
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
+.test-cases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
 .back-button {
   padding: 10px 20px;
   background: #6c757d;
@@ -270,9 +277,26 @@ input[type="file"]:hover {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin-bottom: 20px;
   font-weight: 600;
   transition: background 0.3s;
+}
+
+.export-csv-button {
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-csv-button:hover {
+  background: #218838;
 }
 
 .back-button:hover {
@@ -290,11 +314,61 @@ input[type="file"]:hover {
   background: #f8f9fa;
   border-radius: 8px;
   border-left: 4px solid #667eea;
+  position: relative;
+}
+
+.test-case-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
 }
 
 .test-case-card h3 {
   color: #667eea;
-  margin-bottom: 15px;
+  margin: 0;
+  flex: 1;
+}
+
+.automation-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.automation-status.ready {
+  background: #d4edda;
+  color: #155724;
+}
+
+.automation-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.automation-status.ready .status-dot {
+  background: #28a745;
+}
+
+.automation-status.pending .status-dot {
+  background: #ffc107;
+}
+
+.status-text {
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .test-case-card p {

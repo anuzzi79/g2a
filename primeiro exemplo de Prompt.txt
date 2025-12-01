@@ -1,0 +1,88 @@
+vai alla pagina
+https://loadtest.facilitygrid.net/login
+su <input _ngcontent-bvo-c91="" id="user_login" placeholder="Email" formcontrolname="email" size="20" tabindex="10" class="ng-tns-c91-0 login-form-element login-input mb-3 p-2 rounded w-100 ng-untouched ng-pristine ng-invalid" type="text">
+inserisci
+antonio.nuzzi@brilliantmachine.com.br
+poi clicca su 
+//*[@id="submit_btn"]
+attendi 1 sec 
+poi su <input _ngcontent-bvo-c91="" type="password" id="user_pass" placeholder="Password" formcontrolname="password" size="20" tabindex="20" class="ng-tns-c91-1 login-form-element login-input mb-3 p-2 rounded w-100 ng-dirty ng-touched ng-invalid">
+inserisci 
+@Nuzzi79FA
+poi clicca in 
+<input _ngcontent-bvo-c91="" tabindex="100" type="submit" name="submit" id="submit_btn" class="ng-tns-c91-1 btn-default green login-form-element text-white w-100" value="Log In">
+Aggiungi in basso di aspettare 1 secondo
+
+dopo cliccare su  input#submit_btn
+clicca su 
+<div class="mat-list-item-content"><div mat-ripple="" class="mat-ripple mat-list-item-ripple"></div><div class="mat-list-text"></div><span _ngcontent-bvo-c91="">Facility Grid - Load Test</span></div>
+
+Dopo load test sping 
+questo::
+<img _ngcontent-ipc-c194="" src="assets/images/toolbar-grid.png" title="Show Project List" alt="" class="round rounded-circle">
+
+
+la fase when é cosí
+
+erto! Ecco un prompt che potrebbe essere utilizzato per guidare qualcuno a scrivere il codice Cypress che hai fornito nella sezione "WHEN":
+
+---
+
+When
+
+1. **Azione Iniziale:**
+   - Clicca sull'icona del filtro che ha il titolo "Filter Results".
+
+2. **Verifica di Caricamento:**
+   - Attendi fino a che un elemento `<span>` contenente il testo "Showing 1" diventi visibile all'interno di un `<div>` con le classi `d-table-cell align-middle w-25 text-right`.
+
+3. **Inserimento di Testo:**
+   - Digita "la havana" nel campo di input che si trova all'interno di un `<div>` con le classi `ag-header-cell` e `ag-floating-filter-full-body`, specificamente dove il `style` include `left: 76px`.
+
+4. **Scorrimento Orizzontale:**
+   - Attendi 1 secondo e poi effettua uno scroll orizzontale verso destra del contenitore centrale della griglia, identificato dal selettore `div.ag-center-cols-viewport`.
+
+5. **Interazione con il Menu Azioni:**
+   - Clicca sul pulsante "Actions" identificato da un paragrafo con `data-type="actions-menu"`.
+   - Successivamente, clicca sull'opzione "Copy" nel menu a tendina, identificata da un paragrafo con `id="action_menuitem_3"`.
+
+Utilizza selettori CSS accurati e metodi Cypress come `cy.get()`, `cy.contains()`, `cy.type()`, `cy.click()`, e `cy.scrollTo()` per implementare ciascuno di questi passaggi.
+
+---
+
+Questo prompt guida un utente attraverso l'automazione di un processo specifico utilizzando Cypress, basandosi sul codice che hai fornito.
+
+// ===== WHEN PHASE =====
+cy.log('🟡 WHEN: When he click Action/Copy');
+cy.log('🔵 WHEN: When he click Action/Copy');
+
+// Step 1: Click on the filter icon and wait until the span contains "Showing 1"
+cy.get('img[title="Filter Results"]').click();
+cy.get('div.d-table-cell.align-middle.w-25.text-right > span')
+  .contains('Showing 1')
+  .should('be.visible');
+
+// Step 2: Type "la havana" in the floating filter input field
+cy.get('div.ag-header-cell[style*="left: 76px"] div[ref="eFloatingFilterBody"] input[ref="eFloatingFilterText"]')
+  .type('la havana');
+
+// Step 3: Wait for 1 second, then scroll the grid horizontally to the maximum right
+cy.wait(1000); // Wait for 1 second
+cy.get('div.ag-center-cols-viewport')
+  .scrollTo('right'); // Scroll the specific viewport to the maximum right
+
+// Step 4: Click on the "Actions" button and then click on "Copy"
+cy.get('p[data-type="actions-menu"]')
+  .click(); // Click on the "Actions" button
+cy.get('p#action_menuitem_3')
+  .click(); // Click on the "Copy" option
+
+
+Then
+
+in questo caso voglio verificare che 
+
+<mat-radio-button _ngcontent-yte-c199="" name="save_as" class="mat-radio-button mat-accent mat-radio-checked" id="mat-radio-4"><label class="mat-radio-label" for="mat-radio-4-input"><span class="mat-radio-container"><span class="mat-radio-outer-circle"></span><span class="mat-radio-inner-circle"></span><input type="radio" class="mat-radio-input cdk-visually-hidden" id="mat-radio-4-input" tabindex="0" name="save_as"><span mat-ripple="" class="mat-ripple mat-radio-ripple mat-focus-indicator"><span class="mat-ripple-element mat-radio-persistent-ripple"></span></span></span><span class="mat-radio-label-content"><span style="display: none;">&nbsp;</span><span _ngcontent-yte-c199="" class="fs-16 option">Active</span></span></label></mat-radio-button>
+
+
+é checked!
