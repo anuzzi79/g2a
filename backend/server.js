@@ -7,6 +7,7 @@ import contextRoutes from './routes/context.js';
 import resourcesRoutes from './routes/resources.js';
 import llmRoutes from './routes/llm.js';
 import cypressRoutes from './routes/cypress.js';
+import sessionsRoutes from './routes/sessions.js';
 
 // Carica variabili d'ambiente
 dotenv.config();
@@ -25,6 +26,8 @@ app.use('/api/context', contextRoutes);
 app.use('/api/resources', resourcesRoutes);
 app.use('/api/llm', llmRoutes);
 app.use('/api/cypress', cypressRoutes);
+app.use('/api/sessions', sessionsRoutes);
+console.log('✅ Route /api/sessions registrata');
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -35,6 +35,27 @@ export function DiagnosticsButton({ events, onCopy, consoleLogs = [] }) {
         })
         .join('\n') || 'Nessun log di console';
 
+      // Verifica oggetti Layer EC
+      const testObjects = window.g2a_testObjects || [];
+      const headerObjects = testObjects.filter(obj => obj.location === 'header');
+      const contentObjects = testObjects.filter(obj => obj.location === 'content');
+      
+      let objectsText = '';
+      if (testObjects.length === 0) {
+        objectsText = 'Nessun oggetto creato nel Layer EC.';
+      } else {
+        objectsText = `Totale oggetti: ${testObjects.length}
+- Oggetti header (enunciato): ${headerObjects.length}
+- Oggetti contenuto (codice): ${contentObjects.length}
+
+Dettaglio oggetti:
+${testObjects.map((obj, idx) => {
+          const locationLabel = obj.location === 'header' ? 'Header (Enunciato)' : 'Contenuto (Codice)';
+          const textPreview = obj.text.length > 50 ? obj.text.substring(0, 50) + '...' : obj.text;
+          return `${idx + 1}. [${locationLabel}] "${textPreview}" (indici: ${obj.startIndex}-${obj.endIndex})`;
+        }).join('\n')}`;
+      }
+
       const fullText = `=== G2A Diagnostics ===
 Data/Ora: ${new Date().toLocaleString('it-IT')}
 
@@ -45,6 +66,10 @@ ${diagnosticText}
 --- LOG DI CONSOLE (Ultimi ${last50ConsoleLogs.length}) ---
 
 ${consoleText}
+
+--- VERIFICA OGGETTI LAYER EC ---
+
+${objectsText}
 
 === Fine Diagnostics ===`;
 

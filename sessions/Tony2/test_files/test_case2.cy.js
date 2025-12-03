@@ -2,69 +2,59 @@ describe('Test Case #2', () => {
   it('Given the user is at path "WEB FG/ListofProject /Active_tab/" AND Copy Modal is open AND Save as is set "Active"', () => {
     // ===== GIVEN PHASE =====
     cy.log('🔵 GIVEN: Given the user is at path "WEB FG/ListofProject /Active_tab/" AND Copy Modal is open AND Save as is set "Active"');
-    // Visit the login page
+    // Visita la pagina di login
     cy.visit('https://loadtest.facilitygrid.net/login');
 
-    // Enter email
+    // Inserisci l'email
     cy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br');
 
-    // Click submit button after entering email
+    // Clicca sul pulsante di invio dopo aver inserito l'email
     cy.get('input#submit_btn').click();
 
-    // Wait for 1 second to ensure the page loads
+    // Attendi 1 secondo per assicurarti che la pagina si carichi
     cy.wait(1000);
 
-    // Enter password
+    // Inserisci la password
     cy.get('input#user_pass').type('@Nuzzi79FA');
 
-    // Click login button after entering password
+    // Clicca sul pulsante di login dopo aver inserito la password
     cy.get('input#submit_btn').click();
 
-    // Wait for 1 second to ensure the page loads
+    // Attendi 1 secondo per assicurarti che la pagina si carichi
     cy.wait(1000);
 
-    // Click on "Facility Grid - Load Test" menu item
+    // Clicca sull'elemento del menu "Facility Grid - Load Test"
     cy.contains('span', 'Facility Grid - Load Test').click();
 
-    // Click on the project list icon
+    // Attendi fino a 40 secondi che il campo "Watched Projects" sia visibile
+    cy.get('input[placeholder="Watched Projects"]', { timeout: 40000 }).should('be.visible');
+
+    // Clicca sull'icona della lista progetti
     cy.get('img[title="Show Project List"]').click();
 
-    // Click the filter icon and wait for "Showing 1" text to be visible
+    // Clicca sull'icona del filtro e attendi che il testo "Showing 1" sia visibile
     cy.get('img[title="Filter Results"]').click();
     cy.get('div.d-table-cell.align-middle.w-25.text-right > span')
       .contains('Showing 1')
       .should('be.visible');
 
-    // Type "la havana" into the floating filter input field
+    // Digita "la havana" nel campo di input del filtro
     cy.get('div.ag-header-cell[style*="left: 76px"] div[ref="eFloatingFilterBody"] input[ref="eFloatingFilterText"]')
       .type('la havana');
 
-    // Wait for 1 second, then scroll the grid horizontally to the far right
+    // Attendi un secondo, poi scorri la griglia orizzontalmente fino all'estrema destra
     cy.wait(1000);
     cy.get('div.ag-center-cols-viewport')
       .scrollTo('right');
 
-    // Click the "Actions" button and then click "Copy"
+    // Clicca sul pulsante "Actions" e poi su "Copy"
     cy.get('p[data-type="actions-menu"]')
       .click();
     cy.get('p#action_menuitem_3')
       .click();
 
-    cy.log('🟢 THEN: Modal opens and "Save As" defaults to "Active"');
-
-    // Verify that the "Save As" radio button defaults to "Active"
+    // Assicurati che "Save As" sia impostato su "Active"
     cy.get('#mat-radio-4')
-      .should('have.class', 'mat-radio-checked');
-
-    // ===== WHEN PHASE =====
-    cy.log('🟡 WHEN: When the user selects Save as "Template"');
-    // Click the "Template" option in the modal
-    cy.get('span.fs-16.option').contains('Template').click();
-
-    // ===== THEN PHASE =====
-    cy.log('🟢 THEN: Then "Template" becomes selected');
-    // Verify that the radio button "Save As" is set to "Template"
-    cy.get('#mat-radio-5') // Ensure this ID corresponds to the correct element for "Template"
       .should('have.class', 'mat-radio-checked');
   });
 });

@@ -1,5 +1,5 @@
 describe('Test Case #1', () => {
-  it('Given the user is at path "WEB FG/ListofProject /Active_tab/" | When he click Action/Copy | Then mod', () => {
+  it('Given the user is at path "WEB FG/ListofProject /Active_tab/" | When he click Action/Copy | Then modal opens and "Save As" defaults to "Active"', () => {
     // ===== GIVEN PHASE =====
     cy.log('🔵 GIVEN: Given the user is at path "WEB FG/ListofProject /Active_tab/"');
     cy.log('Given the user is at path "WEB FG/ListofProject /Active_tab/"');
@@ -28,13 +28,18 @@ describe('Test Case #1', () => {
     // Click on "Facility Grid - Load Test" menu item
     cy.contains('span', 'Facility Grid - Load Test').click();
 
+    // Wait until the "WATCHED PROJECTS" element is visible
+    cy.get('span.font-weight-bold.align-middle')
+      .contains('WATCHED PROJECTS')
+      .should('be.visible');
+
     // Click on the project list icon
     cy.get('img[title="Show Project List"]').click();
 
     // ===== WHEN PHASE =====
     cy.log('🟡 WHEN: When he click Action/Copy');
     // Passo 1: Clicca sull'icona del filtro e attendi che il testo "Showing 1" sia visibile
-    cy.get('img[title="Filter Results"]').click();
+    cy.get('img[src="assets/images/toolbar-filter.png"][title="Filter Results"]').click();
     cy.get('div.d-table-cell.align-middle.w-25.text-right > span')
       .contains('Showing 1')
       .should('be.visible');
@@ -56,8 +61,6 @@ describe('Test Case #1', () => {
 
     // ===== THEN PHASE =====
     cy.log('🟢 THEN: Then modal opens and "Save As" defaults to "Active"');
-    cy.log('🔴 THEN: Then modal opens and "Save As" defaults to "Active"');
-
     // Verifica che il radio button "Active" sia selezionato
     cy.get('#mat-radio-4')
       .should('have.class', 'mat-radio-checked');

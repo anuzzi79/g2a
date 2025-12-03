@@ -1,9 +1,7 @@
-describe('Test Case #1', () => {
-  it('Given the user is at path "WEB FG/ListofProject /Active_tab/" | When he click Action/Copy | Then mod', () => {
+describe('Test Case #4', () => {
+  it('GIVEN the user is at path "WEB FG/ListofProject /Active_tab/" AND Copy Modal is open AND Save as is set "Active"', () => {
     // ===== GIVEN PHASE =====
-    cy.log('🔵 GIVEN: Given the user is at path "WEB FG/ListofProject /Active_tab/"');
-    cy.log('Given the user is at path "WEB FG/ListofProject /Active_tab/"');
-
+    cy.log('🔵 GIVEN: Given the user is at path "WEB FG/ListofProject /Active_tab/" AND Copy Modal is open AND Save as is set "Active"');
     // Visit the login page
     cy.visit('https://loadtest.facilitygrid.net/login');
 
@@ -13,7 +11,7 @@ describe('Test Case #1', () => {
     // Click submit button after entering email
     cy.get('input#submit_btn').click();
 
-    // Wait for 1 second
+    // Wait for 1 second to ensure the page loads
     cy.wait(1000);
 
     // Enter password
@@ -22,7 +20,7 @@ describe('Test Case #1', () => {
     // Click login button after entering password
     cy.get('input#submit_btn').click();
 
-    // Wait for 1 second
+    // Wait for 1 second to ensure the page loads
     cy.wait(1000);
 
     // Click on "Facility Grid - Load Test" menu item
@@ -31,35 +29,34 @@ describe('Test Case #1', () => {
     // Click on the project list icon
     cy.get('img[title="Show Project List"]').click();
 
-    // ===== WHEN PHASE =====
-    cy.log('🟡 WHEN: When he click Action/Copy');
-    // Passo 1: Clicca sull'icona del filtro e attendi che il testo "Showing 1" sia visibile
+    // Open the Copy Modal
     cy.get('img[title="Filter Results"]').click();
     cy.get('div.d-table-cell.align-middle.w-25.text-right > span')
       .contains('Showing 1')
       .should('be.visible');
 
-    // Passo 2: Scrivi "la havana" nel campo di input del filtro flottante
     cy.get('div.ag-header-cell[style*="left: 76px"] div[ref="eFloatingFilterBody"] input[ref="eFloatingFilterText"]')
       .type('la havana');
 
-    // Passo 3: Attendi 1 secondo, quindi scorri la griglia orizzontalmente al massimo a destra
     cy.wait(1000);
     cy.get('div.ag-center-cols-viewport')
       .scrollTo('right');
 
-    // Passo 4: Clicca sul pulsante "Actions" e poi clicca su "Copy"
-    cy.get('p[data-type="actions-menu"]')
-      .click();
-    cy.get('p#action_menuitem_3')
-      .click();
+    cy.get('p[data-type="actions-menu"]').click();
+    cy.get('p#action_menuitem_3').click();
 
-    // ===== THEN PHASE =====
-    cy.log('🟢 THEN: Then modal opens and "Save As" defaults to "Active"');
-    cy.log('🔴 THEN: Then modal opens and "Save As" defaults to "Active"');
-
-    // Verifica che il radio button "Active" sia selezionato
+    // Ensure "Save As" is set to "Active"
     cy.get('#mat-radio-4')
       .should('have.class', 'mat-radio-checked');
+
+    // ===== WHEN PHASE =====
+    cy.log('🟡 WHEN: When the user sets "Save as" = Template');
+    // Click on the "Template" option in the modal
+    cy.get('span.fs-16.option').contains('Template').click();
+
+    // ===== THEN PHASE =====
+    cy.log('🟢 THEN: Then the status dropdown is hidden');
+    // Verify that the status dropdown is hidden
+    cy.get('#id_project_status_field').should('not.be.visible');
   });
 });

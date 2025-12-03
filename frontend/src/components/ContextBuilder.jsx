@@ -86,47 +86,28 @@ export function ContextBuilder({ onContextReady, onLogEvent }) {
   };
 
   const extractContext = async () => {
-    // Ottieni le risorse dalla lista
-    if (!resourcesListRef.current) {
-      setError('Lista risorse non ancora inizializzata');
-      onLogEvent?.('error', 'Attendi qualche istante e riprova');
-      return;
-    }
-
-    const resources = resourcesListRef.current();
-    console.log('Risorse ottenute dalla lista:', resources);
-    
-    if (!resources || resources.length === 0) {
-      setError('Nessuna risorsa nella lista');
-      onLogEvent?.('error', 'Aggiungi almeno una risorsa (directory o file) prima di estrarre il contesto');
-      return;
-    }
-
+    // DISABILITATO: Estrazione contesto da page objects
+    // Ora usiamo solo Wide Reasoning sui test case esistenti
     setExtracting(true);
     setError(null);
-    onLogEvent?.('info', `Estrazione contesto da ${resources.length} risors${resources.length > 1 ? 'e' : 'a'}`);
-
+    onLogEvent?.('info', 'Contesto page objects disabilitato. Usa Wide Reasoning nei test case per trovare codice simile.');
+    
     try {
-      console.log('Chiamata API con resources:', resources);
-      const result = await api.extractContextFromResources(resources);
+      // Crea un contesto vuoto (solo per compatibilità)
+      const emptyContext = {
+        selectors: [],
+        methods: [],
+        filesAnalyzed: [],
+        resources: [],
+        groupedSelectors: {}
+      };
       
-      if (result.error) {
-        setError(result.error);
-        onLogEvent?.('error', 'Errore estrazione contesto', { error: result.error });
-        return;
-      }
-
-      setContext(result.context);
-      onContextReady?.(result.context);
-      
-      localStorage.setItem('g2a_context', JSON.stringify(result.context));
-      onLogEvent?.('success', 'Contesto estratto con successo', {
-        selectors: result.context.selectors?.length || 0,
-        methods: result.context.methods?.length || 0,
-        filesAnalyzed: result.context.filesAnalyzed?.length || 0
-      });
+      setContext(emptyContext);
+      onContextReady?.(emptyContext);
+      localStorage.setItem('g2a_context', JSON.stringify(emptyContext));
+      onLogEvent?.('success', 'Contesto inizializzato (page objects disabilitate)');
     } catch (err) {
-      const errorMsg = 'Errore estrazione: ' + err.message;
+      const errorMsg = 'Errore inizializzazione contesto: ' + err.message;
       setError(errorMsg);
       onLogEvent?.('error', errorMsg, { error: err.message });
     } finally {
@@ -151,6 +132,9 @@ export function ContextBuilder({ onContextReady, onLogEvent }) {
         )}
       </div>
 
+      {/* DISABILITATO: Sezione page objects rimossa temporaneamente
+      Il reclutamento delle page objects nel reasoning è stato disabilitato.
+      Ora si usa esclusivamente il Wide Reasoning sui test case esistenti.
       <div className="section">
         <label>2. Risorse per il Contesto</label>
         <p className="help-text">Aggiungi directory o file che l'LLM userà come ispirazione per il reasoning durante l'automazione</p>
@@ -170,27 +154,32 @@ export function ContextBuilder({ onContextReady, onLogEvent }) {
         />
         {error && <p className="error">❌ {error}</p>}
       </div>
+      */}
 
       <div className="section">
         <button 
           onClick={extractContext} 
           disabled={extracting}
           className="primary-button"
-          title="Estrai il contesto dalle risorse aggiunte"
+          title="Inizializza il contesto (page objects disabilitate, usa Wide Reasoning nei test case)"
         >
-          {extracting ? '🔍 Estraendo contesto...' : 'Estrai Contesto'}
+          {extracting ? '🔍 Inizializzando contesto...' : 'Inizializza Contesto'}
         </button>
+        <p className="help-text" style={{ marginTop: '10px', fontSize: '0.9em', color: '#666' }}>
+          💡 Le page objects sono state disabilitate. Usa il <strong>Wide Reasoning</strong> nei test case per trovare codice simile da altri test esistenti.
+        </p>
       </div>
 
       {context && (
         <div className="context-summary">
-          <h4>📊 Contesto Estratto</h4>
+          <h4>📊 Contesto Inizializzato</h4>
           <ul>
-            <li>Selettori: <strong>{context.selectors?.length || 0}</strong></li>
-            <li>Metodi: <strong>{context.methods?.length || 0}</strong></li>
-            <li>File analizzati: <strong>{context.filesAnalyzed?.length || 0}</strong></li>
-            <li>Gruppi: <strong>{Object.keys(context.groupedSelectors || {}).length}</strong></li>
+            <li>Page Objects: <strong>Disabilitate</strong></li>
+            <li>Wide Reasoning: <strong>Attivo</strong> (usa nei test case)</li>
           </ul>
+          <p style={{ marginTop: '10px', fontSize: '0.9em', color: '#666' }}>
+            Il reasoning ora si basa esclusivamente sul Wide Reasoning sui test case esistenti.
+          </p>
         </div>
       )}
     </div>

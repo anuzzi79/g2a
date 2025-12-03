@@ -33,6 +33,13 @@ let lastResolvedLauncher = 'npx cypress';
 let previewStdoutListener = null;
 let previewStderrListener = null;
 
+// Riferimento al processo Cypress in esecuzione (per stop)
+let runningCypressProcess = null;
+
+// Cache in memoria per velocizzare - evita accessi filesystem ripetuti
+let workspaceInitializedCache = false;
+let cypressBinPathCache = null;
+
 function buildCypressConfig(baseUrl = 'http://localhost:3000') {
   const safeBaseUrl = (baseUrl || 'http://localhost:3000').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `export default {
@@ -40,14 +47,16 @@ function buildCypressConfig(baseUrl = 'http://localhost:3000') {
     baseUrl: '${safeBaseUrl}',
     setupNodeEvents(on, config) {},
     supportFile: false,
-    video: true,
-    screenshotOnRunFailure: true
+    video: false,
+    screenshotOnRunFailure: true,
+    pageLoadTimeout: 30000,
+    defaultCommandTimeout: 4000
   }
 };`;
 }
 
 function buildRunArguments(headedMode, specFile, options = {}) {
-  const { disableVideo = false } = options;
+  const { disableVideo = true } = options; // Default: video disabilitato per velocità
   const configParts = [];
   if (!disableVideo) {
     configParts.push('video=true');
@@ -83,6 +92,11 @@ async function saveUserTestFile(targetPath, testCode) {
 }
 
 async function stopPreviewSession(reason = 'manual') {
+  // Ottimizzazione: se non c'è processo da fermare, esci subito
+  if (!previewProcess) {
+    return;
+  }
+  
   const processToKill = previewProcess;
   previewProcess = null;
 
@@ -177,17 +191,20 @@ after(() => {
 async function cleanE2EDirectory() {
   const e2eDir = path.join(CYPRESS_WORKSPACE, 'cypress', 'e2e');
   await fs.mkdir(e2eDir, { recursive: true });
-  const files = await fs.readdir(e2eDir).catch(() => []);
-  await Promise.all(files.map(async (file) => {
-    if (file.endsWith('.cy.js') || file.endsWith('.cy.ts')) {
-      await fs.unlink(path.join(e2eDir, file)).catch(() => {});
-    }
-  }));
+  // Ottimizzazione: elimina solo il file di test specifico invece di leggere tutta la directory
+  // Questo è molto più veloce quando ci sono molti file
+  const testFile = path.join(e2eDir, 'g2a-test.cy.js');
+  await fs.unlink(testFile).catch(() => {});
   return e2eDir;
 }
 
 // Funzione per inizializzare Cypress workspace (chiamata una sola volta)
 async function initializeCypressWorkspace() {
+  // Cache in memoria - evita accessi filesystem se già inizializzato
+  if (workspaceInitializedCache) {
+    return;
+  }
+
   const workspaceInitialized = path.join(CYPRESS_WORKSPACE, '.initialized');
   const binToCheck = process.platform === 'win32' ? CYPRESS_BIN_WIN : CYPRESS_BIN_UNIX;
 
@@ -198,6 +215,7 @@ async function initializeCypressWorkspace() {
     await fs.access(binToCheck);
     console.log('Cypress workspace già inizializzato e Cypress installato');
     isInitialized = true;
+    workspaceInitializedCache = true; // Imposta cache
   } catch (e) {
     console.log('Cypress workspace non inizializzato o binario mancante:', e.message);
   }
@@ -248,6 +266,7 @@ async function initializeCypressWorkspace() {
     });
     console.log('Cypress installato con successo nel workspace persistente');
     await fs.writeFile(workspaceInitialized, Date.now().toString(), 'utf8');
+    workspaceInitializedCache = true; // Imposta cache dopo installazione
   } catch (installError) {
     console.error('Errore installazione Cypress:', installError.message);
     throw installError;
@@ -271,17 +290,15 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Codice Cypress richiesto' });
     }
 
-    // Inizializza workspace se necessario (solo al primo utilizzo)
+    // Inizializza workspace se necessario (solo al primo utilizzo) - ora con cache!
     await initializeCypressWorkspace();
 
-    console.log('Preparazione test Cypress...');
-    console.log('URL target:', targetUrl || 'non specificato');
-    console.log('Modalità visualizzazione:', headedMode ? 'headed (browser visibile)' : 'headless');
+    // Ferma preview in background (non bloccare se fallisce)
+    stopPreviewSession().catch(err => {
+      console.warn('Errore fermando preview session (continuo comunque):', err.message);
+    });
 
-    // Termina eventuale sessione di anteprima precedente
-    await stopPreviewSession();
-
-    // Pulisci la cartella e2e per evitare file residui
+    // Pulisci directory e2e (questa è critica)
     const e2eDir = await cleanE2EDirectory();
 
     // Crea file di test nella directory workspace
@@ -299,25 +316,24 @@ router.post('/run', async (req, res) => {
     }
 
     const testFile = path.join(e2eDir, 'g2a-test.cy.js');
-    await fs.writeFile(testFile, testCode, 'utf8');
-    console.log('File di test creato:', testFile);
-    console.log('Contenuto test (primi 500 caratteri):', testCode.substring(0, 500));
-
-    // Aggiorna cypress.config.js (usa targetUrl se fornito)
     const configBaseUrl = targetUrl || 'http://localhost:3000';
-    await fs.writeFile(
-      path.join(CYPRESS_WORKSPACE, 'cypress.config.js'),
-      buildCypressConfig(configBaseUrl),
-      'utf8'
-    );
-
-    // Pulisci screenshot/video precedenti (opzionale)
+    
+    // Esegui scritture file in parallelo - molto più veloce!
     const screenshotsDir = path.join(CYPRESS_WORKSPACE, 'cypress', 'screenshots');
     const videosDir = path.join(CYPRESS_WORKSPACE, 'cypress', 'videos');
-    await fs.rm(screenshotsDir, { recursive: true, force: true }).catch(() => {});
-    await fs.rm(videosDir, { recursive: true, force: true }).catch(() => {});
-    await fs.mkdir(screenshotsDir, { recursive: true }).catch(() => {});
-    await fs.mkdir(videosDir, { recursive: true }).catch(() => {});
+    
+    // NON pulire screenshots/videos ad ogni run - solo assicurati che le directory esistano
+    // Questo accelera MOLTO l'avvio (fs.rm ricorsivo è lentissimo con molti file)
+    await Promise.all([
+      fs.writeFile(testFile, testCode, 'utf8'),
+      fs.writeFile(
+        path.join(CYPRESS_WORKSPACE, 'cypress.config.js'),
+        buildCypressConfig(configBaseUrl),
+        'utf8'
+      ),
+      fs.mkdir(screenshotsDir, { recursive: true }).catch(() => {}),
+      fs.mkdir(videosDir, { recursive: true }).catch(() => {})
+    ]);
 
     // Prepara il comando Cypress (dichiarato fuori dal try per accesso in catch)
     let cypressCommand = '';
@@ -337,85 +353,158 @@ router.post('/run', async (req, res) => {
 
     try {
       // Esegui il test (NON reinstalla Cypress!)
-      console.log('Esecuzione test Cypress...');
-      console.log('Codice test:', testCode.substring(0, 200) + '...');
-      
       // Verifica che Cypress sia installato prima di eseguire
       const cypressBinPath = path.join(CYPRESS_WORKSPACE, 'node_modules', '.bin', 'cypress');
       const cypressBinPathWin = cypressBinPath + '.cmd'; // Per Windows
       
-      console.log('Cercando Cypress binario locale...');
-      console.log('Path Windows:', cypressBinPathWin);
-      console.log('Path Unix:', cypressBinPath);
       // Calcola il path relativo del file di test per --spec
       const specFileRelative = path.relative(CYPRESS_WORKSPACE, testFile).replace(/\\/g, '/');
       
-      try {
-        // Prova prima con il binario locale (Windows)
-        await fs.access(cypressBinPathWin);
+      // Usa cache del binario se disponibile - evita accessi filesystem ripetuti
+      if (cypressBinPathCache) {
+        lastResolvedLauncher = cypressBinPathCache;
         const runArgs = buildRunArguments(headedMode, specFileRelative);
-        lastResolvedLauncher = `"${cypressBinPathWin}"`;
         cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
-        console.log('✓ Usando Cypress locale (Windows):', cypressCommand);
-      } catch (e1) {
-        console.log('✗ Binario Windows non trovato:', e1.message);
+      } else {
+        // Cerca binario solo se non in cache
         try {
-          // Prova con il binario locale (Unix)
-          await fs.access(cypressBinPath);
+          // Prova prima con il binario locale (Windows)
+          await fs.access(cypressBinPathWin);
+          cypressBinPathCache = `"${cypressBinPathWin}"`;
+          lastResolvedLauncher = cypressBinPathCache;
           const runArgs = buildRunArguments(headedMode, specFileRelative);
-          lastResolvedLauncher = `"${cypressBinPath}"`;
           cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
-          console.log('✓ Usando Cypress locale (Unix):', cypressCommand);
-        } catch (e2) {
-          console.log('✗ Binario Unix non trovato:', e2.message);
-          // Fallback a npm run che trova automaticamente il binario locale
-          const runArgs = buildRunArguments(headedMode, specFileRelative);
-          lastResolvedLauncher = 'npx cypress';
-          cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
-          console.log('⚠ Usando npm run (fallback):', cypressCommand);
+        } catch (e1) {
+          try {
+            // Prova con il binario locale (Unix)
+            await fs.access(cypressBinPath);
+            cypressBinPathCache = `"${cypressBinPath}"`;
+            lastResolvedLauncher = cypressBinPathCache;
+            const runArgs = buildRunArguments(headedMode, specFileRelative);
+            cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
+          } catch (e2) {
+            // Fallback a npx
+            cypressBinPathCache = 'npx cypress';
+            lastResolvedLauncher = cypressBinPathCache;
+            const runArgs = buildRunArguments(headedMode, specFileRelative);
+            cypressCommand = `${lastResolvedLauncher} ${runArgs} 2>&1`;
+          }
         }
       }
       
-      console.log('Comando finale che verrà eseguito:', cypressCommand);
+      // Usa exec invece di execAsync per avere controllo sul processo
+      let stdout = '';
+      let stderr = '';
       
-      const { stdout, stderr } = await execAsync(cypressCommand, {
-        cwd: CYPRESS_WORKSPACE, // Usa il workspace persistente
-        timeout: 180000, // 3 minuti timeout per l'esecuzione
+      const cypressProcess = exec(cypressCommand, {
+        cwd: CYPRESS_WORKSPACE,
         env: { 
           ...process.env, 
           CYPRESS_baseUrl: targetUrl || 'http://localhost:3000',
-          NO_COLOR: '1', // Disabilita colori per output più pulito
-          FORCE_COLOR: '0' // Disabilita colori anche per processi child
+          NO_COLOR: '1',
+          FORCE_COLOR: '0'
         },
-        maxBuffer: 10 * 1024 * 1024 // 10MB buffer per output
+        maxBuffer: 10 * 1024 * 1024
+      });
+      
+      // Mantieni riferimento al processo per poterlo fermare
+      runningCypressProcess = cypressProcess;
+      
+      // Raccogli output
+      cypressProcess.stdout?.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+      
+      cypressProcess.stderr?.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+      
+      // Attendi completamento o timeout
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (!cypressProcess.killed) {
+            cypressProcess.kill('SIGTERM');
+            reject(new Error('Timeout: il test ha impiegato troppo tempo (3 minuti)'));
+          }
+        }, 180000); // 3 minuti
+        
+        cypressProcess.on('exit', (code, signal) => {
+          clearTimeout(timeout);
+          runningCypressProcess = null;
+          if (signal === 'SIGTERM') {
+            // Processo fermato manualmente
+            const error = new Error('Esecuzione fermata dall\'utente');
+            error.code = 'STOPPED';
+            error.stdout = stdout;
+            error.stderr = stderr;
+            reject(error);
+          } else if (code === 0) {
+            resolve();
+          } else {
+            const error = new Error(`Process exited with code ${code}`);
+            error.code = code;
+            error.stdout = stdout;
+            error.stderr = stderr;
+            reject(error);
+          }
+        });
+        
+        cypressProcess.on('error', (err) => {
+          clearTimeout(timeout);
+          runningCypressProcess = null;
+          reject(err);
+        });
       });
       
       let screenshots = [];
       let video = null;
 
+      // Leggi screenshots e video in parallelo per velocizzare
       try {
-        const screenshotFiles = await fs.readdir(screenshotsDir).catch(() => []);
-        for (const file of screenshotFiles) {
-          const filePath = path.join(screenshotsDir, file);
-          const stats = await fs.stat(filePath);
-          if (stats.isFile() && file.endsWith('.png')) {
-            const base64 = await fs.readFile(filePath, 'base64');
-            screenshots.push(`data:image/png;base64,${base64}`);
+        const [screenshotFiles, videoFiles] = await Promise.all([
+          fs.readdir(screenshotsDir).catch(() => []),
+          fs.readdir(videosDir).catch(() => [])
+        ]);
+        
+        // Processa solo i primi screenshot (non tutti) per velocità
+        const pngFiles = screenshotFiles.filter(f => f.endsWith('.png')).slice(0, 5);
+        const screenshotPromises = pngFiles.map(async (file) => {
+          try {
+            const filePath = path.join(screenshotsDir, file);
+            const stats = await fs.stat(filePath);
+            if (stats.isFile()) {
+              const base64 = await fs.readFile(filePath, 'base64');
+              return `data:image/png;base64,${base64}`;
+            }
+          } catch (e) {
+            return null;
           }
-        }
+        });
+        
+        // Carica video solo se disponibile e non disabilitato
+        const disableVideo = options?.disableVideo ?? true; // Default: video disabilitato
+        const videoPromise = (!disableVideo && videoFiles && videoFiles.length > 0)
+          ? (async () => {
+              try {
+                const videoPath = path.join(videosDir, videoFiles[0]);
+                const base64 = await fs.readFile(videoPath, 'base64');
+                return `data:video/mp4;base64,${base64}`;
+              } catch (e) {
+                return null;
+              }
+            })()
+          : Promise.resolve(null);
+        
+        // Esegui tutto in parallelo
+        const [screenshotResults, videoResult] = await Promise.all([
+          Promise.all(screenshotPromises),
+          videoPromise
+        ]);
+        
+        screenshots = screenshotResults.filter(Boolean);
+        video = videoResult;
       } catch (e) {
-        console.log('Nessuno screenshot trovato');
-      }
-
-      try {
-        const videoFiles = await fs.readdir(videosDir).catch(() => []);
-        if (videoFiles.length > 0) {
-          const videoPath = path.join(videosDir, videoFiles[0]);
-          const base64 = await fs.readFile(videoPath, 'base64');
-          video = `data:video/mp4;base64,${base64}`;
-        }
-      } catch (e) {
-        console.log('Nessun video trovato');
+        // Ignora errori silenziosamente
       }
 
       // NON eliminare il workspace! Solo pulisci il file di test
@@ -546,9 +635,38 @@ router.post('/run', async (req, res) => {
 
   } catch (error) {
     console.error('Errore esecuzione Cypress:', error);
+    console.error('Stack trace:', error.stack);
+    runningCypressProcess = null;
+    
+    // Assicurati di rispondere anche se c'è stato un errore
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Errore esecuzione Cypress: ' + (error.message || 'Errore sconosciuto')
+      });
+    }
+  }
+});
+
+/**
+ * POST /api/cypress/stop
+ * Ferma l'esecuzione Cypress in corso
+ */
+router.post('/stop', async (req, res) => {
+  try {
+    if (runningCypressProcess && !runningCypressProcess.killed) {
+      console.log('Fermata esecuzione Cypress richiesta dall\'utente...');
+      runningCypressProcess.kill('SIGTERM');
+      runningCypressProcess = null;
+      res.json({ success: true, message: 'Esecuzione fermata con successo' });
+    } else {
+      res.json({ success: false, message: 'Nessuna esecuzione in corso' });
+    }
+  } catch (error) {
+    console.error('Errore fermata esecuzione:', error);
     res.status(500).json({
       success: false,
-      error: 'Errore esecuzione Cypress: ' + error.message
+      error: 'Errore fermata esecuzione: ' + error.message
     });
   }
 });

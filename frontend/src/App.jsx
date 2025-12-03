@@ -3,50 +3,146 @@ import { CSVUploader } from './components/CSVUploader';
 import { ContextBuilder } from './components/ContextBuilder';
 import { TestCaseBuilder } from './components/TestCaseBuilder';
 import { DiagnosticsButton } from './components/DiagnosticsButton';
+import { SessionManager } from './components/SessionManager';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useConsoleLogger } from './hooks/useConsoleLogger';
+import { api } from './services/api';
 
 export default function App() {
   const { events, logEvent } = useEventLogger();
   const { getLogs } = useConsoleLogger();
+  const [currentSession, setCurrentSession] = useState(null);
   const [context, setContext] = useState(null);
   const [testCases, setTestCases] = useState([]);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
-  const [step, setStep] = useState('setup'); // 'setup' | 'testcases' | 'builder'
+  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder'
   const [copyMessage, setCopyMessage] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // Per forzare re-render della lista
+  const [loadingSession, setLoadingSession] = useState(false);
 
-  // Carica contesto da localStorage se disponibile
+  // Carica sessione corrente all'avvio
   useEffect(() => {
+    const loadCurrentSession = async () => {
+      try {
+        const savedSessionId = localStorage.getItem('g2a_current_session_id');
+        if (savedSessionId) {
+          setLoadingSession(true);
+          const result = await api.getSessions();
+          const session = result.sessions.find(s => s.id === savedSessionId);
+          if (session) {
+            setCurrentSession(session);
+            await loadSessionData(session);
+            setStep('setup'); // Vai direttamente al setup se c'è una sessione
+          } else {
+            // Sessione non trovata, rimuovi dal localStorage
+            localStorage.removeItem('g2a_current_session_id');
+          }
+        }
+      } catch (error) {
+        console.error('Errore caricamento sessione:', error);
+        logEvent('error', `Errore caricamento sessione: ${error.message}`);
+      } finally {
+        setLoadingSession(false);
+      }
+    };
+
+    loadCurrentSession();
+  }, []);
+
+  // Funzione per caricare dati della sessione
+  const loadSessionData = async (session) => {
+    if (!session) return;
+
     try {
-      const savedContext = localStorage.getItem('g2a_context');
+      // Carica contesto dalla sessione (se esiste)
+      const contextKey = `session-${session.id}_context`;
+      const savedContext = localStorage.getItem(contextKey);
       if (savedContext) {
         const parsed = JSON.parse(savedContext);
         setContext(parsed);
-        logEvent('info', 'Contesto caricato da localStorage');
+        logEvent('info', `Contesto caricato dalla sessione "${session.name}"`);
+      }
+
+      // Carica test cases dalla sessione (se esiste)
+      const testCasesKey = `session-${session.id}_test_cases`;
+      const savedTestCases = localStorage.getItem(testCasesKey);
+      if (savedTestCases) {
+        const parsed = JSON.parse(savedTestCases);
+        setTestCases(parsed);
+        logEvent('info', `${parsed.length} test cases caricati dalla sessione`);
       }
     } catch (error) {
-      console.error('Errore caricamento contesto:', error);
+      console.error('Errore caricamento dati sessione:', error);
+      logEvent('error', `Errore caricamento dati sessione: ${error.message}`);
     }
-  }, []);
+  };
 
   // Log eventi importanti
   useEffect(() => {
-    logEvent('info', 'Applicazione avviata');
-  }, [logEvent]);
+    if (currentSession) {
+      logEvent('info', `Sessione attiva: "${currentSession.name}"`);
+    } else {
+      logEvent('info', 'Applicazione avviata - Seleziona una sessione');
+    }
+  }, [currentSession, logEvent]);
+
+  // Handler per selezione sessione
+  const handleSessionSelect = async (session) => {
+    setCurrentSession(session);
+    if (session) {
+      localStorage.setItem('g2a_current_session_id', session.id);
+      // Aggiorna lastAccessed
+      try {
+        await api.updateSession(session.id, { lastAccessed: new Date().toISOString() });
+      } catch (error) {
+        console.error('Errore aggiornamento lastAccessed:', error);
+      }
+      await loadSessionData(session);
+      setStep('setup');
+      logEvent('info', `Sessione "${session.name}" selezionata`);
+    } else {
+      localStorage.removeItem('g2a_current_session_id');
+      setContext(null);
+      setTestCases([]);
+      setStep('sessions');
+    }
+  };
 
   const handleContextReady = (extractedContext) => {
     setContext(extractedContext);
-    localStorage.setItem('g2a_context', JSON.stringify(extractedContext));
-    logEvent('success', 'Contesto Cypress estratto con successo', {
-      selectors: extractedContext.selectors?.length || 0,
-      methods: extractedContext.methods?.length || 0,
-      files: extractedContext.filesAnalyzed?.length || 0
-    });
+    
+    if (currentSession) {
+      // Salva con prefisso sessione
+      const contextKey = `session-${currentSession.id}_context`;
+      localStorage.setItem(contextKey, JSON.stringify(extractedContext));
+      
+      // Salva anche nel file della sessione (via backend se necessario)
+      logEvent('success', 'Contesto Cypress estratto con successo', {
+        selectors: extractedContext.selectors?.length || 0,
+        methods: extractedContext.methods?.length || 0,
+        files: extractedContext.filesAnalyzed?.length || 0,
+        session: currentSession.name
+      });
+    } else {
+      // Fallback al vecchio sistema (per compatibilità)
+      localStorage.setItem('g2a_context', JSON.stringify(extractedContext));
+      logEvent('success', 'Contesto Cypress estratto con successo', {
+        selectors: extractedContext.selectors?.length || 0,
+        methods: extractedContext.methods?.length || 0,
+        files: extractedContext.filesAnalyzed?.length || 0
+      });
+    }
   };
 
   const handleCSVLoaded = (parsedCases, fileName) => {
     setTestCases(parsedCases);
+    
+    // Salva test cases nella sessione
+    if (currentSession) {
+      const testCasesKey = `session-${currentSession.id}_test_cases`;
+      localStorage.setItem(testCasesKey, JSON.stringify(parsedCases));
+    }
+    
     setStep('testcases');
     logEvent('success', `CSV caricato: ${parsedCases.length} test cases`, { fileName });
   };
@@ -66,12 +162,41 @@ export default function App() {
     );
   };
 
+  // Funzione per ottenere metadati Global Autocomplete
+  const getGlobalAutocompleteMetadata = (testCaseId) => {
+    if (!currentSession) return null;
+    
+    const metadataKey = `session-${currentSession.id}_global_autocomplete_metadata`;
+    const saved = localStorage.getItem(metadataKey);
+    
+    if (!saved) return null;
+    
+    const metadata = JSON.parse(saved);
+    return metadata[testCaseId] || null;
+  };
+
+  // Listener per aggiornamento lista dopo Global Autocomplete
+  useEffect(() => {
+    const handleGlobalAutocompleteCompleted = () => {
+      setRefreshKey(prev => prev + 1); // Forza re-render della lista
+    };
+    
+    window.addEventListener('global-autocomplete-completed', handleGlobalAutocompleteCompleted);
+    
+    return () => {
+      window.removeEventListener('global-autocomplete-completed', handleGlobalAutocompleteCompleted);
+    };
+  }, []);
+
   // Funzione per verificare se un test case ha automazione pronta
   const checkAutomationStatus = (testCaseId) => {
     if (!testCaseId) return 'pending';
     
     try {
-      const stateKey = `g2a_test_state_${testCaseId}`;
+      // Usa prefisso sessione se disponibile
+      const stateKey = currentSession 
+        ? `session-${currentSession.id}_test_state_${testCaseId}`
+        : `g2a_test_state_${testCaseId}`;
       const saved = localStorage.getItem(stateKey);
       
       if (!saved) {
@@ -104,7 +229,10 @@ export default function App() {
     if (!testCase?.id) return '';
     
     try {
-      const stateKey = `g2a_test_state_${testCase.id}`;
+      // Usa prefisso sessione se disponibile
+      const stateKey = currentSession 
+        ? `session-${currentSession.id}_test_state_${testCase.id}`
+        : `g2a_test_state_${testCase.id}`;
       const saved = localStorage.getItem(stateKey);
       
       if (!saved) return '';
@@ -175,47 +303,84 @@ export default function App() {
       const whenBody = extractBody(whenCode, 'when');
       const thenBody = extractBody(thenCode, 'then');
 
+      const buildPhaseLines = (cleanBody, phaseLabel, emoji, statement) => {
+        const lines = [
+          `    // ===== ${phaseLabel} PHASE =====`,
+          `    cy.log('${emoji} ${phaseLabel}: ${statement}');`
+        ];
+
+        if (!cleanBody) {
+          return lines;
+        }
+
+        const rawLines = cleanBody.split('\n');
+        const hasContent = rawLines.some(line => line.trim().length > 0);
+        if (!hasContent) {
+          return lines;
+        }
+
+        rawLines.forEach(line => {
+          const trimmedEnd = line.replace(/\s+$/g, '');
+          if (trimmedEnd.trim().length === 0) {
+            lines.push('');
+          } else {
+            lines.push(`    ${trimmedEnd}`);
+          }
+        });
+
+        return lines;
+      };
+
+      const appendPhaseBlock = (collector, blockLines) => {
+        if (!blockLines.length) return collector;
+        if (collector.length > 0) {
+          collector.push('');
+        }
+        collector.push(...blockLines);
+        return collector;
+      };
+
       const testName = `Test Case #${testCase.id}`;
       const testDescription = `${testCase.given} | ${testCase.when} | ${testCase.then}`.substring(0, 100);
       
       let completeCode = `describe('${testName}', () => {\n`;
       completeCode += `  it('${testDescription}', () => {\n`;
 
+      let phaseLines = [];
+
       if (givenBody) {
-        completeCode += `    // ===== GIVEN PHASE =====\n`;
-        completeCode += `    cy.log('🔵 GIVEN: ${testCase.given}');\n`;
         const cleanGiven = givenBody
           .replace(/\/\/\s*=====\s*GIVEN\s*PHASE\s*=====/gi, '')
           .replace(/cy\.log\(['"]🔵\s*GIVEN:.*?['"]\);/g, '')
           .trim();
-        if (cleanGiven) {
-          const indentedGiven = cleanGiven.split('\n').map(line => `    ${line}`).join('\n');
-          completeCode += `${indentedGiven}\n\n`;
-        }
+        const lines = buildPhaseLines(cleanGiven, 'GIVEN', '🔵', testCase.given);
+        phaseLines = appendPhaseBlock(phaseLines, lines);
       }
       if (whenBody) {
-        completeCode += `    // ===== WHEN PHASE =====\n`;
-        completeCode += `    cy.log('🟡 WHEN: ${testCase.when}');\n`;
         const cleanWhen = whenBody
           .replace(/\/\/\s*=====\s*WHEN\s*PHASE\s*=====/gi, '')
           .replace(/cy\.log\(['"]🟡\s*WHEN:.*?['"]\);/g, '')
+          .split('\n')
+          .filter(line => !line.trim().includes('cy.visit(') || line.trim().startsWith('//'))
+          .join('\n')
           .trim();
-        if (cleanWhen) {
-          const indentedWhen = cleanWhen.split('\n').map(line => `    ${line}`).join('\n');
-          completeCode += `${indentedWhen}\n\n`;
-        }
+        const lines = buildPhaseLines(cleanWhen, 'WHEN', '🟡', testCase.when);
+        phaseLines = appendPhaseBlock(phaseLines, lines);
       }
       if (thenBody) {
-        completeCode += `    // ===== THEN PHASE =====\n`;
-        completeCode += `    cy.log('🟢 THEN: ${testCase.then}');\n`;
         const cleanThen = thenBody
           .replace(/\/\/\s*=====\s*THEN\s*PHASE\s*=====/gi, '')
           .replace(/cy\.log\(['"]🟢\s*THEN:.*?['"]\);/g, '')
+          .split('\n')
+          .filter(line => !line.trim().includes('cy.visit(') || line.trim().startsWith('//'))
+          .join('\n')
           .trim();
-        if (cleanThen) {
-          const indentedThen = cleanThen.split('\n').map(line => `    ${line}`).join('\n');
-          completeCode += `${indentedThen}\n`;
-        }
+        const lines = buildPhaseLines(cleanThen, 'THEN', '🟢', testCase.then);
+        phaseLines = appendPhaseBlock(phaseLines, lines);
+      }
+
+      if (phaseLines.length) {
+        completeCode += `${phaseLines.join('\n')}\n`;
       }
 
       completeCode += `  });\n`;
@@ -296,17 +461,54 @@ export default function App() {
           <div>
             <h1>🚀 G2A - Gherkin to Automation</h1>
             <p>Convert Gherkin test cases to Cypress automation scripts</p>
+            {currentSession && (
+              <p className="current-session-indicator">
+                📁 Sessione attiva: <strong>{currentSession.name}</strong>
+              </p>
+            )}
           </div>
-          <DiagnosticsButton events={events} onCopy={handleCopyMessage} consoleLogs={getLogs()} />
+          <div className="header-actions">
+            {currentSession && step !== 'sessions' && (
+              <button 
+                className="sessions-button"
+                onClick={() => setStep('sessions')}
+                title="Gestisci sessioni"
+              >
+                📁 Sessioni
+              </button>
+            )}
+            <DiagnosticsButton events={events} onCopy={handleCopyMessage} consoleLogs={getLogs()} />
+          </div>
         </div>
         {copyMessage && <div className="copy-message">{copyMessage}</div>}
       </header>
 
       <main className="app-main">
-        {step === 'setup' && (
+        {step === 'sessions' && (
+          <SessionManager
+            currentSession={currentSession}
+            onSessionSelect={handleSessionSelect}
+            onLogEvent={logEvent}
+          />
+        )}
+
+        {step === 'setup' && currentSession && (
           <div className="landing">
             <ContextBuilder onContextReady={handleContextReady} onLogEvent={logEvent} />
             <CSVUploader onCSVLoaded={handleCSVLoaded} onLogEvent={logEvent} />
+          </div>
+        )}
+
+        {step === 'setup' && !currentSession && (
+          <div className="no-session-warning">
+            <h2>⚠️ Nessuna sessione selezionata</h2>
+            <p>Seleziona o crea una sessione per iniziare a lavorare.</p>
+            <button 
+              className="go-to-sessions-button"
+              onClick={() => setStep('sessions')}
+            >
+              Vai alle Sessioni →
+            </button>
           </div>
         )}
 
@@ -324,6 +526,7 @@ export default function App() {
             <div className="test-cases-list" key={refreshKey}>
               {testCases.map((tc, idx) => {
                 const automationStatus = checkAutomationStatus(tc.id);
+                const globalAutocompleteMeta = getGlobalAutocompleteMetadata(tc.id);
                 return (
                   <div 
                     key={idx} 
@@ -346,6 +549,53 @@ export default function App() {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Indicatori Global Autocomplete */}
+                    {globalAutocompleteMeta && (
+                      <div className="global-autocomplete-indicators" style={{
+                        marginBottom: '10px',
+                        padding: '8px',
+                        backgroundColor: '#e8f5e9',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        borderLeft: '3px solid #4caf50'
+                      }}>
+                        <strong>✨ Completato da Global Autocomplete:</strong>
+                        <div style={{ marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {globalAutocompleteMeta.given && (
+                            <span style={{ 
+                              padding: '2px 8px', 
+                              backgroundColor: '#4caf50', 
+                              color: 'white', 
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>Given</span>
+                          )}
+                          {globalAutocompleteMeta.when && (
+                            <span style={{ 
+                              padding: '2px 8px', 
+                              backgroundColor: '#4caf50', 
+                              color: 'white', 
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>When</span>
+                          )}
+                          {globalAutocompleteMeta.then && (
+                            <span style={{ 
+                              padding: '2px 8px', 
+                              backgroundColor: '#4caf50', 
+                              color: 'white', 
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>Then</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <p><strong>Given:</strong> {tc.given}</p>
                     <p><strong>When:</strong> {tc.when}</p>
                     <p><strong>Then:</strong> {tc.then}</p>
@@ -361,6 +611,7 @@ export default function App() {
           <TestCaseBuilder
             testCase={selectedTestCase}
             context={context}
+            currentSession={currentSession}
             onUpdateTestCase={handleUpdateTestCase}
             onBack={() => {
               setStep('testcases');

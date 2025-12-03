@@ -1,0 +1,325 @@
+.session-manager {
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: calc(100vh - 100px);
+}
+
+.session-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.session-manager-header h2 {
+  margin: 0 0 5px 0;
+  color: #333;
+  font-size: 28px;
+}
+
+.session-manager-subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.session-manager-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.create-session-button,
+.migrate-button {
+  padding: 12px 24px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.create-session-button:hover {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.create-session-button:disabled,
+.migrate-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.migrate-button {
+  background-color: #2196F3;
+}
+
+.migrate-button:hover:not(:disabled) {
+  background-color: #1976D2;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.sessions-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.session-card {
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.session-card:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.session-card.active {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #f0f8f0 0%, #ffffff 100%);
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.2);
+}
+
+.session-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.session-card-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 20px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.active-badge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.migrated-badge {
+  background-color: #FF9800;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.session-card-info {
+  margin: 15px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.session-card-info p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.session-path {
+  font-size: 12px;
+  color: #999;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.session-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.session-card-actions button {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.session-card-actions button:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-1px);
+}
+
+.session-card-actions .delete-button {
+  color: #f44336;
+  border-color: #f44336;
+}
+
+.session-card-actions .delete-button:hover {
+  background-color: #ffebee;
+  border-color: #d32f2f;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  min-width: 400px;
+  max-width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 22px;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 12px;
+  margin: 15px 0;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+.modal-content input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.modal-actions button:first-child {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.modal-actions button:first-child:hover:not(:disabled) {
+  background-color: #45a049;
+  transform: translateY(-1px);
+}
+
+.modal-actions button:first-child:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.modal-actions button:last-child {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.modal-actions button:last-child:hover {
+  background-color: #e0e0e0;
+}
+
+.no-sessions,
+.loading-sessions {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+  background: white;
+  border-radius: 10px;
+  border: 2px dashed #ddd;
+}
+
+.no-sessions p {
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+.loading-sessions p {
+  font-size: 18px;
+  color: #999;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .session-manager {
+    padding: 20px;
+  }
+
+  .session-manager-header {
+    flex-direction: column;
+  }
+
+  .session-manager-actions {
+    width: 100%;
+  }
+
+  .session-manager-actions button {
+    flex: 1;
+  }
+
+  .sessions-list {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-content {
+    min-width: auto;
+    width: 90%;
+  }
+}
+

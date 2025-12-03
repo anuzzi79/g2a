@@ -25,9 +25,8 @@ export async function parseGherkinSentence(sentence, context = {}) {
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || 'gpt-4';
 
-  const contextStr = context.selectors?.length > 0 
-    ? `\n\nContesto disponibile:\n- ${context.selectors.length} selettori trovati\n- ${context.methods?.length || 0} metodi disponibili`
-    : '';
+  // DISABILITATO: Rimozione riferimenti a page objects
+  const contextStr = '';
 
   const prompt = `Analizza questa frase Gherkin e estrai le parti di senso compiuto che rappresentano azioni o verifiche automatizzabili.
 
@@ -96,24 +95,12 @@ export async function suggestAutomation(actionPart, context = {}, conversationHi
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || 'gpt-4';
 
-  // Prepara contesto dei selettori disponibili
+  // DISABILITATO: Rimozione riferimenti a page objects nel reasoning
+  // Le page objects non vengono più usate nel reasoning
   let contextInfo = '';
-  if (context.selectors && context.selectors.length > 0) {
-    const selectorExamples = context.selectors.slice(0, 20).map(s => 
-      `- ${s.selector} (${s.type}, file: ${s.file})`
-    ).join('\n');
-    contextInfo = `\n\nSelettori disponibili nel contesto:\n${selectorExamples}`;
-    if (context.selectors.length > 20) {
-      contextInfo += `\n... e altri ${context.selectors.length - 20} selettori`;
-    }
-  }
-
-  if (context.methods && context.methods.length > 0) {
-    const methodExamples = context.methods.slice(0, 10).map(m => 
-      `- ${m.name}() in ${m.file}`
-    ).join('\n');
-    contextInfo += `\n\nMetodi disponibili:\n${methodExamples}`;
-  }
+  
+  // RIMOSSO: contesto selettori e metodi dalle page objects
+  // Il reasoning ora si basa esclusivamente sul Wide Reasoning sui test case esistenti
 
   const historyStr = conversationHistory.length > 0
     ? `\n\nStoria conversazione:\n${conversationHistory.map((msg, i) => `${i + 1}. ${msg.role}: ${msg.content}`).join('\n')}`
@@ -129,8 +116,7 @@ ${contextInfo}${historyStr}
 Suggerisci:
 1. Il miglior selettore Cypress da usare (es: cy.get('...'), cy.contains('...'))
 2. Il comando Cypress appropriato (click, type, should, etc.)
-3. Se possibile, un metodo esistente dal contesto che potrebbe essere riutilizzato
-4. Eventuali considerazioni o alternative
+3. Eventuali considerazioni o alternative
 
 Rispondi in formato JSON:
 {
@@ -139,7 +125,6 @@ Rispondi in formato JSON:
   "command": "comando Cypress",
   "explanation": "spiegazione breve del perché questa soluzione",
   "alternativeSelectors": ["alternativa1", "alternativa2"],
-  "existingMethod": "nome metodo esistente se riutilizzabile",
   "confidence": 0.8,
   "needsClarification": false,
   "clarificationQuestion": null
@@ -178,23 +163,13 @@ export async function chatWithAI(message, actionPart, context = {}, conversation
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || 'gpt-4';
 
-  // Ottimizza il contesto: prendi solo i selettori e metodi più rilevanti
-  // Limita a 50 selettori più rilevanti e 10 metodi per evitare token eccessivi
+  // DISABILITATO: Rimozione riferimenti a page objects nel reasoning
+  // Le page objects non vengono più usate nel reasoning
+  // Il Wide Reasoning sui test case esistenti è la strategia principale
   let optimizedContext = '';
   
-  if (context && context.selectors && context.selectors.length > 0) {
-    const relevantSelectors = context.selectors.slice(0, 50).map(s => 
-      `- ${s.selector} (${s.type}, file: ${s.file})`
-    ).join('\n');
-    optimizedContext += `\n\nSelettori disponibili (${context.selectors.length} totali, mostrati i primi 50):\n${relevantSelectors}`;
-  }
-
-  if (context && context.methods && context.methods.length > 0) {
-    const relevantMethods = context.methods.slice(0, 10).map(m => 
-      `- ${m.name}() in ${m.file}`
-    ).join('\n');
-    optimizedContext += `\n\nMetodi disponibili (${context.methods.length} totali, mostrati i primi 10):\n${relevantMethods}`;
-  }
+  // RIMOSSO: contesto selettori e metodi dalle page objects
+  // Il reasoning ora si basa esclusivamente sul Wide Reasoning sui test case esistenti
 
   // AGGIUNGI CONTESTO DELLE ALTRE FASI
   let otherPhasesInfo = '';
@@ -304,7 +279,7 @@ IMPORTANTE: Quando generi codice Cypress, genera SOLO il codice della fase corre
 
 ${actionPart.type === 'when' || actionPart.type === 'then' ? '⚠️ CRITICO: NON includere cy.visit() in questa fase. La navigazione alla pagina è già stata gestita nella fase GIVEN. Questa fase contiene SOLO azioni (WHEN) o verifiche (THEN).' : actionPart.type === 'given' ? 'La fase GIVEN può contenere cy.visit() se necessario per navigare alla pagina iniziale.' : ''}
 
-Usa il contesto fornito (selettori e metodi disponibili) per suggerire soluzioni concrete.${wideReasoning && similarTestCases && similarTestCases.length > 0 ? `\n\n🎯 PRIORITÀ ASSOLUTA: L'utente ti ha chiesto di cercare in altri test case. HAI ACCESSO DIRETTO a ${similarTestCases.length} test case reali sopra. DEVI:\n- Cercare nei test case sopra quello che l'utente richiede\n- Citare ESPLICITAMENTE gli ID dei test case\n- Mostrare il codice specifico trovato\n- NON dire mai "non ho accesso" - HAI ACCESSO COMPLETO ai test case sopra!\n\n⚠️ Se l'utente chiede "Riesci a ritrovarli?" o "Cerca in altri test case", DEVI cercare nei test case simili sopra e rispondere con riferimenti concreti!` : ''}`
+Usa il contesto fornito per suggerire soluzioni concrete.${wideReasoning && similarTestCases && similarTestCases.length > 0 ? `\n\n🎯 PRIORITÀ ASSOLUTA: L'utente ti ha chiesto di cercare in altri test case. HAI ACCESSO DIRETTO a ${similarTestCases.length} test case reali sopra. DEVI:\n- Cercare nei test case sopra quello che l'utente richiede\n- Citare ESPLICITAMENTE gli ID dei test case\n- Mostrare il codice specifico trovato\n- NON dire mai "non ho accesso" - HAI ACCESSO COMPLETO ai test case sopra!\n\n⚠️ Se l'utente chiede "Riesci a ritrovarli?" o "Cerca in altri test case", DEVI cercare nei test case simili sopra e rispondere con riferimenti concreti!` : ''}`
     },
     ...conversationHistory.map(msg => ({
       role: msg.role,

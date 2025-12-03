@@ -174,6 +174,23 @@ export const api = {
   },
 
   /**
+   * Ferma l'esecuzione Cypress in corso
+   */
+  async stopCypressExecution() {
+    const response = await fetch(`${API_BASE}/cypress/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
    * Salva codice Cypress in un file senza eseguirlo
    */
   async saveCypressFile(code, filePath) {
@@ -206,6 +223,77 @@ export const api = {
       throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
     
+    return response.json();
+  },
+
+  /**
+   * Gestione sessioni
+   */
+  async getSessions() {
+    const response = await fetch(`${API_BASE}/sessions`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async createSession(sessionData) {
+    const response = await fetch(`${API_BASE}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async updateSession(sessionId, updates) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async deleteSession(sessionId) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async getDefaultSessionsPath() {
+    const response = await fetch(`${API_BASE}/sessions/default-path`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async migrateLegacyData(legacyData) {
+    const response = await fetch(`${API_BASE}/sessions/migrate-legacy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ legacyData })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
     return response.json();
   }
 };

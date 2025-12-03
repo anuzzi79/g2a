@@ -15,6 +15,7 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
   const codeRef = useRef(null);
   const [targetUrl, setTargetUrl] = useState('');
   const [headedMode, setHeadedMode] = useState(true);
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
     // Quando il codice cambia, reimposta la selezione
@@ -90,6 +91,35 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
     await runCypressCode(codeToRun, false);
   };
 
+  const handleStopExecution = async () => {
+    if (!running) return;
+    
+    try {
+      onLogEvent?.('info', 'Fermata esecuzione richiesta...');
+      setLogs(prev => [...prev, { type: 'info', message: 'Fermata esecuzione richiesta...', timestamp: new Date() }]);
+      
+      // Cancella la fetch request se ancora in corso
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Chiama l'endpoint backend per fermare il processo
+      await api.stopCypressExecution();
+      
+      setRunning(false);
+      setResults({ success: false, error: 'Esecuzione fermata dall\'utente' });
+      setLogs(prev => [...prev, { 
+        type: 'warning', 
+        message: 'Esecuzione fermata dall\'utente', 
+        timestamp: new Date() 
+      }]);
+      onLogEvent?.('warning', 'Esecuzione fermata dall\'utente');
+    } catch (error) {
+      console.error('Errore fermata esecuzione:', error);
+      onLogEvent?.('error', `Errore fermata esecuzione: ${error.message}`);
+    }
+  };
+
   const runCypressCode = async (codeToRun, shouldSaveFile) => {
     setRunning(true);
     setResults(null);
@@ -99,7 +129,12 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
       : 'Modalità headless attiva: esecuzione in background.');
     onLogEvent?.('info', 'Esecuzione codice Cypress in corso...');
 
+    // Crea nuovo AbortController per questa esecuzione
+    abortControllerRef.current = new AbortController();
+
     try {
+      // Nota: api.runCypressCode non supporta ancora AbortSignal direttamente
+      // ma possiamo comunque chiamare stopCypressExecution se necessario
       const result = await api.runCypressCode(codeToRun, targetUrl, { 
         headed: headedMode,
         keepBrowserOpen: headedMode,
@@ -139,6 +174,19 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
         }
       } else {
         const errorMsg = result.error || 'Errore sconosciuto';
+        
+        // Se l'esecuzione è stata fermata manualmente, mostra messaggio appropriato
+        if (errorMsg.includes('fermata') || errorMsg.includes('STOPPED')) {
+          setResults({ success: false, error: 'Esecuzione fermata dall\'utente' });
+          setLogs(prev => [...prev, { 
+            type: 'warning', 
+            message: 'Esecuzione fermata dall\'utente',
+            timestamp: new Date()
+          }]);
+          onLogEvent?.('warning', 'Esecuzione fermata dall\'utente');
+          return;
+        }
+        
         const details = result.details ? `\n\nDettagli:\n${result.details}` : '';
         const fullError = errorMsg + details;
         
@@ -164,6 +212,17 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
         }
       }
     } catch (error) {
+      // Se l'errore è dovuto all'abort o alla fermata manuale, non mostrarlo come errore generico
+      if (error.name === 'AbortError' || 
+          error.message?.includes('fermata') || 
+          error.message?.includes('STOPPED') ||
+          error.code === 'STOPPED') {
+        // Già gestito in handleStopExecution o dal backend
+        setRunning(false);
+        abortControllerRef.current = null;
+        return;
+      }
+      
       const errorMsg = `Errore esecuzione Cypress: ${error.message}`;
       setResults({ success: false, error: errorMsg });
       setLogs(prev => [...prev, { 
@@ -174,6 +233,7 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
       onLogEvent?.('error', errorMsg);
     } finally {
       setRunning(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -266,6 +326,23 @@ export function CypressRunner({ code, onClose, onLogEvent, outputFilePath }) {
             <div className="running-indicator">
               <div className="spinner"></div>
               <p>Esecuzione in corso...</p>
+              <button
+                className="stop-execution-button"
+                onClick={handleStopExecution}
+                style={{
+                  marginTop: '15px',
+                  padding: '10px 20px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ⏹️ Stop the Execution
+              </button>
             </div>
           )}
 
