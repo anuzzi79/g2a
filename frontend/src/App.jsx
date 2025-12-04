@@ -4,6 +4,8 @@ import { ContextBuilder } from './components/ContextBuilder';
 import { TestCaseBuilder } from './components/TestCaseBuilder';
 import { DiagnosticsButton } from './components/DiagnosticsButton';
 import { SessionManager } from './components/SessionManager';
+import { ECObjectsView } from './components/ECObjectsView';
+import { BinomiView } from './components/BinomiView';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useConsoleLogger } from './hooks/useConsoleLogger';
 import { api } from './services/api';
@@ -15,7 +17,7 @@ export default function App() {
   const [context, setContext] = useState(null);
   const [testCases, setTestCases] = useState([]);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
-  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder'
+  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder' | 'ec-objects' | 'binomi'
   const [copyMessage, setCopyMessage] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // Per forzare re-render della lista
   const [loadingSession, setLoadingSession] = useState(false);
@@ -518,9 +520,45 @@ export default function App() {
               <button onClick={() => setStep('setup')} className="back-button">
                 ← Torna al Setup
               </button>
-              <button onClick={handleExportCSV} className="export-csv-button">
-                📥 CSV Export
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {currentSession?.id && (
+                  <>
+                    <button 
+                      onClick={() => setStep('ec-objects')} 
+                      className="view-button"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#667eea',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      📊 Visualizza Oggetti EC
+                    </button>
+                    <button 
+                      onClick={() => setStep('binomi')} 
+                      className="view-button"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#ff9800',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      🔗 Visualizza Binomi Fondamentali
+                    </button>
+                  </>
+                )}
+                <button onClick={handleExportCSV} className="export-csv-button">
+                  📥 CSV Export
+                </button>
+              </div>
             </div>
             <h2>Test Cases Caricati ({testCases.length})</h2>
             <div className="test-cases-list" key={refreshKey}>
@@ -618,6 +656,22 @@ export default function App() {
               setSelectedTestCase(null);
               setRefreshKey(prev => prev + 1); // Forza aggiornamento lista
             }}
+            onLogEvent={logEvent}
+          />
+        )}
+
+        {step === 'ec-objects' && currentSession && (
+          <ECObjectsView
+            sessionId={currentSession.id}
+            onBack={() => setStep('testcases')}
+            onLogEvent={logEvent}
+          />
+        )}
+
+        {step === 'binomi' && currentSession && (
+          <BinomiView
+            sessionId={currentSession.id}
+            onBack={() => setStep('testcases')}
             onLogEvent={logEvent}
           />
         )}

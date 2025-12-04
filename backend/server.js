@@ -8,6 +8,7 @@ import resourcesRoutes from './routes/resources.js';
 import llmRoutes from './routes/llm.js';
 import cypressRoutes from './routes/cypress.js';
 import sessionsRoutes from './routes/sessions.js';
+import ecDatabaseRoutes, { binomiRouter } from './routes/ecDatabase.js';
 
 // Carica variabili d'ambiente
 dotenv.config();
@@ -28,6 +29,10 @@ app.use('/api/llm', llmRoutes);
 app.use('/api/cypress', cypressRoutes);
 app.use('/api/sessions', sessionsRoutes);
 console.log('✅ Route /api/sessions registrata');
+app.use('/api/ec-objects', ecDatabaseRoutes);
+console.log('✅ Route /api/ec-objects registrata');
+app.use('/api/binomi', binomiRouter);
+console.log('✅ Route /api/binomi registrata');
 
 // Health check
 app.get('/api/health', (req, res) => {

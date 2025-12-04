@@ -5,6 +5,8 @@ import 'prismjs/components/prism-javascript';
 import 'prismjs/themes/prism-tomorrow.css';
 import { api } from '../services/api';
 import { CypressRunner } from './CypressRunner';
+import { ECObjectsView } from './ECObjectsView';
+import { BinomiView } from './BinomiView';
 import '../styles/TestCaseBuilder.css';
 import '@tensorflow/tfjs';
 
@@ -13,6 +15,97 @@ import '@tensorflow/tfjs';
  */
 export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdateTestCase, currentSession }) {
   const [allObjects, setAllObjects] = useState([]); // Raccoglie tutti gli oggetti da tutti i blocchi GWT
+  const [loadedECObjects, setLoadedECObjects] = useState([]); // Oggetti EC caricati dal database
+  const [loadedBinomi, setLoadedBinomi] = useState([]); // Binomi caricati dal database
+  
+  // Funzione per generare ID oggetto EC
+  const generateECObjectId = useCallback((boxType, boxNumber) => {
+    if (!currentSession?.id || !testCase?.id) {
+      return null;
+    }
+    const boxTypeUpper = boxType.toUpperCase();
+    return `${currentSession.id}-TC${testCase.id}-${boxTypeUpper}-${boxNumber}`;
+  }, [currentSession?.id, testCase?.id]);
+
+  // Funzione per contare oggetti esistenti per box type nel database
+  const getNextBoxNumber = useCallback(async (boxType) => {
+    if (!currentSession?.id || !testCase?.id) {
+      return 1;
+    }
+    try {
+      const result = await api.getECObjects(currentSession.id, testCase.id);
+      const existingObjects = (result.objects || []).filter(
+        obj => obj.boxType === boxType && obj.testCaseId === String(testCase.id)
+      );
+      return existingObjects.length + 1;
+    } catch (error) {
+      console.error('Errore conteggio oggetti:', error);
+      return 1;
+    }
+  }, [currentSession?.id, testCase?.id]);
+
+  // Funzione per generare ID binomio
+  const generateBinomioId = useCallback(() => {
+    if (!currentSession?.id || !testCase?.id) {
+      return null;
+    }
+    // Conta binomi esistenti per questo test case
+    const existingBinomi = loadedBinomi.filter(
+      b => b.testCaseId === String(testCase.id)
+    );
+    const nextNumber = String(existingBinomi.length + 1).padStart(3, '0');
+    return `bf-${currentSession.id}-TC${testCase.id}-${nextNumber}`;
+  }, [currentSession?.id, testCase?.id, loadedBinomi]);
+
+  // Carica oggetti EC e binomi dal database al mount
+  useEffect(() => {
+    const loadECData = async () => {
+      if (!currentSession?.id || !testCase?.id) {
+        return;
+      }
+      try {
+        const [objectsResult, binomiResult] = await Promise.all([
+          api.getECObjects(currentSession.id, testCase.id),
+          api.getBinomi(currentSession.id, testCase.id)
+        ]);
+        setLoadedECObjects(objectsResult.objects || []);
+        setLoadedBinomi(binomiResult.binomi || []);
+        console.log('Oggetti EC caricati:', objectsResult.objects?.length || 0);
+        console.log('Binomi caricati:', binomiResult.binomi?.length || 0);
+      } catch (error) {
+        console.error('Errore caricamento dati EC:', error);
+        onLogEvent?.('error', `Errore caricamento oggetti EC: ${error.message}`);
+      }
+    };
+    loadECData();
+  }, [currentSession?.id, testCase?.id, onLogEvent]);
+
+  // Helper per ottenere oggetti per un box type specifico
+  const getObjectsForBoxType = useCallback((boxType) => {
+    return loadedECObjects.filter(obj => obj.boxType === boxType);
+  }, [loadedECObjects]);
+  
+  // Callback memoizzati per onObjectsChange per evitare re-render infiniti
+  const handleGivenObjectsChange = useCallback((objects) => {
+    setAllObjects(prev => {
+      const filtered = prev.filter(obj => !obj.id.startsWith('given-'));
+      return [...filtered, ...objects.map(obj => ({ ...obj, id: `given-${obj.id || Date.now()}` }))];
+    });
+  }, []);
+  
+  const handleWhenObjectsChange = useCallback((objects) => {
+    setAllObjects(prev => {
+      const filtered = prev.filter(obj => !obj.id.startsWith('when-'));
+      return [...filtered, ...objects.map(obj => ({ ...obj, id: `when-${obj.id || Date.now()}` }))];
+    });
+  }, []);
+  
+  const handleThenObjectsChange = useCallback((objects) => {
+    setAllObjects(prev => {
+      const filtered = prev.filter(obj => !obj.id.startsWith('then-'));
+      return [...filtered, ...objects.map(obj => ({ ...obj, id: `then-${obj.id || Date.now()}` }))];
+    });
+  }, []);
   
   // Espone gli oggetti per il report diagnostico
   useEffect(() => {
@@ -42,6 +135,8 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
   const [hasLoadedState, setHasLoadedState] = useState(false);
   const [isGlobalAutocompleteRunning, setIsGlobalAutocompleteRunning] = useState(false);
   const [globalAutocompleteProgress, setGlobalAutocompleteProgress] = useState(null);
+  const [showECObjectsView, setShowECObjectsView] = useState(false);
+  const [showBinomiView, setShowBinomiView] = useState(false);
   const testFileStorageKey = useMemo(
     () => {
       if (!testCase) return null;
@@ -1991,10 +2086,71 @@ ${mergedCode}
     }
   };
 
+  // Se una pagina di visualizzazione è aperta, mostra solo quella
+  if (showECObjectsView && currentSession?.id) {
+    return (
+      <ECObjectsView
+        sessionId={currentSession.id}
+        onBack={() => setShowECObjectsView(false)}
+        onLogEvent={onLogEvent}
+      />
+    );
+  }
+
+  if (showBinomiView && currentSession?.id) {
+    return (
+      <BinomiView
+        sessionId={currentSession.id}
+        onBack={() => setShowBinomiView(false)}
+        onLogEvent={onLogEvent}
+      />
+    );
+  }
+
+  if (!testCase) {
+    return <div className="test-case-builder">Nessun test case selezionato</div>;
+  }
+
   return (
     <div className="test-case-builder">
       <div className="builder-header">
-        <button onClick={onBack} className="back-button">← Torna alla lista</button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={onBack} className="back-button">← Torna alla lista</button>
+          {currentSession?.id && (
+            <>
+              <button 
+                onClick={() => setShowECObjectsView(true)} 
+                className="view-button"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                📊 Visualizza Oggetti EC
+              </button>
+              <button 
+                onClick={() => setShowBinomiView(true)} 
+                className="view-button"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                🔗 Visualizza Binomi Fondamentali
+              </button>
+            </>
+          )}
+        </div>
         <h2>Costruzione Test Case #{testCase.id}</h2>
         {/* Aggiungi pulsanti per salvare e testare il codice completo */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -2152,15 +2308,18 @@ ${mergedCode}
         onPromptChange={(value) => handlePromptChange('given', value)}
         onSendPrompt={(text, wideReasoning) => handleSendPrompt('given', text, wideReasoning)}
         onCodeChange={(value) => handleCodeChange('given', value)}
-        onObjectsChange={(objects) => {
-          setAllObjects(prev => {
-            const filtered = prev.filter(obj => !obj.id.startsWith('given-'));
-            return [...filtered, ...objects.map(obj => ({ ...obj, id: `given-${obj.id || Date.now()}` }))];
-          });
-        }}
+        onObjectsChange={handleGivenObjectsChange}
         context={effectiveContext}
         onOpenRunner={handleOpenRunner}
         onGlobalComplete={() => handleGlobalComplete('given')}
+        testCaseId={testCase.id}
+        sessionId={currentSession?.id}
+        generateECObjectId={generateECObjectId}
+        getNextBoxNumber={getNextBoxNumber}
+        generateBinomioId={generateBinomioId}
+        onLogEvent={onLogEvent}
+        initialObjects={getObjectsForBoxType('given')}
+        initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
 
       <GherkinBlock
@@ -2173,15 +2332,18 @@ ${mergedCode}
         onPromptChange={(value) => handlePromptChange('when', value)}
         onSendPrompt={(text, wideReasoning) => handleSendPrompt('when', text, wideReasoning)}
         onCodeChange={(value) => handleCodeChange('when', value)}
-        onObjectsChange={(objects) => {
-          setAllObjects(prev => {
-            const filtered = prev.filter(obj => !obj.id.startsWith('when-'));
-            return [...filtered, ...objects.map(obj => ({ ...obj, id: `when-${obj.id || Date.now()}` }))];
-          });
-        }}
+        onObjectsChange={handleWhenObjectsChange}
         context={effectiveContext}
         onOpenRunner={handleOpenRunner}
         onGlobalComplete={() => handleGlobalComplete('when')}
+        testCaseId={testCase.id}
+        sessionId={currentSession?.id}
+        generateECObjectId={generateECObjectId}
+        getNextBoxNumber={getNextBoxNumber}
+        generateBinomioId={generateBinomioId}
+        onLogEvent={onLogEvent}
+        initialObjects={getObjectsForBoxType('when')}
+        initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
 
       <GherkinBlock
@@ -2194,15 +2356,18 @@ ${mergedCode}
         onPromptChange={(value) => handlePromptChange('then', value)}
         onSendPrompt={(text, wideReasoning) => handleSendPrompt('then', text, wideReasoning)}
         onCodeChange={(value) => handleCodeChange('then', value)}
-        onObjectsChange={(objects) => {
-          setAllObjects(prev => {
-            const filtered = prev.filter(obj => !obj.id.startsWith('then-'));
-            return [...filtered, ...objects.map(obj => ({ ...obj, id: `then-${obj.id || Date.now()}` }))];
-          });
-        }}
+        onObjectsChange={handleThenObjectsChange}
         context={effectiveContext}
         onOpenRunner={handleOpenRunner}
         onGlobalComplete={() => handleGlobalComplete('then')}
+        testCaseId={testCase.id}
+        sessionId={currentSession?.id}
+        generateECObjectId={generateECObjectId}
+        getNextBoxNumber={getNextBoxNumber}
+        generateBinomioId={generateBinomioId}
+        onLogEvent={onLogEvent}
+        initialObjects={getObjectsForBoxType('then')}
+        initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
 
       {showRunner && (
@@ -2223,11 +2388,136 @@ ${mergedCode}
 /**
  * Blocco Gherkin espandibile (Given/When/Then)
  */
-function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete }) {
+function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete, testCaseId, sessionId, generateECObjectId, getNextBoxNumber, generateBinomioId, onLogEvent, initialObjects = [], initialBinomi = [] }) {
   const [showWideReasoningMenu, setShowWideReasoningMenu] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState('');
   const [objects, setObjects] = useState([]); // Array di oggetti: { text: string, startIndex: number, endIndex: number, location: 'header' | 'content' }
+  
+  // Usa useRef per tracciare gli ID degli oggetti già inizializzati (evita loop infiniti)
+  const initializedIdsRef = useRef(new Set());
+  const lastNotifiedIdsRef = useRef(''); // Traccia gli ID per cui abbiamo già notificato il padre
+  const lastTestCaseIdRef = useRef(testCaseId);
+  const lastTypeRef = useRef(type);
+  
+  // Reset quando cambia il testCaseId o il type
+  useEffect(() => {
+    if (lastTestCaseIdRef.current !== testCaseId || lastTypeRef.current !== type) {
+      initializedIdsRef.current.clear();
+      lastNotifiedIdsRef.current = '';
+      setObjects([]);
+      lastTestCaseIdRef.current = testCaseId;
+      lastTypeRef.current = type;
+    }
+  }, [testCaseId, type]);
+  
+  // Crea una stringa stabile degli ID per confrontare senza dipendere dall'array
+  const initialObjectsIds = useMemo(() => {
+    if (!initialObjects || initialObjects.length === 0) return '';
+    return initialObjects
+      .map(obj => obj.id || obj.ecObjectId)
+      .filter(Boolean)
+      .sort()
+      .join(',');
+  }, [initialObjects]);
+  
+  // Inizializza oggetti e connessioni dagli oggetti caricati dal database
+  useEffect(() => {
+    // Se non ci sono oggetti iniziali, resetta solo se avevamo oggetti prima
+    if (!initialObjects || initialObjects.length === 0) {
+      if (initializedIdsRef.current.size > 0) {
+        initializedIdsRef.current.clear();
+        lastNotifiedIdsRef.current = '';
+        setObjects([]);
+      }
+      return;
+    }
+    
+    // Converti oggetti dal database nel formato locale
+    const localObjects = initialObjects.map(obj => ({
+      text: obj.text,
+      startIndex: obj.startIndex,
+      endIndex: obj.endIndex,
+      location: obj.location,
+      id: obj.id,
+      ecObjectId: obj.id // Salva l'ID EC per riferimento
+    }));
+    
+    // Crea un set degli ID nuovi
+    const newIds = new Set(localObjects.map(obj => obj.ecObjectId || obj.id).filter(Boolean));
+    const newIdsString = Array.from(newIds).sort().join(',');
+    
+    // Controlla se gli ID sono cambiati confrontando la stringa
+    const currentIdsString = Array.from(initializedIdsRef.current).sort().join(',');
+    
+    // Se gli ID sono diversi, aggiorna
+    if (newIdsString !== currentIdsString) {
+      console.log(`[${type}] ${initializedIdsRef.current.size > 0 ? 'Aggiornati' : 'Inizializzati'} ${localObjects.length} oggetti dal database`);
+      
+      // Aggiorna il ref con i nuovi ID
+      initializedIdsRef.current = newIds;
+      
+      // Aggiorna lo stato
+      setObjects(localObjects);
+      
+      // Notifica il componente padre SOLO se non abbiamo già notificato per questi ID
+      if (newIdsString !== lastNotifiedIdsRef.current) {
+        lastNotifiedIdsRef.current = newIdsString;
+        // Usa requestAnimationFrame per evitare loop durante il render
+        requestAnimationFrame(() => {
+          onObjectsChange?.(localObjects);
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialObjectsIds, type]);
+
+  // Inizializza connessioni dai binomi caricati
+  useEffect(() => {
+    if (initialBinomi && initialBinomi.length > 0 && objects.length > 0 && initializedIdsRef.current.size > 0) {
+      // Trova le connessioni che coinvolgono oggetti di questo box
+      const objectIds = new Set(objects.map(obj => obj.ecObjectId || obj.id));
+      const relevantBinomi = initialBinomi.filter(b => 
+        objectIds.has(b.fromObjectId) || objectIds.has(b.toObjectId)
+      );
+      
+      if (relevantBinomi.length > 0) {
+        // Converti binomi in connessioni locali
+        const localConnections = relevantBinomi.map(binomio => {
+          // Trova gli ID locali degli oggetti
+          const fromObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.fromObjectId);
+          const toObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.toObjectId);
+          
+          if (fromObj && toObj) {
+            const headerObjects = objects.filter(o => o.location === 'header');
+            const contentObjects = objects.filter(o => o.location === 'content');
+            
+            const fromLocalId = fromObj.location === 'header'
+              ? `header-obj-${headerObjects.indexOf(fromObj)}`
+              : `content-obj-${contentObjects.indexOf(fromObj)}`;
+            
+            const toLocalId = toObj.location === 'header'
+              ? `header-obj-${headerObjects.indexOf(toObj)}`
+              : `content-obj-${contentObjects.indexOf(toObj)}`;
+            
+            return {
+              id: binomio.id,
+              from: fromLocalId,
+              to: toLocalId,
+              fromPoint: binomio.fromPoint,
+              toPoint: binomio.toPoint
+            };
+          }
+          return null;
+        }).filter(Boolean);
+        
+        if (localConnections.length > 0) {
+          setConnections(localConnections);
+          console.log(`[${type}] Inizializzate ${localConnections.length} connessioni dal database`);
+        }
+      }
+    }
+  }, [initialBinomi, objects, type]);
   const [headerObjectPositions, setHeaderObjectPositions] = useState([]); // Posizioni bordi oggetti nell'header del Layer EC
   const [contentObjectPositions, setContentObjectPositions] = useState([]); // Posizioni bordi oggetti nel contenuto del Layer EC
   const [codeSelection, setCodeSelection] = useState({ start: null, end: null, text: '' }); // Selezione codice
@@ -2251,10 +2541,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const codeEditorRef = useRef(null);
   const codeDisplayRef = useRef(null);
 
-  // Notifica il componente padre quando gli oggetti cambiano
-  useEffect(() => {
-    onObjectsChange?.(objects);
-  }, [objects, onObjectsChange]);
+  // NOTA: onObjectsChange viene chiamato solo durante l'inizializzazione (linea 2461)
+  // e durante le azioni utente (transform, delete, etc.), NON qui per evitare loop infiniti
 
   const connectionHoverTargetRef = useRef(null);
   useEffect(() => {
@@ -2571,7 +2859,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     }
   };
 
-  const handleTransformGherkinToObject = () => {
+  const handleTransformGherkinToObject = async () => {
     console.log('handleTransformGherkinToObject chiamato', { selectedText, text });
     
     if (!selectedText) {
@@ -2611,12 +2899,54 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       return;
     }
     
+    // Genera ID e numero progressivo
+    if (!sessionId || !testCaseId || !generateECObjectId || !getNextBoxNumber) {
+      console.error('Parametri mancanti per salvare oggetto EC');
+      alert('Impossibile salvare oggetto EC: parametri mancanti');
+      return;
+    }
+    
+    const boxNumber = await getNextBoxNumber(type);
+    const objectId = generateECObjectId(type, boxNumber);
+    
+    if (!objectId) {
+      console.error('Impossibile generare ID oggetto EC');
+      alert('Impossibile generare ID oggetto EC');
+      return;
+    }
+    
     const newObject = {
       text: selectedTextTrimmed,
       startIndex: startIndex,
       endIndex: endIndex,
       location: 'header'
     };
+    
+    // Salva nel database
+    try {
+      const ecObject = {
+        id: objectId,
+        sessionId: sessionId,
+        testCaseId: String(testCaseId),
+        boxType: type,
+        boxNumber: boxNumber,
+        text: selectedTextTrimmed,
+        location: 'header',
+        startIndex: startIndex,
+        endIndex: endIndex,
+        createdAt: new Date().toISOString()
+      };
+      
+      await api.saveECObject(sessionId, ecObject);
+      onLogEvent?.('success', `Oggetto EC creato: ${objectId}`);
+      
+      // Aggiungi ID all'oggetto locale
+      newObject.id = objectId;
+      newObject.ecObjectId = objectId;
+    } catch (error) {
+      console.error('Errore salvataggio oggetto EC:', error);
+      onLogEvent?.('error', `Errore salvataggio oggetto EC: ${error.message}`);
+    }
     
     setObjects(prev => {
       const updated = [...prev, newObject].sort((a, b) => a.startIndex - b.startIndex);
@@ -2635,7 +2965,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     }
   };
 
-  const handleTransformCodeToObject = () => {
+  const handleTransformCodeToObject = async () => {
     if (!codeSelection.text || codeSelection.start === null || codeSelection.end === null) {
       alert('Seleziona una porzione di codice prima di trasformarla in oggetto.');
       setContextMenu(null);
@@ -2660,12 +2990,54 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       return;
     }
     
+    // Genera ID e numero progressivo
+    if (!sessionId || !testCaseId || !generateECObjectId || !getNextBoxNumber) {
+      console.error('Parametri mancanti per salvare oggetto EC');
+      alert('Impossibile salvare oggetto EC: parametri mancanti');
+      return;
+    }
+    
+    const boxNumber = await getNextBoxNumber(type);
+    const objectId = generateECObjectId(type, boxNumber);
+    
+    if (!objectId) {
+      console.error('Impossibile generare ID oggetto EC');
+      alert('Impossibile generare ID oggetto EC');
+      return;
+    }
+    
     const newObject = {
       text: codeSelection.text,
       startIndex: start,
       endIndex: end,
       location: 'content'
     };
+    
+    // Salva nel database
+    try {
+      const ecObject = {
+        id: objectId,
+        sessionId: sessionId,
+        testCaseId: String(testCaseId),
+        boxType: type,
+        boxNumber: boxNumber,
+        text: codeSelection.text,
+        location: 'content',
+        startIndex: start,
+        endIndex: end,
+        createdAt: new Date().toISOString()
+      };
+      
+      await api.saveECObject(sessionId, ecObject);
+      onLogEvent?.('success', `Oggetto EC creato: ${objectId}`);
+      
+      // Aggiungi ID all'oggetto locale
+      newObject.id = objectId;
+      newObject.ecObjectId = objectId;
+    } catch (error) {
+      console.error('Errore salvataggio oggetto EC:', error);
+      onLogEvent?.('error', `Errore salvataggio oggetto EC: ${error.message}`);
+    }
     
     setObjects(prev => {
       const updated = [...prev, newObject].sort((a, b) => a.startIndex - b.startIndex);
@@ -2680,7 +3052,22 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     setCodeSelection({ start: null, end: null, text: '' });
   };
 
-  const handleDeleteObject = (objectId) => {
+  const handleDeleteObject = async (objectId) => {
+    // Trova l'oggetto da eliminare per ottenere l'ID EC
+    let ecObjectId = null;
+    const objToDelete = objects.find(obj => {
+      const headerObjects = objects.filter(o => o.location === 'header');
+      const contentObjects = objects.filter(o => o.location === 'content');
+      const objId = obj.location === 'header' 
+        ? `header-obj-${headerObjects.indexOf(obj)}`
+        : `content-obj-${contentObjects.indexOf(obj)}`;
+      return objId === objectId;
+    });
+    
+    if (objToDelete?.ecObjectId) {
+      ecObjectId = objToDelete.ecObjectId;
+    }
+    
     setObjects(prev => {
       const updated = prev.filter(obj => {
         // Rimuovi l'oggetto in base all'indice o all'ID
@@ -2698,10 +3085,23 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       onObjectsChange?.(updated);
       return updated;
     });
+    
     // Rimuovi anche le connessioni associate
     setConnections(prev => prev.filter(conn => 
       conn.from !== objectId && conn.to !== objectId
     ));
+    
+    // Elimina dal database se abbiamo l'ID EC
+    if (ecObjectId && sessionId) {
+      try {
+        await api.deleteECObject(sessionId, ecObjectId);
+        onLogEvent?.('success', `Oggetto EC eliminato: ${ecObjectId}`);
+      } catch (error) {
+        console.error('Errore eliminazione oggetto EC:', error);
+        onLogEvent?.('error', `Errore eliminazione oggetto EC: ${error.message}`);
+      }
+    }
+    
     setObjectContextMenu(null);
     console.log('Oggetto eliminato:', objectId);
   };
@@ -2729,7 +3129,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     console.log('Modalità connessione drag attivata da:', fromObjectId, 'punto', perimeterPoint);
   };
 
-  const handleObjectClickForConnection = (targetObjectId, e) => {
+  const handleObjectClickForConnection = async (targetObjectId, e) => {
     if (connectingFrom && connectingFrom !== targetObjectId) {
       // Completa la connessione rilasciando su un oggetto
       const headerObjects = objects.filter(o => o.location === 'header');
@@ -2749,7 +3149,13 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
         return objId === targetObjectId;
       });
 
-      console.log('handleObjectClickForConnection:', { connectingFrom, targetObjectId, fromObj, toObj });
+      console.log('handleObjectClickForConnection:', { 
+        connectingFrom, 
+        targetObjectId, 
+        fromObj: fromObj ? { id: fromObj.id, ecObjectId: fromObj.ecObjectId, text: fromObj.text } : null,
+        toObj: toObj ? { id: toObj.id, ecObjectId: toObj.ecObjectId, text: toObj.text } : null,
+        objectsCount: objects.length
+      });
 
       if (fromObj && toObj) {
         // Calcola punto di connessione FROM (default o punto scelto dall'utente)
@@ -2792,6 +3198,91 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
           console.log('Connessioni aggiornate:', updated);
           return updated;
         });
+
+        // Salva Binomio Fondamentale nel database ISTANTANEAMENTE
+        if (sessionId && testCaseId && generateBinomioId && fromObj && toObj) {
+          try {
+            // Usa gli oggetti già trovati (fromObj e toObj)
+            // Verifica che abbiano l'ecObjectId (ID EC dal database) o usa l'id come fallback
+            const fromECId = fromObj.ecObjectId || fromObj.id;
+            const toECId = toObj.ecObjectId || toObj.id;
+            
+            console.log('🔗 Creando Binomio Fondamentale:', { 
+              fromObj: { id: fromObj.id, ecObjectId: fromObj.ecObjectId, text: fromObj.text?.substring(0, 50) },
+              toObj: { id: toObj.id, ecObjectId: toObj.ecObjectId, text: toObj.text?.substring(0, 50) },
+              fromECId,
+              toECId,
+              sessionId,
+              testCaseId
+            });
+            
+            if (fromECId && toECId && fromECId !== toECId) {
+              const binomioId = generateBinomioId();
+              if (binomioId) {
+                const binomio = {
+                  id: binomioId,
+                  sessionId: sessionId,
+                  testCaseId: String(testCaseId),
+                  fromObjectId: fromECId,
+                  toObjectId: toECId,
+                  fromPoint: fromPoint,
+                  toPoint: toPoint,
+                  createdAt: new Date().toISOString()
+                };
+                
+                console.log('💾 Salvando binomio nel database:', binomio);
+                try {
+                  const result = await api.saveBinomio(sessionId, binomio);
+                  console.log('✅ Binomio salvato con successo:', result);
+                  onLogEvent?.('success', `Binomio Fondamentale creato: ${binomioId}`);
+                } catch (saveError) {
+                  console.error('Errore salvataggio binomio:', saveError);
+                  const errorMessage = saveError?.message || saveError?.toString() || 'Errore sconosciuto durante il salvataggio del binomio';
+                  console.error('Dettagli errore binomio:', {
+                    error: saveError,
+                    message: errorMessage,
+                    binomio: binomio,
+                    sessionId,
+                    testCaseId
+                  });
+                  onLogEvent?.('error', `Errore salvataggio binomio: ${errorMessage}`);
+                }
+              } else {
+                console.error('❌ Impossibile generare ID binomio');
+                onLogEvent?.('error', 'Impossibile generare ID binomio');
+              }
+            } else {
+              console.warn('⚠️ Impossibile creare binomio - ID non validi:', {
+                fromECId,
+                toECId,
+                fromObj: { id: fromObj.id, ecObjectId: fromObj.ecObjectId },
+                toObj: { id: toObj.id, ecObjectId: toObj.ecObjectId },
+                sameObject: fromECId === toECId
+              });
+              onLogEvent?.('warning', 'Impossibile creare binomio: ID oggetti EC non validi');
+            }
+          } catch (error) {
+            console.error('Errore generale nella creazione del binomio:', error);
+            const errorMessage = error?.message || error?.toString() || 'Errore sconosciuto durante la creazione del binomio';
+            console.error('Dettagli errore generale:', {
+              error,
+              message: errorMessage,
+              sessionId,
+              testCaseId,
+              fromObj: fromObj ? { id: fromObj.id, ecObjectId: fromObj.ecObjectId } : null,
+              toObj: toObj ? { id: toObj.id, ecObjectId: toObj.ecObjectId } : null
+            });
+            onLogEvent?.('error', `Errore creazione binomio: ${errorMessage}`);
+          }
+        } else {
+          console.warn('Parametri mancanti per creare binomio:', {
+            sessionId: !!sessionId,
+            testCaseId: !!testCaseId,
+            generateBinomioId: !!generateBinomioId,
+            fromObj: !!fromObj,
+            toObj: !!toObj
+          });
+        }
       } else {
         console.warn('Oggetti non trovati per la connessione');
       }

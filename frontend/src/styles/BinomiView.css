@@ -1,0 +1,184 @@
+.binomi-view {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.binomi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.binomi-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.back-button {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.back-button:hover {
+  background: #5a6268;
+}
+
+.binomi-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+}
+
+.search-input,
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.search-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.binomi-stats {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.binomi-table-container {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+}
+
+.binomi-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.binomi-table thead {
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+}
+
+.binomi-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #555;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.binomi-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.binomi-table th.sortable:hover {
+  background: #e9ecef;
+}
+
+.binomi-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 13px;
+}
+
+.binomi-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.binomi-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.id-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #667eea;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-cell {
+  max-width: 300px;
+}
+
+.object-id {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #667eea;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-text {
+  font-size: 12px;
+  color: #333;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.point-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.date-cell {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-style: italic;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+

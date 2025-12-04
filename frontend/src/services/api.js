@@ -295,6 +295,84 @@ export const api = {
       throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
     return response.json();
+  },
+
+  /**
+   * Gestione Oggetti EC
+   */
+  async getECObjects(sessionId, testCaseId = null) {
+    const url = testCaseId 
+      ? `${API_BASE}/ec-objects/${sessionId}?testCaseId=${testCaseId}`
+      : `${API_BASE}/ec-objects/${sessionId}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async saveECObject(sessionId, object) {
+    const response = await fetch(`${API_BASE}/ec-objects/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(object)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async deleteECObject(sessionId, objectId) {
+    const response = await fetch(`${API_BASE}/ec-objects/${sessionId}/${objectId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Gestione Binomi Fondamentali
+   */
+  async getBinomi(sessionId, testCaseId = null) {
+    const url = testCaseId 
+      ? `${API_BASE}/binomi/${sessionId}?testCaseId=${testCaseId}`
+      : `${API_BASE}/binomi/${sessionId}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async saveBinomio(sessionId, binomio) {
+    const response = await fetch(`${API_BASE}/binomi/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(binomio)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async deleteBinomio(sessionId, binomioId) {
+    const response = await fetch(`${API_BASE}/binomi/${sessionId}/${binomioId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 };
 
