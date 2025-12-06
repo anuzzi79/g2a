@@ -1157,7 +1157,10 @@ export default function App() {
       let totalObjectsCreated = 0;
       let totalBinomiCreated = 0;
       const matches = []; // { testCaseId, phase, enunciato, matchedECObject, codiceAssociato }
-      const completedFields = {}; // Per salvare i metadati
+      // Carica i metadati esistenti per non perderli
+      const metadataKey = `session-${currentSession.id}_object_autocomplete_metadata`;
+      const existingMetadata = localStorage.getItem(metadataKey);
+      const completedFields = existingMetadata ? JSON.parse(existingMetadata) : {};
       
       for (let i = 0; i < allTestCases.length; i++) {
         const testCase = allTestCases[i];
@@ -1264,12 +1267,35 @@ export default function App() {
       // Fase 3: Creazione Oggetti EC e Inserimento Codice
       logEvent('info', '🔨 Fase 3: Creazione oggetti EC e inserimento codice...');
       
-      // Inizializza contatori binomi per ogni test case con i valori esistenti
-      const binomiCountByTestCase = new Map(); // testCaseId -> count
+      // Inizializza contatori binomi basandosi sull'ID più alto esistente per evitare sovrascritture
+      const binomiCountByTestCase = new Map(); // testCaseId -> maxIndex
       for (const binomio of allBinomi) {
-        const tcId = binomio.testCaseId;
-        const currentCount = binomiCountByTestCase.get(tcId) || 0;
-        binomiCountByTestCase.set(tcId, currentCount + 1);
+        const tcId = String(binomio.testCaseId); // Assicura che sia stringa per la chiave
+        // L'ID è nel formato bf-SESSION-TC#-NNN o bf-SESSION-TC#-NNN-TIMESTAMP
+        // Cerchiamo la parte numerica sequenziale dopo TC#
+        const parts = binomio.id.split('-');
+        // Cerca la parte che è un numero di 3 cifre (001, 002...)
+        const tcPartIndex = parts.findIndex(p => p.startsWith('TC') && p.length > 2);
+        if (tcPartIndex !== -1 && tcPartIndex + 1 < parts.length) {
+          const potentialNum = parseInt(parts[tcPartIndex + 1], 10);
+          if (!isNaN(potentialNum)) {
+            const currentMax = binomiCountByTestCase.get(tcId) || 0;
+            if (potentialNum > currentMax) {
+              binomiCountByTestCase.set(tcId, potentialNum);
+            }
+          }
+        }
+      }
+      
+      // Inizializza mappa dei codici correnti per gestire l'append corretto e gli indici
+      const currentCodes = new Map(); // testCaseId -> { given: '', when: '', then: '' }
+      for (const tc of allTestCases) {
+        const tcIdStr = String(tc.id); // Usa chiave stringa
+        currentCodes.set(tcIdStr, {
+          given: tc.blockStates?.given?.code || '',
+          when: tc.blockStates?.when?.code || '',
+          then: tc.blockStates?.then?.code || ''
+        });
       }
       
       // Raggruppa match per test case e fase per evitare duplicati
@@ -1459,6 +1485,12 @@ export default function App() {
               continue;
             }
             
+            // Calcola indice corretto per l'oggetto codice usando il codice corrente aggiornato
+            const tcIdStr = String(bestMatch.testCaseId); // Usa chiave stringa
+            const currentCode = currentCodes.get(tcIdStr)?.[bestMatch.phase] || '';
+            const separator = currentCode.trim() ? '\n\n' : '';
+            const codeStartIndex = currentCode.length + separator.length;
+            
             toECObject = {
               id: toObjectId,
               sessionId: currentSession.id,
@@ -1467,8 +1499,8 @@ export default function App() {
               boxNumber: codeBoxNumber,
               text: bestMatch.codiceAssociato.text,
               location: 'content',
-              startIndex: 0,
-              endIndex: bestMatch.codiceAssociato.text.length,
+              startIndex: codeStartIndex,
+              endIndex: codeStartIndex + bestMatch.codiceAssociato.text.length,
               createdAt: new Date().toISOString()
             };
             
@@ -1491,14 +1523,18 @@ export default function App() {
           
           // Crea binomio fondamentale
           logEvent('info', `  🔗 Creazione binomio fondamentale...`);
-          const currentCount = binomiCountByTestCase.get(bestMatch.testCaseId) || 0;
-          binomiCountByTestCase.set(bestMatch.testCaseId, currentCount + 1);
+          const tcIdKey = String(bestMatch.testCaseId); // Usa chiave stringa
+          const currentMax = binomiCountByTestCase.get(tcIdKey) || 0;
           
+          // Genera ID basato sul massimo attuale (generateBinomioId userà currentMax + 1)
           const binomioId = generateBinomioId(
             currentSession.id,
             bestMatch.testCaseId,
-            currentCount
+            currentMax
           );
+          
+          // Aggiorna il contatore per il prossimo binomio di questo test case
+          binomiCountByTestCase.set(tcIdKey, currentMax + 1);
           
           if (binomioId) {
             const binomio = {
@@ -1519,10 +1555,26 @@ export default function App() {
           
           // 4. Inserisci codice nel test case (smart insertion)
           logEvent('info', `  📝 Inserimento codice nel test case...`);
+          
+          const newCodeBlock = bestMatch.codiceAssociato.text;
+          
+          // Aggiorna la mappa locale dei codici per le prossime iterazioni
+          const tcIdStr = String(bestMatch.testCaseId); // Usa chiave stringa
+          if (currentCodes.has(tcIdStr)) {
+             const currentCode = currentCodes.get(tcIdStr)[bestMatch.phase] || '';
+             const separator = currentCode.trim() ? '\n\n' : '';
+             currentCodes.get(tcIdStr)[bestMatch.phase] = currentCode + separator + newCodeBlock;
+          } else {
+             // Caso di fallback se il test case non era in currentCodes
+             const separator = ''; 
+             currentCodes.set(tcIdStr, { given: '', when: '', then: '' });
+             currentCodes.get(tcIdStr)[bestMatch.phase] = newCodeBlock;
+          }
+
           await saveGeneratedCode(
             bestMatch.testCaseId,
             bestMatch.phase,
-            bestMatch.codiceAssociato.text,
+            newCodeBlock,
             null,
             currentSession.id
           );

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T12:55:20.736Z",
-  "lastUpdated": "2025-12-06T15:55:09.356Z",
+  "lastUpdated": "2025-12-06T16:29:00.638Z",
   "objects": [
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
@@ -13,7 +13,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 61,
-      "createdAt": "2025-12-06T15:54:06.722Z"
+      "createdAt": "2025-12-06T16:26:27.618Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
@@ -21,11 +21,11 @@
       "testCaseId": "1",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:54:09.414Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:26:31.311Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-1",
@@ -37,7 +37,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 61,
-      "createdAt": "2025-12-06T15:54:20.978Z"
+      "createdAt": "2025-12-06T16:26:37.501Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-2",
@@ -45,11 +45,11 @@
       "testCaseId": "2",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:54:21.008Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:26:37.511Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-1",
@@ -61,7 +61,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 61,
-      "createdAt": "2025-12-06T15:54:21.096Z"
+      "createdAt": "2025-12-06T16:26:37.547Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-2",
@@ -69,11 +69,11 @@
       "testCaseId": "3",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:54:21.114Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:26:37.555Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-1",
@@ -85,7 +85,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 61,
-      "createdAt": "2025-12-06T15:54:21.264Z"
+      "createdAt": "2025-12-06T16:26:37.593Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-2",
@@ -93,11 +93,11 @@
       "testCaseId": "4",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:54:21.287Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:26:37.599Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-1",
@@ -109,7 +109,7 @@
       "location": "header",
       "startIndex": 0,
       "endIndex": 60,
-      "createdAt": "2025-12-06T15:54:21.647Z"
+      "createdAt": "2025-12-06T16:26:37.642Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-2",
@@ -117,11 +117,11 @@
       "testCaseId": "16",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:54:21.699Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:26:37.647Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-3",
@@ -133,7 +133,7 @@
       "location": "header",
       "startIndex": 66,
       "endIndex": 84,
-      "createdAt": "2025-12-06T15:54:32.607Z"
+      "createdAt": "2025-12-06T16:27:00.295Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-4",
@@ -141,11 +141,11 @@
       "testCaseId": "2",
       "boxType": "given",
       "boxNumber": 4,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
-      "startIndex": 36,
-      "endIndex": 58,
-      "createdAt": "2025-12-06T15:54:45.602Z"
+      "startIndex": 14,
+      "endIndex": 32,
+      "createdAt": "2025-12-06T16:27:10.302Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-3",
@@ -157,7 +157,7 @@
       "location": "header",
       "startIndex": 66,
       "endIndex": 84,
-      "createdAt": "2025-12-06T15:55:07.706Z"
+      "createdAt": "2025-12-06T16:27:21.545Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-4",
@@ -165,11 +165,11 @@
       "testCaseId": "3",
       "boxType": "given",
       "boxNumber": 4,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
-      "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:07.717Z"
+      "startIndex": 11,
+      "endIndex": 29,
+      "createdAt": "2025-12-06T16:27:21.550Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-3",
@@ -181,7 +181,7 @@
       "location": "header",
       "startIndex": 66,
       "endIndex": 84,
-      "createdAt": "2025-12-06T15:55:07.814Z"
+      "createdAt": "2025-12-06T16:27:21.591Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-4",
@@ -189,11 +189,11 @@
       "testCaseId": "4",
       "boxType": "given",
       "boxNumber": 4,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
-      "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:07.839Z"
+      "startIndex": 11,
+      "endIndex": 29,
+      "createdAt": "2025-12-06T16:27:21.597Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-1",
@@ -205,7 +205,7 @@
       "location": "header",
       "startIndex": 67,
       "endIndex": 85,
-      "createdAt": "2025-12-06T15:55:07.985Z"
+      "createdAt": "2025-12-06T16:27:21.634Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-2",
@@ -213,11 +213,11 @@
       "testCaseId": "5",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:08.016Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.642Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC6-GIVEN-1",
@@ -229,7 +229,7 @@
       "location": "header",
       "startIndex": 68,
       "endIndex": 86,
-      "createdAt": "2025-12-06T15:55:08.326Z"
+      "createdAt": "2025-12-06T16:27:21.680Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC6-GIVEN-2",
@@ -237,11 +237,11 @@
       "testCaseId": "6",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:08.384Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.688Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC7-GIVEN-1",
@@ -253,7 +253,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 24,
-      "createdAt": "2025-12-06T15:55:08.616Z"
+      "createdAt": "2025-12-06T16:27:21.731Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC7-GIVEN-2",
@@ -261,11 +261,11 @@
       "testCaseId": "7",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:08.665Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.740Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC8-GIVEN-1",
@@ -277,7 +277,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 24,
-      "createdAt": "2025-12-06T15:55:08.888Z"
+      "createdAt": "2025-12-06T16:27:21.782Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC8-GIVEN-2",
@@ -285,11 +285,11 @@
       "testCaseId": "8",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:08.938Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.790Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC9-GIVEN-1",
@@ -301,7 +301,7 @@
       "location": "header",
       "startIndex": 6,
       "endIndex": 24,
-      "createdAt": "2025-12-06T15:55:09.029Z"
+      "createdAt": "2025-12-06T16:27:21.833Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC9-GIVEN-2",
@@ -309,11 +309,11 @@
       "testCaseId": "9",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:09.037Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.841Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC10-GIVEN-1",
@@ -325,7 +325,7 @@
       "location": "header",
       "startIndex": 10,
       "endIndex": 28,
-      "createdAt": "2025-12-06T15:55:09.117Z"
+      "createdAt": "2025-12-06T16:27:21.882Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC10-GIVEN-2",
@@ -333,11 +333,11 @@
       "testCaseId": "10",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "Aqui abre o Copy Modal",
+      "text": "copy modal is open",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 22,
-      "createdAt": "2025-12-06T15:55:09.124Z"
+      "endIndex": 18,
+      "createdAt": "2025-12-06T16:27:21.886Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC15-GIVEN-1",
@@ -349,7 +349,7 @@
       "location": "header",
       "startIndex": 0,
       "endIndex": 62,
-      "createdAt": "2025-12-06T15:55:09.250Z"
+      "createdAt": "2025-12-06T16:27:21.914Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC15-GIVEN-2",
@@ -357,11 +357,107 @@
       "testCaseId": "15",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "aqui vai no percurso de Active Tab",
+      "text": "dsgdgdsgs",
       "location": "content",
       "startIndex": 0,
-      "endIndex": 34,
-      "createdAt": "2025-12-06T15:55:09.283Z"
+      "endIndex": 9,
+      "createdAt": "2025-12-06T16:27:21.919Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-5",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 5,
+      "text": "A coisa do save que deve ser activo",
+      "location": "content",
+      "startIndex": 37,
+      "endIndex": 72,
+      "createdAt": "2025-12-06T16:27:47.186Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-6",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 6,
+      "text": "Save as is set \"Active\"",
+      "location": "header",
+      "startIndex": 89,
+      "endIndex": 112,
+      "createdAt": "2025-12-06T16:27:49.972Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-5",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "4",
+      "boxType": "given",
+      "boxNumber": 5,
+      "text": "Save as is set \"Active\"",
+      "location": "header",
+      "startIndex": 89,
+      "endIndex": 112,
+      "createdAt": "2025-12-06T16:28:09.530Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-6",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "4",
+      "boxType": "given",
+      "boxNumber": 6,
+      "text": "A coisa do save que deve ser activo",
+      "location": "content",
+      "startIndex": 31,
+      "endIndex": 66,
+      "createdAt": "2025-12-06T16:28:09.540Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-3",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 3,
+      "text": "Given the user is at path \"WEB FG/ListofProject /Template_tab\"",
+      "location": "header",
+      "startIndex": 0,
+      "endIndex": 62,
+      "createdAt": "2025-12-06T16:28:09.578Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-4",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 4,
+      "text": "dsgdgdsgs",
+      "location": "content",
+      "startIndex": 20,
+      "endIndex": 29,
+      "createdAt": "2025-12-06T16:28:09.584Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-5",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 5,
+      "text": "Save as is set \"Active\"",
+      "location": "header",
+      "startIndex": 90,
+      "endIndex": 113,
+      "createdAt": "2025-12-06T16:29:00.611Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC5-GIVEN-6",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 6,
+      "text": "A coisa do save que deve ser activo",
+      "location": "content",
+      "startIndex": 31,
+      "endIndex": 66,
+      "createdAt": "2025-12-06T16:29:00.618Z"
     }
   ]
 }
