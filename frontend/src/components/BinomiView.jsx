@@ -220,3 +220,5 @@ export function BinomiView({ sessionId, onBack, onLogEvent }) {
   );
 }
 
+
+

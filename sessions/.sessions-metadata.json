@@ -10,5 +10,27 @@
     "createdAt": "2025-12-02T21:30:51.991Z",
     "lastAccessed": "2025-12-02T22:03:52.670Z",
     "status": "active"
+  },
+  "session-af02d251-4bbd-48aa-93bc-c7d164718e20": {
+    "name": "nova",
+    "createdAt": "2025-12-03T19:58:41.031Z",
+    "lastAccessed": "2025-12-04T02:55:28.820Z",
+    "status": "active"
+  },
+  "session-3588c93a-6147-4411-aa0b-58817d628242": {
+    "name": "tony6",
+    "createdAt": "2025-12-03T12:22:16.131Z",
+    "lastAccessed": "2025-12-06T11:51:39.132Z",
+    "status": "active",
+    "csvFileName": "FGC-9969.csv",
+    "csvSavedAt": "2025-12-04T02:56:48.085Z"
+  },
+  "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e": {
+    "name": "TONY8",
+    "createdAt": "2025-12-06T11:52:28.746Z",
+    "lastAccessed": "2025-12-06T12:44:18.952Z",
+    "status": "active",
+    "csvFileName": "FGC-9969.csv",
+    "csvSavedAt": "2025-12-06T11:52:45.136Z"
   }
 }

@@ -47,3 +47,5 @@ g2a/
 2. Select Cypress project directory to extract Page Objects context
 3. Let AI analyze and generate Cypress automation scripts
 
+
+

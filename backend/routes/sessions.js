@@ -336,5 +336,120 @@ router.post('/migrate-legacy', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/sessions/:id/csv
+ * Salva il file CSV nella sessione
+ */
+router.post('/:id/csv', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { csvContent, fileName } = req.body;
+
+    if (!csvContent) {
+      return res.status(400).json({ error: 'Contenuto CSV richiesto' });
+    }
+
+    const basePath = getSessionsBasePath();
+    const sessionPath = path.join(basePath, id);
+
+    // Verifica che la sessione esista
+    try {
+      await fs.access(sessionPath);
+    } catch {
+      return res.status(404).json({ error: 'Sessione non trovata' });
+    }
+
+    // Assicura che la cartella csv esista
+    const csvDir = path.join(sessionPath, 'csv');
+    await fs.mkdir(csvDir, { recursive: true });
+
+    // Salva il file CSV (usa un nome fisso per garantire un unico file per sessione)
+    const csvFileName = 'test_cases.csv';
+    const csvFilePath = path.join(csvDir, csvFileName);
+    await fs.writeFile(csvFilePath, csvContent, 'utf8');
+
+    // Aggiorna metadata.json con il nome del file CSV originale
+    const metadataPath = path.join(sessionPath, 'metadata.json');
+    let metadata = {};
+    try {
+      const data = await fs.readFile(metadataPath, 'utf8');
+      metadata = JSON.parse(data);
+    } catch {
+      // Crea nuovo metadata se non esiste
+    }
+
+    metadata.csvFileName = fileName || csvFileName;
+    metadata.csvSavedAt = new Date().toISOString();
+    
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+
+    // Aggiorna metadati globali
+    const globalMetadata = await getSessionsMetadata();
+    globalMetadata[id] = metadata;
+    await saveSessionsMetadata(globalMetadata);
+
+    res.json({ 
+      success: true, 
+      message: 'CSV salvato con successo',
+      fileName: metadata.csvFileName
+    });
+  } catch (error) {
+    console.error('Errore salvataggio CSV:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/sessions/:id/csv
+ * Carica il file CSV dalla sessione
+ */
+router.get('/:id/csv', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const basePath = getSessionsBasePath();
+    const sessionPath = path.join(basePath, id);
+
+    // Verifica che la sessione esista
+    try {
+      await fs.access(sessionPath);
+    } catch {
+      return res.status(404).json({ error: 'Sessione non trovata' });
+    }
+
+    // Leggi metadata per ottenere il nome del file CSV originale
+    const metadataPath = path.join(sessionPath, 'metadata.json');
+    let metadata = {};
+    try {
+      const data = await fs.readFile(metadataPath, 'utf8');
+      metadata = JSON.parse(data);
+    } catch {
+      // Metadata non esiste
+    }
+
+    // Prova a leggere il file CSV (nome fisso)
+    const csvFilePath = path.join(sessionPath, 'csv', 'test_cases.csv');
+    
+    try {
+      const csvContent = await fs.readFile(csvFilePath, 'utf8');
+      
+      res.json({
+        success: true,
+        csvContent,
+        fileName: metadata.csvFileName || 'test_cases.csv',
+        savedAt: metadata.csvSavedAt
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return res.status(404).json({ error: 'File CSV non trovato per questa sessione' });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Errore caricamento CSV:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
 

@@ -44,18 +44,62 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     }
   }, [currentSession?.id, testCase?.id]);
 
-  // Funzione per generare ID binomio
+  // Contatore locale per garantire unicità degli ID binomi
+  const binomioCounterRef = useRef(new Map()); // Map<testCaseId, counter>
+  
+  // Funzione per generare ID binomio univoco
   const generateBinomioId = useCallback(() => {
     if (!currentSession?.id || !testCase?.id) {
       return null;
     }
-    // Conta binomi esistenti per questo test case
-    const existingBinomi = loadedBinomi.filter(
-      b => b.testCaseId === String(testCase.id)
-    );
-    const nextNumber = String(existingBinomi.length + 1).padStart(3, '0');
-    return `bf-${currentSession.id}-TC${testCase.id}-${nextNumber}`;
+    const testCaseIdStr = String(testCase.id);
+    
+    // Inizializza il contatore con il numero di binomi esistenti per questo test case
+    if (!binomioCounterRef.current.has(testCaseIdStr)) {
+      const existingBinomi = loadedBinomi.filter(
+        b => b.testCaseId === testCaseIdStr
+      );
+      binomioCounterRef.current.set(testCaseIdStr, existingBinomi.length);
+    }
+    
+    // Incrementa il contatore per questo test case
+    const currentCount = binomioCounterRef.current.get(testCaseIdStr) || 0;
+    const nextCount = currentCount + 1;
+    binomioCounterRef.current.set(testCaseIdStr, nextCount);
+    
+    // Usa timestamp per garantire unicità assoluta anche in caso di salvataggi rapidi/contemporanei
+    const timestamp = Date.now();
+    const nextNumber = String(nextCount).padStart(3, '0');
+    // Formato: bf-{sessionId}-TC{testCaseId}-{numeroSequenziale}-{timestamp}
+    return `bf-${currentSession.id}-TC${testCase.id}-${nextNumber}-${timestamp}`;
   }, [currentSession?.id, testCase?.id, loadedBinomi]);
+  
+  // Reset del contatore quando cambiano sessione o test case
+  useEffect(() => {
+    binomioCounterRef.current.clear();
+  }, [currentSession?.id, testCase?.id]);
+  
+  // Inizializza il contatore quando vengono caricati i binomi
+  useEffect(() => {
+    if (loadedBinomi.length > 0 && testCase?.id) {
+      const testCaseIdStr = String(testCase.id);
+      const existingBinomi = loadedBinomi.filter(
+        b => b.testCaseId === testCaseIdStr
+      );
+      // Trova il numero sequenziale massimo tra i binomi esistenti
+      let maxNumber = 0;
+      for (const binomio of existingBinomi) {
+        // Estrai il numero sequenziale dall'ID (formato: ...-NNN-timestamp)
+        const match = binomio.id.match(/-TC\d+-(\d{3})-/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          maxNumber = Math.max(maxNumber, num);
+        }
+      }
+      binomioCounterRef.current.set(testCaseIdStr, maxNumber);
+      console.log(`Contatore binomi inizializzato per TC${testCaseIdStr}: ${maxNumber}`);
+    }
+  }, [loadedBinomi, testCase?.id]);
 
   // Carica oggetti EC e binomi dal database al mount
   useEffect(() => {
@@ -79,6 +123,30 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     };
     loadECData();
   }, [currentSession?.id, testCase?.id, onLogEvent]);
+  
+  // Callback per aggiornare loadedBinomi quando viene salvato un nuovo binomio
+  const handleBinomioSaved = useCallback((binomio) => {
+    setLoadedBinomi(prev => {
+      const existing = prev.find(b => b.id === binomio.id);
+      if (existing) {
+        // Se esiste già, aggiornalo
+        return prev.map(b => b.id === binomio.id ? binomio : b);
+      } else {
+        // Altrimenti aggiungilo
+        console.log('📝 Aggiunto nuovo binomio a loadedBinomi:', binomio.id);
+        return [...prev, binomio];
+      }
+    });
+  }, []);
+  
+  // Callback per aggiornare loadedBinomi quando viene cancellato un binomio
+  const handleBinomioDeleted = useCallback((binomioId) => {
+    setLoadedBinomi(prev => {
+      const filtered = prev.filter(b => b.id !== binomioId);
+      console.log('🗑️ Rimosso binomio da loadedBinomi:', binomioId);
+      return filtered;
+    });
+  }, []);
 
   // Helper per ottenere oggetti per un box type specifico
   const getObjectsForBoxType = useCallback((boxType) => {
@@ -133,8 +201,6 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
   const [targetFilePath, setTargetFilePath] = useState('');
   const [isLoadingState, setIsLoadingState] = useState(false);
   const [hasLoadedState, setHasLoadedState] = useState(false);
-  const [isGlobalAutocompleteRunning, setIsGlobalAutocompleteRunning] = useState(false);
-  const [globalAutocompleteProgress, setGlobalAutocompleteProgress] = useState(null);
   const [showECObjectsView, setShowECObjectsView] = useState(false);
   const [showBinomiView, setShowBinomiView] = useState(false);
   const testFileStorageKey = useMemo(
@@ -1666,80 +1732,8 @@ ${mergedCode}
     return completed;
   };
 
-  // Funzione principale Global Autocomplete
-  const handleGlobalAutocomplete = async () => {
-    if (!currentSession) {
-      onLogEvent?.('error', 'Nessuna sessione disponibile');
-      return;
-    }
-
-    setIsGlobalAutocompleteRunning(true);
-    setGlobalAutocompleteProgress({ current: 0, total: 0, message: 'Inizializzazione...' });
-    
-    try {
-      onLogEvent?.('info', '🚀 Avvio Global Autocomplete...');
-      
-      // 1. Carica tutti i test cases della sessione con i loro stati
-      const allTestCasesWithState = await loadAllTestCasesWithState(currentSession.id);
-      
-      // 2. Separa test cases codificati da non codificati
-      const { coded, uncoded } = categorizeTestCases(allTestCasesWithState);
-      
-      if (coded.length === 0) {
-        onLogEvent?.('warning', 'Nessun test case già codificato trovato. Global Autocomplete richiede almeno un test case con codice.');
-        return;
-      }
-      
-      if (uncoded.length === 0) {
-        onLogEvent?.('info', 'Tutti i test cases sono già codificati!');
-        return;
-      }
-      
-      onLogEvent?.('info', `Trovati ${coded.length} test cases codificati e ${uncoded.length} con box vuoti`);
-      
-      // 3. Per ogni test case non codificato, completa i box GWT vuoti
-      let completedCount = 0;
-      const completedFields = {}; // { testCaseId: { given: true, when: false, then: true } }
-      
-      for (let i = 0; i < uncoded.length; i++) {
-        const tc = uncoded[i];
-        setGlobalAutocompleteProgress({ 
-          current: i + 1, 
-          total: uncoded.length, 
-          message: `Elaborando Test Case #${tc.id}...` 
-        });
-        
-        const completed = await completeTestCaseGWT(tc, coded, allTestCasesWithState);
-        
-        if (completed.given || completed.when || completed.then) {
-          completedFields[tc.id] = completed;
-          completedCount++;
-        }
-      }
-      
-      // 4. Salva i metadati di completamento per mostrare nella lista
-      saveGlobalAutocompleteMetadata(currentSession.id, completedFields);
-      
-      onLogEvent?.('success', `✅ Global Autocomplete completato! ${completedCount} test cases aggiornati.`);
-      
-      // 5. Forza refresh della lista (se siamo nella vista lista)
-      if (onUpdateTestCase) {
-        // Notifica il componente padre per aggiornare la lista
-        window.dispatchEvent(new CustomEvent('global-autocomplete-completed', { 
-          detail: { sessionId: currentSession.id, completedFields } 
-        }));
-      }
-      
-    } catch (error) {
-      console.error('Errore Global Autocomplete:', error);
-      onLogEvent?.('error', `Errore Global Autocomplete: ${error.message}`);
-    } finally {
-      setIsGlobalAutocompleteRunning(false);
-      setGlobalAutocompleteProgress(null);
-    }
-  };
-
   // ========== END GLOBAL AUTOCOMPLETE FUNCTIONS ==========
+  // Nota: handleGlobalAutocomplete è stata spostata in App.jsx
 
   // ========== GLOBAL COMPLETE PER SINGOLO BOX GWT ==========
 
@@ -2114,102 +2108,42 @@ ${mergedCode}
   return (
     <div className="test-case-builder">
       <div className="builder-header">
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button onClick={onBack} className="back-button">← Torna alla lista</button>
+        <div className="builder-header-left">
+          <button onClick={onBack} className="builder-header-button back-button">
+            ← Torna alla lista
+          </button>
           {currentSession?.id && (
             <>
               <button 
                 onClick={() => setShowECObjectsView(true)} 
-                className="view-button"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
+                className="builder-header-button view-button-ec"
               >
                 📊 Visualizza Oggetti EC
               </button>
               <button 
                 onClick={() => setShowBinomiView(true)} 
-                className="view-button"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#ff9800',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
+                className="builder-header-button view-button-binomi"
               >
                 🔗 Visualizza Binomi Fondamentali
               </button>
             </>
           )}
         </div>
-        <h2>Costruzione Test Case #{testCase.id}</h2>
-        {/* Aggiungi pulsanti per salvare e testare il codice completo */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* Bottone Global Autocomplete */}
+        <div className="builder-header-center">
+          <h2>Costruzione Test Case #{testCase.id}</h2>
+        </div>
+        <div className="builder-header-right">
           <button
-            className="global-autocomplete-button"
-            onClick={handleGlobalAutocomplete}
-            disabled={isGlobalAutocompleteRunning}
-            style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '50%',
-              backgroundColor: isGlobalAutocompleteRunning ? '#95a5a6' : '#28a745',
-              color: 'white',
-              border: 'none',
-              cursor: isGlobalAutocompleteRunning ? 'not-allowed' : 'pointer',
-              fontSize: '20px',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              transition: 'all 0.3s ease'
-            }}
-            title="Global Autocomplete: Completa automaticamente tutti i box GWT vuoti basandosi su test cases simili"
-          >
-            {isGlobalAutocompleteRunning ? '⏳' : '✨'}
-          </button>
-          <button
-            className="upload-test-button"
+            className="builder-header-button upload-test-button"
             onClick={handleUploadTest}
-            style={{ 
-              padding: '10px 20px', 
-              backgroundColor: '#ffc107', 
-              color: '#212529', 
-              border: 'none', 
-              borderRadius: '5px', 
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold'
-            }}
             title="Carica un file Cypress e estrai le fasi Given/When/Then"
           >
             📤 Upload Test
           </button>
           {buildCompleteTestCode() && (
             <button
-              className="save-button"
+              className="builder-header-button save-button"
               onClick={handleSaveFile}
-              style={{ 
-                padding: '10px 20px', 
-                backgroundColor: '#17a2b8', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '5px', 
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
               title="Salva il test completo nel file Cypress"
             >
               💾 Salva File
@@ -2217,18 +2151,8 @@ ${mergedCode}
           )}
           {buildCompleteTestCode() && (
             <button
-              className="test-complete-button"
+              className="builder-header-button test-complete-button"
               onClick={handleOpenRunner}
-              style={{ 
-                padding: '10px 20px', 
-                backgroundColor: '#4CAF50', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '5px', 
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
               disabled={!targetFilePath?.trim()}
               title={
                 targetFilePath?.trim()
@@ -2264,27 +2188,6 @@ ${mergedCode}
         </p>
       </div>
 
-      {globalAutocompleteProgress && (
-        <div style={{ 
-          margin: '15px 0', 
-          padding: '12px 15px', 
-          backgroundColor: '#e3f2fd', 
-          border: '1px solid #2196f3', 
-          borderRadius: '5px',
-          fontSize: '14px'
-        }}>
-          <strong>⏳ Global Autocomplete in corso...</strong>
-          <div style={{ marginTop: '8px' }}>
-            {globalAutocompleteProgress.message}
-            {globalAutocompleteProgress.total > 0 && (
-              <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
-                Progresso: {globalAutocompleteProgress.current} / {globalAutocompleteProgress.total}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {!context && (
         <div style={{ 
           margin: '15px 0', 
@@ -2318,6 +2221,7 @@ ${mergedCode}
         getNextBoxNumber={getNextBoxNumber}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
+        onBinomioSaved={handleBinomioSaved}
         initialObjects={getObjectsForBoxType('given')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2342,6 +2246,7 @@ ${mergedCode}
         getNextBoxNumber={getNextBoxNumber}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
+        onBinomioSaved={handleBinomioSaved}
         initialObjects={getObjectsForBoxType('when')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2366,6 +2271,7 @@ ${mergedCode}
         getNextBoxNumber={getNextBoxNumber}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
+        onBinomioSaved={handleBinomioSaved}
         initialObjects={getObjectsForBoxType('then')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2388,7 +2294,7 @@ ${mergedCode}
 /**
  * Blocco Gherkin espandibile (Given/When/Then)
  */
-function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete, testCaseId, sessionId, generateECObjectId, getNextBoxNumber, generateBinomioId, onLogEvent, initialObjects = [], initialBinomi = [] }) {
+function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete, testCaseId, sessionId, generateECObjectId, getNextBoxNumber, generateBinomioId, onLogEvent, onBinomioSaved, onBinomioDeleted, initialObjects = [], initialBinomi = [] }) {
   const [showWideReasoningMenu, setShowWideReasoningMenu] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState('');
@@ -2399,6 +2305,9 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const lastNotifiedIdsRef = useRef(''); // Traccia gli ID per cui abbiamo già notificato il padre
   const lastTestCaseIdRef = useRef(testCaseId);
   const lastTypeRef = useRef(type);
+  const connectionsInitializedRef = useRef(false); // Traccia se le connessioni sono state inizializzate
+  const lastLoadedBinomiIdsRef = useRef(''); // Traccia gli ID dei binomi già caricati per evitare ricariche inutili
+  const lastObjectIdsRef = useRef(''); // Traccia gli ID degli oggetti già caricati
   
   // Reset quando cambia il testCaseId o il type
   useEffect(() => {
@@ -2406,6 +2315,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       initializedIdsRef.current.clear();
       lastNotifiedIdsRef.current = '';
       setObjects([]);
+      setConnections([]);
+      connectionsInitializedRef.current = false;
+      lastLoadedBinomiIdsRef.current = '';
+      lastObjectIdsRef.current = '';
       lastTestCaseIdRef.current = testCaseId;
       lastTypeRef.current = type;
     }
@@ -2429,6 +2342,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
         initializedIdsRef.current.clear();
         lastNotifiedIdsRef.current = '';
         setObjects([]);
+        setConnections([]);
+        connectionsInitializedRef.current = false;
+        lastLoadedBinomiIdsRef.current = '';
+        lastObjectIdsRef.current = '';
       }
       return;
     }
@@ -2474,50 +2391,135 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
   // Inizializza connessioni dai binomi caricati
   useEffect(() => {
-    if (initialBinomi && initialBinomi.length > 0 && objects.length > 0 && initializedIdsRef.current.size > 0) {
-      // Trova le connessioni che coinvolgono oggetti di questo box
-      const objectIds = new Set(objects.map(obj => obj.ecObjectId || obj.id));
-      const relevantBinomi = initialBinomi.filter(b => 
-        objectIds.has(b.fromObjectId) || objectIds.has(b.toObjectId)
-      );
-      
-      if (relevantBinomi.length > 0) {
-        // Converti binomi in connessioni locali
-        const localConnections = relevantBinomi.map(binomio => {
-          // Trova gli ID locali degli oggetti
-          const fromObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.fromObjectId);
-          const toObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.toObjectId);
-          
-          if (fromObj && toObj) {
-            const headerObjects = objects.filter(o => o.location === 'header');
-            const contentObjects = objects.filter(o => o.location === 'content');
-            
-            const fromLocalId = fromObj.location === 'header'
-              ? `header-obj-${headerObjects.indexOf(fromObj)}`
-              : `content-obj-${contentObjects.indexOf(fromObj)}`;
-            
-            const toLocalId = toObj.location === 'header'
-              ? `header-obj-${headerObjects.indexOf(toObj)}`
-              : `content-obj-${contentObjects.indexOf(toObj)}`;
-            
-            return {
-              id: binomio.id,
-              from: fromLocalId,
-              to: toLocalId,
-              fromPoint: binomio.fromPoint,
-              toPoint: binomio.toPoint
-            };
-          }
-          return null;
-        }).filter(Boolean);
-        
-        if (localConnections.length > 0) {
-          setConnections(localConnections);
-          console.log(`[${type}] Inizializzate ${localConnections.length} connessioni dal database`);
+    // Reset connessioni se testCaseId o type sono cambiati
+    if (lastTestCaseIdRef.current !== testCaseId || lastTypeRef.current !== type) {
+      setConnections([]);
+      connectionsInitializedRef.current = false;
+      lastLoadedBinomiIdsRef.current = '';
+      lastObjectIdsRef.current = '';
+      return;
+    }
+    
+    // Verifica se ci sono binomi da caricare e se gli oggetti sono pronti
+    if (!initialBinomi || initialBinomi.length === 0 || objects.length === 0 || initializedIdsRef.current.size === 0) {
+      // Se non ci sono binomi ma gli oggetti sono pronti, resetta le connessioni
+      if (objects.length > 0 && initializedIdsRef.current.size > 0 && (!initialBinomi || initialBinomi.length === 0)) {
+        if (connections.length > 0) {
+          console.log(`[${type}] Nessun binomio disponibile, reset connessioni`);
+          setConnections([]);
         }
       }
+      return;
     }
-  }, [initialBinomi, objects, type]);
+    
+    // Crea una stringa stabile degli ID dei binomi per verificare se sono cambiati
+    const currentBinomiIds = initialBinomi
+      .map(b => b.id)
+      .filter(Boolean)
+      .sort()
+      .join(',');
+    
+    // Crea anche una stringa stabile degli ID degli oggetti per verificare se sono cambiati
+    const currentObjectIds = Array.from(initializedIdsRef.current).sort().join(',');
+    
+    // Se i binomi E gli oggetti sono gli stessi già caricati, non ricaricare
+    // Ma solo se abbiamo già caricato qualcosa e non siamo in fase di inizializzazione
+    if (connectionsInitializedRef.current && 
+        currentBinomiIds === lastLoadedBinomiIdsRef.current &&
+        currentObjectIds === lastObjectIdsRef.current &&
+        currentBinomiIds.length > 0) {
+      console.log(`[${type}] Binomi e oggetti invariati, salto ricaricamento (binomi: ${currentBinomiIds.split(',').length})`);
+      return;
+    }
+    
+    // Ricarica se:
+    // 1. Non sono ancora state inizializzate le connessioni
+    // 2. Gli ID dei binomi sono cambiati
+    // 3. Gli ID degli oggetti sono cambiati
+    console.log(`[${type}] Preparazione al ricaricamento connessioni:`, {
+      initialized: connectionsInitializedRef.current,
+      binomiChanged: currentBinomiIds !== lastLoadedBinomiIdsRef.current,
+      objectsChanged: currentObjectIds !== lastObjectIdsRef.current,
+      currentBinomiCount: currentBinomiIds.split(',').filter(Boolean).length,
+      previousBinomiCount: lastLoadedBinomiIdsRef.current.split(',').filter(Boolean).length
+    });
+    
+    // Trova le connessioni che coinvolgono oggetti di questo box
+    const objectIds = new Set(objects.map(obj => obj.ecObjectId || obj.id));
+    const relevantBinomi = initialBinomi.filter(b => 
+      objectIds.has(b.fromObjectId) && objectIds.has(b.toObjectId)
+    );
+    
+    console.log(`[${type}] Caricando connessioni: ${relevantBinomi.length} binomi rilevanti su ${initialBinomi.length} totali per ${objects.length} oggetti`, {
+      relevantBinomiIds: relevantBinomi.map(b => b.id),
+      allBinomiIds: initialBinomi.map(b => b.id),
+      objectIds: Array.from(objectIds)
+    });
+    
+    if (relevantBinomi.length > 0) {
+      // Converti binomi in connessioni locali
+      const localConnections = relevantBinomi.map(binomio => {
+        // Trova gli ID locali degli oggetti
+        const fromObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.fromObjectId);
+        const toObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.toObjectId);
+        
+        if (fromObj && toObj) {
+          const headerObjects = objects.filter(o => o.location === 'header');
+          const contentObjects = objects.filter(o => o.location === 'content');
+          
+          const fromLocalId = fromObj.location === 'header'
+            ? `header-obj-${headerObjects.indexOf(fromObj)}`
+            : `content-obj-${contentObjects.indexOf(fromObj)}`;
+          
+          const toLocalId = toObj.location === 'header'
+            ? `header-obj-${headerObjects.indexOf(toObj)}`
+            : `content-obj-${contentObjects.indexOf(toObj)}`;
+          
+          return {
+            id: binomio.id,
+            from: fromLocalId,
+            to: toLocalId,
+            fromPoint: binomio.fromPoint || { x: 0.5, y: 1.0 },
+            toPoint: binomio.toPoint || { x: 0.5, y: 1.0 }
+          };
+        }
+        console.warn(`[${type}] Binomio ${binomio.id}: oggetti non trovati`, {
+          fromObjectId: binomio.fromObjectId,
+          toObjectId: binomio.toObjectId,
+          availableIds: Array.from(objectIds),
+          allObjects: objects.map(o => ({ id: o.id, ecObjectId: o.ecObjectId }))
+        });
+        return null;
+      }).filter(Boolean);
+      
+      if (localConnections.length > 0) {
+        // IMPORTANTE: Sostituisci sempre tutte le connessioni con quelle caricate dal database
+        // per garantire che tutti i binomi siano presenti
+        setConnections(localConnections);
+        connectionsInitializedRef.current = true;
+        lastLoadedBinomiIdsRef.current = currentBinomiIds;
+        lastObjectIdsRef.current = currentObjectIds;
+        console.log(`[${type}] ✅ Inizializzate ${localConnections.length} connessioni dal database (IDs: ${localConnections.map(c => c.id).join(', ')})`);
+      } else if (relevantBinomi.length > 0) {
+        console.warn(`[${type}] ⚠️ Nessuna connessione valida generata da ${relevantBinomi.length} binomi rilevanti`);
+        // Anche se non riusciamo a generare connessioni, marca come inizializzato per evitare loop
+        connectionsInitializedRef.current = true;
+        lastLoadedBinomiIdsRef.current = currentBinomiIds;
+        lastObjectIdsRef.current = currentObjectIds;
+      }
+    } else if (initialBinomi.length > 0) {
+      console.log(`[${type}] Nessun binomio rilevante per gli oggetti di questo box`, {
+        allBinomi: initialBinomi.map(b => ({ id: b.id, from: b.fromObjectId, to: b.toObjectId })),
+        objectIds: Array.from(objectIds)
+      });
+      // Marca come inizializzato anche se non ci sono binomi, per evitare controlli continui
+      if (!connectionsInitializedRef.current) {
+        connectionsInitializedRef.current = true;
+        lastLoadedBinomiIdsRef.current = currentBinomiIds;
+        lastObjectIdsRef.current = currentObjectIds;
+      }
+    }
+  }, [initialBinomi, objects, type, testCaseId]);
   const [headerObjectPositions, setHeaderObjectPositions] = useState([]); // Posizioni bordi oggetti nell'header del Layer EC
   const [contentObjectPositions, setContentObjectPositions] = useState([]); // Posizioni bordi oggetti nel contenuto del Layer EC
   const [codeSelection, setCodeSelection] = useState({ start: null, end: null, text: '' }); // Selezione codice
@@ -2528,7 +2530,9 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const [connectingMousePos, setConnectingMousePos] = useState(null); // Posizione mouse durante connessione: { x, y }
   const [connectionHoverTarget, setConnectionHoverTarget] = useState(null); // ID oggetto sotto il mouse durante la connessione
   const [draggingConnectionPoint, setDraggingConnectionPoint] = useState(null); // { connectionId, pointType: 'from' | 'to' }
+  const [connectionContextMenu, setConnectionContextMenu] = useState(null); // { connectionId, x, y }
   const dropdownRef = useRef(null);
+  const connectionContextMenuRef = useRef(null);
   const gherkinTextRef = useRef(null);
   const contextMenuRef = useRef(null);
   const layerECRef = useRef(null);
@@ -2540,6 +2544,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const layerECContentRef = useRef(null);
   const codeEditorRef = useRef(null);
   const codeDisplayRef = useRef(null);
+  const lineNumbersRef = useRef(null);
 
   // NOTA: onObjectsChange viene chiamato solo durante l'inizializzazione (linea 2461)
   // e durante le azioni utente (transform, delete, etc.), NON qui per evitare loop infiniti
@@ -2703,6 +2708,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       const clickedInsideCode = codeEditorRef.current?.contains(event.target);
       const clickedInsideContextMenu = contextMenuRef.current?.contains(event.target);
       const clickedInsideObjectMenu = document.querySelector('.object-context-menu')?.contains(event.target);
+      const clickedInsideConnectionMenu = connectionContextMenuRef.current?.contains(event.target);
       const isInsideTarget = contextMenu?.target === 'code' ? clickedInsideCode : clickedInsideText;
       
       if (contextMenu && !isInsideTarget && !clickedInsideContextMenu) {
@@ -2711,6 +2717,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       
       if (objectContextMenu && !clickedInsideObjectMenu) {
         setObjectContextMenu(null);
+      }
+      
+      if (connectionContextMenu && !clickedInsideConnectionMenu) {
+        setConnectionContextMenu(null);
       }
 
       // Gestione drag dei punti di connessione
@@ -3052,6 +3062,59 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     setCodeSelection({ start: null, end: null, text: '' });
   };
 
+  // Funzione per cancellare un binomio/connessione
+  const handleDeleteConnection = async (connectionId) => {
+    if (!sessionId || !connectionId) {
+      console.error('Parametri mancanti per cancellare binomio');
+      return;
+    }
+    
+    try {
+      console.log('🗑️ Cancellando binomio:', connectionId);
+      
+      // Elimina dal database
+      await api.deleteBinomio(sessionId, connectionId);
+      console.log('✅ Binomio cancellato dal database:', connectionId);
+      
+      // Rimuovi dalla lista locale delle connessioni
+      setConnections(prev => prev.filter(conn => conn.id !== connectionId));
+      
+      // Notifica il componente padre per aggiornare loadedBinomi
+      if (onBinomioDeleted) {
+        onBinomioDeleted(connectionId);
+      }
+      
+      // Reset del contatore se necessario
+      connectionsInitializedRef.current = false;
+      lastLoadedBinomiIdsRef.current = '';
+      
+      onLogEvent?.('success', `Binomio Fondamentale eliminato: ${connectionId}`);
+    } catch (error) {
+      console.error('Errore cancellazione binomio:', error);
+      const errorMessage = error?.message || error?.toString() || 'Errore sconosciuto durante la cancellazione del binomio';
+      onLogEvent?.('error', `Errore cancellazione binomio: ${errorMessage}`);
+    }
+    
+    // Chiudi il menu contestuale
+    setConnectionContextMenu(null);
+  };
+  
+  // Handler per click destro su linea o pallino di connessione
+  const handleConnectionContextMenu = (e, connectionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const layerEC = layerECRef.current;
+    if (!layerEC) return;
+    
+    const layerRect = layerEC.getBoundingClientRect();
+    setConnectionContextMenu({
+      connectionId,
+      x: e.clientX - layerRect.left,
+      y: e.clientY - layerRect.top
+    });
+  };
+  
   const handleDeleteObject = async (objectId) => {
     // Trova l'oggetto da eliminare per ottenere l'ID EC
     let ecObjectId = null;
@@ -3234,6 +3297,16 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                 try {
                   const result = await api.saveBinomio(sessionId, binomio);
                   console.log('✅ Binomio salvato con successo:', result);
+                  
+                  // IMPORTANTE: Notifica il componente padre del nuovo binomio salvato
+                  // Questo aggiorna loadedBinomi e garantisce che il prossimo ID generato sia univoco
+                  if (onBinomioSaved) {
+                    onBinomioSaved(binomio);
+                    console.log('✅ Binomio notificato al componente padre:', binomio.id);
+                  } else {
+                    console.warn('⚠️ onBinomioSaved non disponibile, il contatore potrebbe non essere aggiornato');
+                  }
+                  
                   onLogEvent?.('success', `Binomio Fondamentale creato: ${binomioId}`);
                 } catch (saveError) {
                   console.error('Errore salvataggio binomio:', saveError);
@@ -3584,6 +3657,63 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     };
   }, [objects, isExpanded, state.code]);
 
+  // Aggiorna i numeri di riga quando cambia il codice
+  useEffect(() => {
+    if (!lineNumbersRef.current || !codeEditorRef.current) return;
+    
+    const code = state.code || '';
+    const lines = code.split('\n');
+    const lineCount = Math.max(lines.length, 1); // Almeno una riga anche se vuoto
+    
+    // Genera i numeri di riga
+    const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1)
+      .map(num => `<div>${num}</div>`)
+      .join('');
+    
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.innerHTML = lineNumbers;
+    }
+    
+    // Sincronizza lo scroll e l'altezza dei numeri di riga con il textarea
+    const textarea = codeEditorRef.current.querySelector('textarea');
+    const pre = codeEditorRef.current.querySelector('pre');
+    
+    if (textarea && lineNumbersRef.current) {
+      // Sincronizza l'altezza
+      const syncHeight = () => {
+        const textareaHeight = textarea.scrollHeight;
+        lineNumbersRef.current.style.height = `${textareaHeight}px`;
+        lineNumbersRef.current.style.minHeight = textarea.style.minHeight || '400px';
+      };
+      
+      // Sincronizza lo scroll
+      const syncScroll = () => {
+        lineNumbersRef.current.scrollTop = textarea.scrollTop;
+      };
+      
+      syncHeight();
+      
+      textarea.addEventListener('scroll', syncScroll);
+      if (pre) {
+        pre.addEventListener('scroll', syncScroll);
+      }
+      
+      // Osserva i cambiamenti di dimensione del textarea
+      const resizeObserver = new ResizeObserver(() => {
+        syncHeight();
+      });
+      resizeObserver.observe(textarea);
+      
+      return () => {
+        textarea.removeEventListener('scroll', syncScroll);
+        if (pre) {
+          pre.removeEventListener('scroll', syncScroll);
+        }
+        resizeObserver.disconnect();
+      };
+    }
+  }, [state.code]);
+
   // Aggiorna le dimensioni del Layer EC quando cambia lo stato collassato/espanso
   useEffect(() => {
     if (!layerECRef.current || !gherkinBlockContainerRef.current) return;
@@ -3709,6 +3839,20 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
               return (
                 <g key={conn.id}>
+                  {/* Linea di connessione - clickabile con tasto destro */}
+                  <line
+                    x1={fromPoint.x}
+                    y1={fromPoint.y}
+                    x2={toPoint.x}
+                    y2={toPoint.y}
+                    stroke="#ff9800"
+                    strokeWidth="8"
+                    strokeDasharray="5,5"
+                    markerEnd="url(#arrowhead)"
+                    style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                    onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
+                  />
+                  {/* Linea visiva sottile */}
                   <line
                     x1={fromPoint.x}
                     y1={fromPoint.y}
@@ -3718,6 +3862,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                     strokeWidth="3"
                     strokeDasharray="5,5"
                     markerEnd="url(#arrowhead)"
+                    style={{ pointerEvents: 'none' }}
                   />
                   {/* Punto di connessione FROM */}
                   <circle
@@ -3729,9 +3874,12 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                     strokeWidth="2"
                     style={{ cursor: 'move', pointerEvents: 'auto' }}
                     onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setDraggingConnectionPoint({ connectionId: conn.id, pointType: 'from' });
+                      if (e.button === 0) { // Solo tasto sinistro per drag
+                        e.stopPropagation();
+                        setDraggingConnectionPoint({ connectionId: conn.id, pointType: 'from' });
+                      }
                     }}
+                    onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
                   />
                   {/* Punto di connessione TO */}
                   <circle
@@ -3743,9 +3891,12 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                     strokeWidth="2"
                     style={{ cursor: 'move', pointerEvents: 'auto' }}
                     onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setDraggingConnectionPoint({ connectionId: conn.id, pointType: 'to' });
+                      if (e.button === 0) { // Solo tasto sinistro per drag
+                        e.stopPropagation();
+                        setDraggingConnectionPoint({ connectionId: conn.id, pointType: 'to' });
+                      }
                     }}
+                    onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
                   />
                 </g>
               );
@@ -4198,6 +4349,28 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
           </button>
         </div>
       )}
+      
+      {/* Menu contestuale per connessioni/binomi */}
+      {connectionContextMenu && (
+        <div
+          ref={connectionContextMenuRef}
+          className="context-menu connection-context-menu"
+          style={{
+            position: 'absolute',
+            left: `${connectionContextMenu.x}px`,
+            top: `${connectionContextMenu.y}px`,
+            zIndex: 10001
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            className="context-menu-item delete-item"
+            onClick={() => handleDeleteConnection(connectionContextMenu.connectionId)}
+          >
+            🗑️ Cancella binomio
+          </button>
+        </div>
+      )}
 
       {isExpanded && (
         <div 
@@ -4333,32 +4506,36 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                   </button>
                 )}
               </div>
-              {state.code ? (
-                <div 
-                  ref={codeDisplayRef}
-                  className="code-display"
+              <div 
+                ref={codeDisplayRef}
+                className="code-display"
+                style={{ position: 'relative' }}
+              >
+                <div
+                  ref={codeEditorRef}
+                  onMouseUp={handleCodeSelection}
+                  onKeyUp={handleCodeSelection}
+                  onContextMenu={handleCodeContextMenu}
                   style={{ position: 'relative' }}
                 >
                   <div
-                    ref={codeEditorRef}
-                    onMouseUp={handleCodeSelection}
-                    onKeyUp={handleCodeSelection}
-                    onContextMenu={handleCodeContextMenu}
-                    style={{ position: 'relative' }}
-                  >
-                    <Editor
-                      value={state.code}
-                      onValueChange={(code) => onCodeChange?.(code)}
-                      highlight={(code) => highlight(code, languages.javascript, 'javascript')}
-                      padding={20}
-                      className="code-editor"
-                      placeholder="Scrivi o modifica il codice Cypress qui..."
-                      style={{
-                        minHeight: '400px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
+                    ref={lineNumbersRef}
+                    className="code-editor-line-numbers"
+                  />
+                  <Editor
+                    value={state.code || ''}
+                    onValueChange={(code) => onCodeChange?.(code)}
+                    highlight={(code) => highlight(code, languages.javascript, 'javascript')}
+                    padding={20}
+                    className="code-editor"
+                    placeholder="Scrivi o modifica il codice Cypress qui..."
+                    style={{
+                      minHeight: '400px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                {state.code && state.code.trim() && (
                   <div className="code-actions">
                     <button
                       className="copy-code-button"
@@ -4379,13 +4556,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                       </button>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="no-code">
-                  <p>Il codice Cypress apparirà qui dopo che l'AI lo genererà.</p>
-                  <p className="hint">💡 Chiedi all'AI di generare il codice Cypress per questo step</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

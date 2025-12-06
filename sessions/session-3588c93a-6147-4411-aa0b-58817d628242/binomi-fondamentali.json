@@ -1,39 +1,39 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-04T00:28:29.194Z",
-  "lastUpdated": "2025-12-04T00:52:52.746Z",
+  "lastUpdated": "2025-12-05T12:26:14.417Z",
   "binomi": [
     {
       "id": "bf-session-3588c93a-6147-4411-aa0b-58817d628242-TC1-001",
       "sessionId": "session-3588c93a-6147-4411-aa0b-58817d628242",
       "testCaseId": "1",
-      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-GIVEN-1",
-      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-GIVEN-2",
+      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-GIVEN-7",
+      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-GIVEN-8",
       "fromPoint": {
-        "x": 0.8116622273013776,
+        "x": 0.5,
         "y": 1
       },
       "toPoint": {
-        "x": 0.4329329252959014,
+        "x": 0.5,
         "y": 0
       },
-      "createdAt": "2025-12-04T00:28:29.074Z"
+      "createdAt": "2025-12-05T12:26:14.278Z"
     },
     {
       "id": "bf-session-3588c93a-6147-4411-aa0b-58817d628242-TC1-002",
       "sessionId": "session-3588c93a-6147-4411-aa0b-58817d628242",
       "testCaseId": "1",
-      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-WHEN-1",
-      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-WHEN-2",
+      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-WHEN-7",
+      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC1-WHEN-8",
       "fromPoint": {
-        "x": 0.87171500192181,
+        "x": 0.5,
         "y": 1
       },
       "toPoint": {
-        "x": 0,
-        "y": 0.37230031473653297
+        "x": 0.5,
+        "y": 0
       },
-      "createdAt": "2025-12-04T00:29:53.677Z"
+      "createdAt": "2025-12-05T12:26:14.326Z"
     },
     {
       "id": "bf-session-3588c93a-6147-4411-aa0b-58817d628242-TC2-001",
@@ -119,17 +119,33 @@
       "id": "bf-session-3588c93a-6147-4411-aa0b-58817d628242-TC15-001",
       "sessionId": "session-3588c93a-6147-4411-aa0b-58817d628242",
       "testCaseId": "15",
-      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC15-GIVEN-1",
-      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC15-GIVEN-2",
+      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC15-GIVEN-7",
+      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC15-GIVEN-8",
       "fromPoint": {
-        "x": 0.8751384560546108,
+        "x": 0.5,
         "y": 1
       },
       "toPoint": {
-        "x": 0,
-        "y": 0.25137782096862793
+        "x": 0.5,
+        "y": 0
       },
-      "createdAt": "2025-12-04T00:52:52.735Z"
+      "createdAt": "2025-12-05T12:26:14.369Z"
+    },
+    {
+      "id": "bf-session-3588c93a-6147-4411-aa0b-58817d628242-TC16-001",
+      "sessionId": "session-3588c93a-6147-4411-aa0b-58817d628242",
+      "testCaseId": "16",
+      "fromObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC16-GIVEN-5",
+      "toObjectId": "session-3588c93a-6147-4411-aa0b-58817d628242-TC16-GIVEN-6",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-05T12:26:14.411Z"
     }
   ]
 }

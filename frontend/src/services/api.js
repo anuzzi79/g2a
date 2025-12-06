@@ -373,6 +373,31 @@ export const api = {
       throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
     return response.json();
+  },
+
+  /**
+   * Gestione CSV delle sessioni
+   */
+  async saveSessionCSV(sessionId, csvContent, fileName) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/csv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csvContent, fileName })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async getSessionCSV(sessionId) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/csv`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 };
 

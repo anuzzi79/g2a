@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-06T11:57:51.196Z",
+  "lastUpdated": "2025-12-06T12:44:10.374Z",
+  "binomi": [
+    {
+      "id": "bf-session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-002",
+      "sessionId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e",
+      "testCaseId": "1",
+      "fromObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-WHEN-3",
+      "toObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-WHEN-4",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-06T12:27:29.381Z"
+    },
+    {
+      "id": "bf-session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-001-1765023929590-2e",
+      "sessionId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e",
+      "testCaseId": "1",
+      "fromObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-GIVEN-1",
+      "toObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-GIVEN-2",
+      "fromPoint": {
+        "x": 0.7163637261201876,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0,
+        "y": 0.2436464345107344
+      },
+      "createdAt": "2025-12-06T12:25:29.591Z"
+    },
+    {
+      "id": "bf-session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-002-1765023955627",
+      "sessionId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e",
+      "testCaseId": "1",
+      "fromObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-THEN-1",
+      "toObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC1-THEN-2",
+      "fromPoint": {
+        "x": 0.8948440747913087,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0,
+        "y": 0.5439003364189521
+      },
+      "createdAt": "2025-12-06T12:25:55.628Z"
+    },
+    {
+      "id": "bf-session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC15-001",
+      "sessionId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e",
+      "testCaseId": "15",
+      "fromObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC15-GIVEN-1",
+      "toObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC15-GIVEN-2",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-06T12:27:29.483Z"
+    },
+    {
+      "id": "bf-session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC16-001",
+      "sessionId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e",
+      "testCaseId": "16",
+      "fromObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC16-GIVEN-1",
+      "toObjectId": "session-4c78c2f1-6912-4c2f-a06a-d291bb10640e-TC16-GIVEN-2",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-06T12:27:29.533Z"
+    }
+  ]
+}
