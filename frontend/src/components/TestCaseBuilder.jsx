@@ -17,6 +17,8 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
   const [allObjects, setAllObjects] = useState([]); // Raccoglie tutti gli oggetti da tutti i blocchi GWT
   const [loadedECObjects, setLoadedECObjects] = useState([]); // Oggetti EC caricati dal database
   const [loadedBinomi, setLoadedBinomi] = useState([]); // Binomi caricati dal database
+  const [showECObjectsView, setShowECObjectsView] = useState(false);
+  const [showBinomiView, setShowBinomiView] = useState(false);
   
   // Funzione per generare ID oggetto EC
   const generateECObjectId = useCallback((boxType, boxNumber) => {
@@ -101,28 +103,59 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     }
   }, [loadedBinomi, testCase?.id]);
 
+  // Funzione per caricare oggetti EC e binomi dal database
+  const loadECData = useCallback(async () => {
+    if (!currentSession?.id || !testCase?.id) {
+      return;
+    }
+    try {
+      const [objectsResult, binomiResult] = await Promise.all([
+        api.getECObjects(currentSession.id, testCase.id),
+        api.getBinomi(currentSession.id, testCase.id)
+      ]);
+      setLoadedECObjects(objectsResult.objects || []);
+      setLoadedBinomi(binomiResult.binomi || []);
+      console.log('Oggetti EC caricati:', objectsResult.objects?.length || 0);
+      console.log('Binomi caricati:', binomiResult.binomi?.length || 0);
+    } catch (error) {
+      console.error('Errore caricamento dati EC:', error);
+      onLogEvent?.('error', `Errore caricamento oggetti EC: ${error.message}`);
+    }
+  }, [currentSession?.id, testCase?.id, onLogEvent]);
+
   // Carica oggetti EC e binomi dal database al mount
   useEffect(() => {
-    const loadECData = async () => {
-      if (!currentSession?.id || !testCase?.id) {
-        return;
-      }
-      try {
-        const [objectsResult, binomiResult] = await Promise.all([
-          api.getECObjects(currentSession.id, testCase.id),
-          api.getBinomi(currentSession.id, testCase.id)
-        ]);
-        setLoadedECObjects(objectsResult.objects || []);
-        setLoadedBinomi(binomiResult.binomi || []);
-        console.log('Oggetti EC caricati:', objectsResult.objects?.length || 0);
-        console.log('Binomi caricati:', binomiResult.binomi?.length || 0);
-      } catch (error) {
-        console.error('Errore caricamento dati EC:', error);
-        onLogEvent?.('error', `Errore caricamento oggetti EC: ${error.message}`);
-      }
-    };
     loadECData();
-  }, [currentSession?.id, testCase?.id, onLogEvent]);
+  }, [loadECData]);
+  
+  // Ricarica oggetti EC quando si ritorna da ECObjectsView
+  useEffect(() => {
+    if (!showECObjectsView && currentSession?.id && testCase?.id) {
+      // Ricarica gli oggetti EC quando si ritorna dalla vista
+      loadECData();
+    }
+  }, [showECObjectsView, currentSession?.id, testCase?.id, loadECData]);
+  
+  // Callback per aggiornare loadedECObjects quando viene salvato un nuovo oggetto EC
+  const handleECObjectSaved = useCallback((ecObject) => {
+    // Verifica che l'oggetto appartenga al test case corrente
+    if (ecObject.testCaseId !== String(testCase?.id)) {
+      console.log('Oggetto EC ignorato: appartiene a un test case diverso', ecObject.id);
+      return;
+    }
+    
+    setLoadedECObjects(prev => {
+      const existing = prev.find(obj => obj.id === ecObject.id);
+      if (existing) {
+        // Se esiste già, aggiornalo
+        return prev.map(obj => obj.id === ecObject.id ? ecObject : obj);
+      } else {
+        // Altrimenti aggiungilo
+        console.log('📝 Aggiunto nuovo oggetto EC a loadedECObjects:', ecObject.id);
+        return [...prev, ecObject];
+      }
+    });
+  }, [testCase?.id]);
   
   // Callback per aggiornare loadedBinomi quando viene salvato un nuovo binomio
   const handleBinomioSaved = useCallback((binomio) => {
@@ -150,8 +183,11 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
 
   // Helper per ottenere oggetti per un box type specifico
   const getObjectsForBoxType = useCallback((boxType) => {
-    return loadedECObjects.filter(obj => obj.boxType === boxType);
-  }, [loadedECObjects]);
+    return loadedECObjects.filter(obj => 
+      obj.boxType === boxType && 
+      obj.testCaseId === String(testCase?.id)
+    );
+  }, [loadedECObjects, testCase?.id]);
   
   // Callback memoizzati per onObjectsChange per evitare re-render infiniti
   const handleGivenObjectsChange = useCallback((objects) => {
@@ -201,8 +237,6 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
   const [targetFilePath, setTargetFilePath] = useState('');
   const [isLoadingState, setIsLoadingState] = useState(false);
   const [hasLoadedState, setHasLoadedState] = useState(false);
-  const [showECObjectsView, setShowECObjectsView] = useState(false);
-  const [showBinomiView, setShowBinomiView] = useState(false);
   const testFileStorageKey = useMemo(
     () => {
       if (!testCase) return null;
@@ -318,32 +352,14 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     };
   }, []);
 
-  // Salva lo stato in localStorage quando cambia (ma non durante il caricamento)
-  useEffect(() => {
+  // Funzione helper per salvare lo stato
+  const saveStateToLocalStorage = useCallback(() => {
     if (!testCase?.id || !testStateStorageKey || isLoadingState || !hasLoadedState) {
-      if (isLoadingState) {
-        console.log('Salvataggio saltato: caricamento in corso');
-      }
-      if (!hasLoadedState) {
-        console.log('Salvataggio saltato: stato non ancora caricato');
-      }
       return;
     }
 
-    // Verifica se c'è effettivamente qualcosa da salvare
-    const hasContent = 
-      blockStates.given.code || 
-      blockStates.when.code || 
-      blockStates.then.code ||
-      blockStates.given.messages.length > 0 ||
-      blockStates.when.messages.length > 0 ||
-      blockStates.then.messages.length > 0;
-
-    if (!hasContent) {
-      console.log('Salvataggio saltato: nessun contenuto da salvare');
-      return;
-    }
-
+    // IMPORTANTE: Salva sempre lo stato, anche se è vuoto, per permettere di cancellare il contenuto
+    // e sovrascrivere il vecchio valore nel localStorage
     try {
       const stateToSave = {
         blockStates: {
@@ -385,10 +401,29 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
       console.error('Errore salvataggio stato test case:', error);
       onLogEvent?.('error', `Errore salvataggio stato: ${error.message}`);
     }
+  }, [blockStates, expandedBlocks, testCase, testStateStorageKey, isLoadingState, hasLoadedState, onLogEvent]);
+
+  // Salva lo stato in localStorage quando cambia (con debounce per evitare salvataggi troppo frequenti)
+  useEffect(() => {
+    if (!testCase?.id || !testStateStorageKey || isLoadingState || !hasLoadedState) {
+      return;
+    }
+
+    // Debounce: salva dopo 500ms di inattività
+    const timeoutId = setTimeout(() => {
+      saveStateToLocalStorage();
+    }, 500);
+
+    // Cleanup: salva immediatamente quando il componente viene smontato o quando cambia il test case
+    return () => {
+      clearTimeout(timeoutId);
+      // Salvataggio immediato al cleanup per assicurarsi che le modifiche vengano salvate
+      saveStateToLocalStorage();
+    };
   }, [blockStates.given.code, blockStates.given.messages, blockStates.given.prompt,
       blockStates.when.code, blockStates.when.messages, blockStates.when.prompt,
       blockStates.then.code, blockStates.then.messages, blockStates.then.prompt,
-      expandedBlocks, testCase?.id, testStateStorageKey, isLoadingState, hasLoadedState]);
+      expandedBlocks, testCase?.id, testStateStorageKey, isLoadingState, hasLoadedState, saveStateToLocalStorage]);
 
   // Helper per generare un percorso più leggibile usando il nome della sessione
   const getReadableSessionPath = (session, fileName) => {
@@ -1166,7 +1201,19 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
         code: value
       }
     }));
+    // Il salvataggio verrà eseguito automaticamente dal useEffect con debounce
+    // ma assicuriamoci che venga triggerato
   };
+
+  // Salvataggio esplicito quando si esce dal componente o si cambia test case
+  useEffect(() => {
+    return () => {
+      // Cleanup: salva lo stato quando il componente viene smontato
+      if (testCase?.id && testStateStorageKey && hasLoadedState && !isLoadingState) {
+        saveStateToLocalStorage();
+      }
+    };
+  }, [testCase?.id, testStateStorageKey, hasLoadedState, isLoadingState, saveStateToLocalStorage]);
 
   const handleTargetFileInput = (e) => {
     persistTargetFilePath(e.target.value);
@@ -2222,6 +2269,7 @@ ${mergedCode}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
         onBinomioSaved={handleBinomioSaved}
+        onECObjectSaved={handleECObjectSaved}
         initialObjects={getObjectsForBoxType('given')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2247,6 +2295,7 @@ ${mergedCode}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
         onBinomioSaved={handleBinomioSaved}
+        onECObjectSaved={handleECObjectSaved}
         initialObjects={getObjectsForBoxType('when')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2272,6 +2321,7 @@ ${mergedCode}
         generateBinomioId={generateBinomioId}
         onLogEvent={onLogEvent}
         onBinomioSaved={handleBinomioSaved}
+        onECObjectSaved={handleECObjectSaved}
         initialObjects={getObjectsForBoxType('then')}
         initialBinomi={loadedBinomi.filter(b => b.testCaseId === String(testCase.id))}
       />
@@ -2294,7 +2344,7 @@ ${mergedCode}
 /**
  * Blocco Gherkin espandibile (Given/When/Then)
  */
-function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete, testCaseId, sessionId, generateECObjectId, getNextBoxNumber, generateBinomioId, onLogEvent, onBinomioSaved, onBinomioDeleted, initialObjects = [], initialBinomi = [] }) {
+function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPromptChange, onSendPrompt, onCodeChange, onObjectsChange, context, onOpenRunner, onGlobalComplete, testCaseId, sessionId, generateECObjectId, getNextBoxNumber, generateBinomioId, onLogEvent, onBinomioSaved, onBinomioDeleted, onECObjectSaved, initialObjects = [], initialBinomi = [] }) {
   const [showWideReasoningMenu, setShowWideReasoningMenu] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedText, setSelectedText] = useState('');
@@ -2571,9 +2621,16 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       const allPositions = [...headerObjectPositions, ...contentObjectPositions];
       let hoveredId = null;
       for (const pos of allPositions) {
+        // CORREZIONE: Per gli oggetti contenuto, aggiungi l'offset dell'header alle coordinate Y
+        // per il rilevamento dell'hover, poiché mouseY è relativo all'intero layer
+        let posTop = pos.top;
+        if (pos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+          posTop += gherkinBlockHeaderRef.current.offsetHeight;
+        }
+
         if (
           mouseX >= pos.left && mouseX <= pos.left + pos.width &&
-          mouseY >= pos.top && mouseY <= pos.top + pos.height &&
+          mouseY >= posTop && mouseY <= posTop + pos.height &&
           pos.id !== connectingFrom
         ) {
           hoveredId = pos.id;
@@ -2609,7 +2666,13 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const getPointOnPerimeter = useCallback((mouseX, mouseY, objPos) => {
     // Calcola il punto più vicino sul perimetro del rettangolo
     const rectLeft = objPos.left;
-    const rectTop = objPos.top;
+    let rectTop = objPos.top;
+    
+    // CORREZIONE: Se è un oggetto contenuto, aggiungi l'offset dell'header
+    if (objPos.id && objPos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+      rectTop += gherkinBlockHeaderRef.current.offsetHeight;
+    }
+    
     const rectRight = rectLeft + objPos.width;
     const rectBottom = rectTop + objPos.height;
     
@@ -2950,6 +3013,11 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       await api.saveECObject(sessionId, ecObject);
       onLogEvent?.('success', `Oggetto EC creato: ${objectId}`);
       
+      // Notifica il componente padre per aggiornare loadedECObjects
+      if (onECObjectSaved) {
+        onECObjectSaved(ecObject);
+      }
+      
       // Aggiungi ID all'oggetto locale
       newObject.id = objectId;
       newObject.ecObjectId = objectId;
@@ -3040,6 +3108,11 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       
       await api.saveECObject(sessionId, ecObject);
       onLogEvent?.('success', `Oggetto EC creato: ${objectId}`);
+      
+      // Notifica il componente padre per aggiornare loadedECObjects
+      if (onECObjectSaved) {
+        onECObjectSaved(ecObject);
+      }
       
       // Aggiungi ID all'oggetto locale
       newObject.id = objectId;
@@ -3373,7 +3446,14 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
     // point è relativo (0-1) rispetto alle dimensioni dell'oggetto
     const x = objPos.left + (point.x * objPos.width);
-    const y = objPos.top + (point.y * objPos.height);
+    let y = objPos.top + (point.y * objPos.height);
+    
+    // CORREZIONE: Se è un oggetto contenuto, aggiungi l'offset dell'header
+    // perché le coordinate in contentObjectPositions sono relative al contenuto,
+    // ma l'SVG delle connessioni è relativo all'intero blocco (header + contenuto)
+    if (objectId.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+      y += gherkinBlockHeaderRef.current.offsetHeight;
+    }
     
     return { x, y };
   }, [headerObjectPositions, contentObjectPositions]);

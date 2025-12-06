@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import '../styles/BinomiView.css';
 
-export function BinomiView({ sessionId, onBack, onLogEvent }) {
+export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) {
   const [binomi, setBinomi] = useState([]);
   const [objects, setObjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +99,44 @@ export function BinomiView({ sessionId, onBack, onLogEvent }) {
     return Array.from(testCases).sort();
   };
 
+  const handleDeleteAllBinomi = async () => {
+    if (!sessionId) return;
+    
+    const confirmed = window.confirm(
+      `Sei sicuro di voler cancellare TUTTI i ${binomi.length} binomi di questa sessione? Questa azione non può essere annullata.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      onLogEvent?.('info', '🗑️ Eliminazione di tutti i binomi in corso...');
+      
+      // Cancella tutti i binomi uno per uno
+      for (const binomio of binomi) {
+        await api.deleteBinomio(sessionId, binomio.id);
+      }
+      
+      // Ricarica i dati
+      const [binomiResult, objectsResult] = await Promise.all([
+        api.getBinomi(sessionId),
+        api.getECObjects(sessionId)
+      ]);
+      setBinomi(binomiResult.binomi || []);
+      setObjects(objectsResult.objects || []);
+      
+      // Notifica che tutti i binomi sono stati eliminati
+      if (onBinomioDeleted) {
+        // Chiama la callback per ogni binomio eliminato
+        binomi.forEach(b => onBinomioDeleted(b.id));
+      }
+      
+      onLogEvent?.('success', `✅ Tutti i ${binomi.length} binomi sono stati eliminati`);
+    } catch (error) {
+      console.error('Errore eliminazione binomi:', error);
+      onLogEvent?.('error', `❌ Errore eliminazione binomi: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="binomi-view">
@@ -111,9 +149,28 @@ export function BinomiView({ sessionId, onBack, onLogEvent }) {
     <div className="binomi-view">
       <div className="binomi-header">
         <h2>🔗 Binomi Fondamentali</h2>
-        <button onClick={onBack} className="back-button">
-          ← Torna indietro
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button 
+            onClick={handleDeleteAllBinomi}
+            className="delete-all-button"
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}
+            disabled={binomi.length === 0}
+          >
+            🗑️ Cancella Tutti i Binomi
+          </button>
+          <button onClick={onBack} className="back-button">
+            ← Torna indietro
+          </button>
+        </div>
       </div>
 
       <div className="binomi-filters">

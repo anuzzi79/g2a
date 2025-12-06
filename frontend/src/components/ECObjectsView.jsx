@@ -100,6 +100,34 @@ export function ECObjectsView({ sessionId, onBack, onLogEvent }) {
     return Array.from(testCases).sort();
   };
 
+  const handleDeleteAllObjects = async () => {
+    if (!sessionId) return;
+    
+    const confirmed = window.confirm(
+      `Sei sicuro di voler cancellare TUTTI i ${objects.length} oggetti EC di questa sessione? Questa azione non può essere annullata.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      onLogEvent?.('info', '🗑️ Eliminazione di tutti gli oggetti EC in corso...');
+      
+      // Cancella tutti gli oggetti EC uno per uno
+      for (const obj of objects) {
+        await api.deleteECObject(sessionId, obj.id);
+      }
+      
+      // Ricarica i dati
+      const result = await api.getECObjects(sessionId);
+      setObjects(result.objects || []);
+      
+      onLogEvent?.('success', `✅ Tutti i ${objects.length} oggetti EC sono stati eliminati`);
+    } catch (error) {
+      console.error('Errore eliminazione oggetti EC:', error);
+      onLogEvent?.('error', `❌ Errore eliminazione oggetti EC: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="ec-objects-view">
@@ -112,9 +140,28 @@ export function ECObjectsView({ sessionId, onBack, onLogEvent }) {
     <div className="ec-objects-view">
       <div className="ec-objects-header">
         <h2>📊 Oggetti EC</h2>
-        <button onClick={onBack} className="back-button">
-          ← Torna indietro
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button 
+            onClick={handleDeleteAllObjects}
+            className="delete-all-button"
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}
+            disabled={objects.length === 0}
+          >
+            🗑️ Cancella Tutti gli Oggetti
+          </button>
+          <button onClick={onBack} className="back-button">
+            ← Torna indietro
+          </button>
+        </div>
       </div>
 
       <div className="ec-objects-filters">
