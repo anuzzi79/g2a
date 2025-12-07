@@ -977,3 +977,63 @@
   color: #0066cc;
   font-weight: 600;
 }
+
+/* Styling for the To Object Flag and Edit Mode */
+.to-object-flag {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background-color: #ff9800;
+  border-radius: 50%;
+  border: 2px solid white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 20;
+  pointer-events: auto;
+  transition: transform 0.2s;
+}
+
+.to-object-flag:hover {
+  transform: scale(1.1);
+}
+
+.to-object-flag svg {
+  width: 14px;
+  height: 14px;
+  fill: white;
+}
+
+.code-object-border.editing {
+  background-color: rgba(255, 152, 0, 0.25) !important;
+  pointer-events: none; /* Let clicks pass through to textarea */
+}
+
+/* When NOT editing, we want to block clicks to the textarea UNDERNEATH. */
+.code-object-border.locked {
+  pointer-events: auto !important; /* Capture clicks */
+  background-color: transparent;
+  cursor: default;
+}
+
+/* Ensure the flag is always clickable */
+.code-object-border .to-object-flag {
+  pointer-events: auto;
+}
+
+.prompt-input.editing-active {
+  border-color: #ff9800;
+  background-color: rgba(255, 152, 0, 0.05);
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
+}
+
+.prompt-input-container.editing-mode {
+  position: relative;
+  border-top: 2px solid #ff9800;
+  border-radius: 8px;
+  margin-top: 20px; /* Space for the badge */
+}

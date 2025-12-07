@@ -2570,6 +2570,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       }
     }
   }, [initialBinomi, objects, type, testCaseId]);
+
   const [headerObjectPositions, setHeaderObjectPositions] = useState([]); // Posizioni bordi oggetti nell'header del Layer EC
   const [contentObjectPositions, setContentObjectPositions] = useState([]); // Posizioni bordi oggetti nel contenuto del Layer EC
   const [codeSelection, setCodeSelection] = useState({ start: null, end: null, text: '' }); // Selezione codice
@@ -2581,6 +2582,195 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const [connectionHoverTarget, setConnectionHoverTarget] = useState(null); // ID oggetto sotto il mouse durante la connessione
   const [draggingConnectionPoint, setDraggingConnectionPoint] = useState(null); // { connectionId, pointType: 'from' | 'to' }
   const [connectionContextMenu, setConnectionContextMenu] = useState(null); // { connectionId, x, y }
+  
+  // Smart Text - Editing oggetti To
+  const [editingToObject, setEditingToObject] = useState(null); // { objectId, originalText, obj } - oggetto To in fase di editing
+  const [showPropagationModal, setShowPropagationModal] = useState(null); // { objectId, newText, originalText, ecObjectId } - modale propagazione
+  const editingToObjectRef = useRef(null); // Ref per gestire click-outside
+  const [pendingToObjectEdit, setPendingToObjectEdit] = useState(null); // Testo modificato in attesa di conferma
+
+  const prevCodeRef = useRef(state.code);
+  const isManualCodeChange = useRef(false);
+  const isIsolationEnforcing = useRef(false);
+
+  // Effetto per gestire le modifiche del codice da parte dell'AI durante l'editing di un oggetto
+  useEffect(() => {
+    const prevCode = prevCodeRef.current || '';
+    const newCode = state.code || '';
+    
+    // Se il codice è cambiato
+    if (prevCode !== newCode) {
+      prevCodeRef.current = newCode;
+      
+      // Se è una modifica manuale, resettiamo il flag e non facciamo nulla (gestita in handleProtectedCodeChange)
+      if (isManualCodeChange.current) {
+        isManualCodeChange.current = false;
+        return;
+      }
+
+      // Se stiamo editando un oggetto e il cambio NON è manuale (quindi AI)
+      if (editingToObject) {
+        const obj = editingToObject.obj;
+        
+        // Calcola la differenza di lunghezza
+        const lengthDiff = newCode.length - prevCode.length;
+        
+        if (lengthDiff !== 0) {
+          console.log('Rilevato cambio codice AI durante editing oggetto. Diff:', lengthDiff);
+          
+          // Aggiorna l'oggetto in editing
+          const newEndIndex = obj.endIndex + lengthDiff;
+          
+          // Aggiorna stato editing
+          setEditingToObject(prev => ({
+            ...prev,
+            obj: {
+              ...prev.obj,
+              endIndex: newEndIndex
+            }
+          }));
+          
+          // Aggiorna tutti gli oggetti
+          setObjects(prevObjects => {
+            return prevObjects.map(o => {
+              // Oggetto corrente (usa ID o ecObjectId per match sicuro)
+              if (o.id === obj.id || (o.ecObjectId && o.ecObjectId === obj.ecObjectId)) {
+                return { ...o, endIndex: newEndIndex };
+              }
+              // Oggetti successivi -> shift
+              if (o.location === 'content' && o.startIndex > obj.startIndex) {
+                return {
+                  ...o,
+                  startIndex: o.startIndex + lengthDiff,
+                  endIndex: o.endIndex + lengthDiff
+                };
+              }
+              return o;
+            });
+          });
+        }
+      }
+    }
+    
+    // GARANZIA DI SPAZIO LIBERO:
+    // Se l'ultimo oggetto To finisce esattamente alla fine del file (o molto vicino),
+    // aggiungi automaticamente delle righe vuote per permettere all'utente di cliccare "sotto"
+    // e continuare a scrivere.
+    // MA NON FARLO DURANTE L'EDITING: altrimenti ogni Enter che estende l'oggetto verso il fondo
+    // triggera l'aggiunta di righe e sposta il cursore.
+    // FIX AGGIUNTIVO: Se 'editingToObject' è appena stato settato a null (uscita da editing),
+    // potrebbe volerci un ciclo. Ma qui controlliamo semplicemente se c'è editing ATTIVO.
+    // Se premi Enter, 'editingToObject' è ancora attivo.
+    // Il problema potrebbe essere che 'state.code' cambia PRIMA che 'editingToObject' sia aggiornato?
+    // No, 'editingToObject' è nello stato.
+    
+    // FIX DEFINITIVO: Disabilita completamente questa logica di aggiunta automatica se c'è QUALSIASI attività recente.
+    // Ma soprattutto, se l'utente preme enter alla fine del file DENTRO un blocco, NON DOBBIAMO AGGIUNGERE SPAZIO.
+    
+    if (state.code && objects.length > 0 && !editingToObject) {
+      // Verifica ulteriore: siamo sicuri che non stiamo editando?
+      // A volte lo stato potrebbe non essere sincronizzato perfettamente.
+      // Ma se !editingToObject è true, allora siamo fuori.
+      
+      const contentObjects = objects.filter(o => o.location === 'content');
+      if (contentObjects.length > 0) {
+        // Trova l'oggetto che finisce più in basso
+        const lastObject = contentObjects.reduce((prev, current) => 
+          (prev.endIndex > current.endIndex) ? prev : current
+        );
+        
+        // Se l'ultimo oggetto finisce alla fine del codice (o quasi, considerando whitespace)
+        const codeLength = state.code.length;
+        const trailingSpace = state.code.substring(lastObject.endIndex);
+        
+          // Se c'è meno di 2 "\n" dopo l'ultimo oggetto, aggiungine
+        // FIX CRITICO: Disabilitiamo TOTALMENTE questa logica per ora se c'è un oggetto alla fine.
+        // Questo perché crea conflitti infiniti con l'editing.
+        // Se l'utente vuole spazio, lo aggiungerà manualmente.
+        /* 
+        if (!trailingSpace.includes('\n\n')) {
+           console.log('Aggiunta automatica spaziatura finale per editabilità');
+           // ... logic disabled ...
+           if (lastObject.endIndex >= codeLength - 1) { // Se siamo proprio alla fine
+             setTimeout(() => {
+               const padding = '\n\n';
+               onCodeChange(state.code + padding);
+             }, 0);
+           }
+        }
+        */
+      }
+    }
+  }, [state.code, editingToObject]);
+
+  // Garantisce che ogni oggetto To sia separato da almeno una newline prima e dopo,
+  // evitando che altro codice "entri" nel blocco arancione.
+  const enforceToObjectIsolation = useCallback((code, objs) => {
+    let newCode = code;
+    let changed = false;
+    const newObjects = objs.map(o => ({ ...o }));
+
+    const contentObjects = newObjects
+      .filter(o => o.location === 'content')
+      .sort((a, b) => a.startIndex - b.startIndex);
+
+    let shift = 0;
+    for (const o of contentObjects) {
+      const isEditingThis =
+        editingToObject &&
+        (o.id === editingToObject.obj.id ||
+          (o.ecObjectId && o.ecObjectId === editingToObject.obj.ecObjectId));
+
+      // Se stiamo editando questo oggetto, non tocchiamo padding prima/dopo
+      if (isEditingThis) {
+        continue;
+      }
+
+      let start = o.startIndex + shift;
+      let end = o.endIndex + shift;
+
+      // Assicura una newline prima (se non siamo a inizio file)
+      if (start > 0 && newCode[start - 1] !== '\n') {
+        newCode = newCode.slice(0, start) + '\n' + newCode.slice(start);
+        shift += 1;
+        start += 1;
+        end += 1;
+        changed = true;
+      }
+
+      // Assicura una newline dopo (se non siamo a fine file)
+      if (end < newCode.length && newCode[end] !== '\n') {
+        newCode = newCode.slice(0, end) + '\n' + newCode.slice(end);
+        shift += 1;
+        changed = true;
+      }
+
+      // Aggiorna indici oggetto
+      o.startIndex = start;
+      o.endIndex = end;
+    }
+
+    // Aggiorna eventuale editingToObject (se presente)
+    let updatedEditing = null;
+    if (editingToObject) {
+      const found = newObjects.find(
+        (o) =>
+          o.id === editingToObject.obj.id ||
+          o.ecObjectId === editingToObject.obj.ecObjectId
+      );
+      if (found) {
+        updatedEditing = {
+          ...editingToObject,
+          obj: { ...found },
+          objectId: editingToObject.objectId,
+          originalText: editingToObject.originalText
+        };
+      }
+    }
+
+    return { code: newCode, objects: newObjects, changed, updatedEditing };
+  }, [editingToObject]);
+
   const dropdownRef = useRef(null);
   const connectionContextMenuRef = useRef(null);
   const gherkinTextRef = useRef(null);
@@ -2603,6 +2793,98 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   useEffect(() => {
     connectionHoverTargetRef.current = connectionHoverTarget;
   }, [connectionHoverTarget]);
+
+  // Aggiorna ref per editingToObject
+  useEffect(() => {
+    editingToObjectRef.current = editingToObject;
+  }, [editingToObject]);
+
+  // Click-outside handler per terminare editing oggetti To - RIMOSSO come da richiesta
+  // L'editing ora termina solo cliccando nuovamente sulla matita
+  /*
+  useEffect(() => {
+    if (!editingToObject) return;
+
+    const handleClickOutside = (e) => {
+      // ... logic removed ...
+    };
+
+    // ... listener removed ...
+  }, [editingToObject, objects, state.code]);
+  */
+
+  // Funzione per terminare l'editing (chiamata dal toggle della matita)
+  const finishEditing = useCallback(() => {
+    if (!editingToObject) return;
+
+    // Ottieni il testo corrente dell'oggetto
+    const contentObjects = objects.filter(o => o.location === 'content');
+    const objIndex = parseInt(editingToObject.objectId.replace('content-obj-', ''));
+    const obj = contentObjects[objIndex];
+    
+    if (obj && state.code) {
+      const currentText = state.code.substring(obj.startIndex, obj.endIndex);
+      
+      // Se il testo è cambiato, mostra il modale di propagazione
+      if (currentText !== editingToObject.originalText) {
+        setShowPropagationModal({
+          objectId: editingToObject.objectId,
+          newText: currentText,
+          originalText: editingToObject.originalText,
+          ecObjectId: obj.ecObjectId || obj.id
+        });
+      }
+    }
+    
+    setEditingToObject(null);
+  }, [editingToObject, objects, state.code]);
+
+  // Smart Text: Double-click/Click per toggle modalità editing sull'oggetto To
+  // Nota: la funzione finishEditing è definita sopra ed usata qui
+  const toggleToObjectEdit = (objectId, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Solo per oggetti content (To)
+    if (!objectId.startsWith('content-obj-')) return;
+
+    // Se stiamo già editando QUESTO oggetto, finiamo l'editing (toggle off)
+    if (editingToObject && editingToObject.objectId === objectId) {
+      finishEditing();
+      return;
+    }
+
+    // Se stiamo editando UN ALTRO oggetto, prima chiudiamo quello
+    if (editingToObject) {
+      finishEditing();
+    }
+    
+    const contentObjects = objects.filter(o => o.location === 'content');
+    const objIndex = parseInt(objectId.replace('content-obj-', ''));
+    const obj = contentObjects[objIndex];
+    
+    if (!obj) return;
+    
+    // Ottieni il testo originale
+    const originalText = state.code ? state.code.substring(obj.startIndex, obj.endIndex) : '';
+    
+    setEditingToObject({
+      objectId,
+      originalText,
+      obj
+    });
+    
+    // Focus sull'editor nella posizione dell'oggetto
+    if (codeEditorRef.current) {
+      const textarea = codeEditorRef.current.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(obj.startIndex, obj.endIndex);
+      }
+    }
+    
+    console.log('Editing To object started:', objectId, 'testo originale:', originalText);
+  };
 
   // Gestione connessione drag (Alt + click destro)
   useEffect(() => {
@@ -2837,7 +3119,32 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
   const handleSendNormal = () => {
     setShowWideReasoningMenu(false);
-    onSendPrompt(state.prompt, false);
+    
+    let textToSend = state.prompt;
+    
+    // Se siamo in modalità editing oggetto, aggiungi contesto specifico
+    if (editingToObject && state.code) {
+      // Recupera il testo corrente dell'oggetto (potrebbe essere stato modificato manualmente)
+      const contentObjects = objects.filter(o => o.location === 'content');
+      const objIndex = parseInt(editingToObject.objectId.replace('content-obj-', ''));
+      const obj = contentObjects[objIndex];
+      
+      if (obj) {
+        const objText = state.code.substring(obj.startIndex, obj.endIndex);
+        textToSend = `[FOCUS: EDITING OGGETTO]
+Sto modificando specificamente questo oggetto nel codice (indicato nel visualizzatore dal box arancione):
+\`\`\`
+${objText}
+\`\`\`
+
+La mia richiesta di modifica per questo oggetto è:
+${state.prompt}
+
+Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggetto specificato.`;
+      }
+    }
+    
+    onSendPrompt(textToSend, false);
   };
 
   const handleSendWideReasoning = () => {
@@ -3075,6 +3382,23 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       return;
     }
     
+    // APPLICA SPAZIATURA (Smart Text)
+    // Aggiungi 2 righe vuote sopra e sotto
+    const spacing = '\n\n';
+    const textToWrap = codeSelection.text;
+    const newTextSegment = spacing + textToWrap + spacing;
+    
+    const currentCode = state.code || '';
+    const newCode = currentCode.substring(0, start) + newTextSegment + currentCode.substring(end);
+    
+    // Aggiorna il codice nell'editor
+    onCodeChange?.(newCode);
+    
+    // Calcola i nuovi indici dell'oggetto (spostato di 2 caratteri per via degli spazi iniziali)
+    const newObjectStart = start + spacing.length;
+    const newObjectEnd = newObjectStart + textToWrap.length;
+    const lengthDiff = spacing.length * 2; // Totale caratteri aggiunti
+
     const boxNumber = await getNextBoxNumber(type);
     const objectId = generateECObjectId(type, boxNumber);
     
@@ -3086,8 +3410,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     
     const newObject = {
       text: codeSelection.text,
-      startIndex: start,
-      endIndex: end,
+      startIndex: newObjectStart,
+      endIndex: newObjectEnd,
       location: 'content'
     };
     
@@ -3101,8 +3425,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
         boxNumber: boxNumber,
         text: codeSelection.text,
         location: 'content',
-        startIndex: start,
-        endIndex: end,
+        startIndex: newObjectStart,
+        endIndex: newObjectEnd,
         createdAt: new Date().toISOString()
       };
       
@@ -3123,7 +3447,19 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     }
     
     setObjects(prev => {
-      const updated = [...prev, newObject].sort((a, b) => a.startIndex - b.startIndex);
+      // Aggiorna gli indici degli oggetti successivi
+      const shiftedObjects = prev.map(obj => {
+        if (obj.location === 'content' && obj.startIndex >= end) {
+          return {
+            ...obj,
+            startIndex: obj.startIndex + lengthDiff,
+            endIndex: obj.endIndex + lengthDiff
+          };
+        }
+        return obj;
+      });
+      
+      const updated = [...shiftedObjects, newObject].sort((a, b) => a.startIndex - b.startIndex);
       console.log('Oggetti aggiornati:', updated);
       onObjectsChange?.(updated);
       return updated;
@@ -3240,6 +3576,371 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     
     setObjectContextMenu(null);
     console.log('Oggetto eliminato:', objectId);
+  };
+
+  // Smart Text: Double-click per entrare in modalità editing sull'oggetto To
+  const handleToObjectDoubleClick = (objectId, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Solo per oggetti content (To)
+    if (!objectId.startsWith('content-obj-')) return;
+    
+    const contentObjects = objects.filter(o => o.location === 'content');
+    const objIndex = parseInt(objectId.replace('content-obj-', ''));
+    const obj = contentObjects[objIndex];
+    
+    if (!obj) return;
+    
+    // Ottieni il testo originale
+    const originalText = state.code ? state.code.substring(obj.startIndex, obj.endIndex) : '';
+    
+    setEditingToObject({
+      objectId,
+      originalText,
+      obj
+    });
+    
+    // Focus sull'editor nella posizione dell'oggetto
+    if (codeEditorRef.current) {
+      const textarea = codeEditorRef.current.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(obj.startIndex, obj.endIndex);
+      }
+    }
+    
+    console.log('Editing To object:', objectId, 'testo originale:', originalText);
+  };
+
+  // Funzione di logging diagnostico (salva in una variabile globale per copia/incolla)
+  const logDiagnostic = (action, details) => {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+    const msg = `[DIAGNOSTICA ${timestamp}] ${action}`;
+    console.log(msg, details);
+    
+    // Salva in window per copia facile
+    if (!window._diagnosticLogs) window._diagnosticLogs = [];
+    window._diagnosticLogs.push({ timestamp, action, details });
+    // Mantieni ultimi 100
+    if (window._diagnosticLogs.length > 100) window._diagnosticLogs.shift();
+  };
+
+  // Espone funzione globale per copiare i log
+  useEffect(() => {
+    window.copyDiagnostics = () => {
+      const logs = JSON.stringify(window._diagnosticLogs, null, 2);
+      navigator.clipboard.writeText(logs).then(() => alert('Log copiati!'));
+      return "Log copiati nella clipboard";
+    };
+    return () => { delete window.copyDiagnostics; };
+  }, []);
+
+  // Smart Text: Gestisce le modifiche al codice proteggendo gli oggetti TO
+  const handleProtectedCodeChange = (newCode) => {
+    const contentObjects = objects.filter(o => o.location === 'content');
+    
+    // Se non ci sono oggetti TO, permetti sempre la modifica
+    if (contentObjects.length === 0) {
+      onCodeChange?.(newCode);
+      return;
+    }
+    
+    // Se siamo in modalità editing su un oggetto TO specifico
+    if (editingToObject) {
+      const obj = editingToObject.obj;
+      const oldCode = state.code || '';
+      
+      // Trova dove è avvenuta la modifica
+      let changeStart = 0;
+      for (let i = 0; i < Math.min(oldCode.length, newCode.length); i++) {
+        if (oldCode[i] !== newCode[i]) {
+          changeStart = i;
+          break;
+        }
+        changeStart = i + 1;
+      }
+
+      // Calcola la differenza di lunghezza
+      const lengthDiff = newCode.length - oldCode.length;
+      const insertedText = lengthDiff > 0 ? newCode.substring(changeStart, changeStart + lengthDiff) : '';
+
+      logDiagnostic('EDIT_ATTEMPT', {
+        objectId: obj.id,
+        currentIndices: { start: obj.startIndex, end: obj.endIndex },
+        changeStart,
+        lengthDiff,
+        insertedText: insertedText === '\n' ? '\\n (ENTER)' : insertedText,
+        newCodeLength: newCode.length
+      });
+
+      // Se la modifica è avvenuta FUORI dall'oggetto in editing (o ai suoi bordi critici), bloccala
+      // Consideriamo un margine di sicurezza per evitare di cancellare per errore i bordi dell'oggetto
+      // FIX CRITICO: changeStart è basato su oldCode. Se stiamo appendendo alla fine, changeStart == obj.endIndex.
+      // Questo deve essere PERMESSO. La condizione precedente `changeStart > obj.endIndex` bloccava l'append.
+      if (changeStart < obj.startIndex || changeStart > obj.endIndex) {
+        logDiagnostic('EDIT_BLOCKED_OUTSIDE', {
+           changeStart,
+           objStart: obj.startIndex,
+           objEnd: obj.endIndex
+        });
+        console.log('Modifica bloccata: puoi modificare solo l\'oggetto attivo.');
+        // Non aggiorniamo il codice, quindi la modifica viene annullata
+        return;
+      }
+
+      // Verifica se la modifica è avvenuta nell'area dell'oggetto in editing
+      // Trova l'oggetto aggiornato con i nuovi indici
+      const newEndIndex = obj.endIndex + lengthDiff;
+      
+      // Aggiorna il codice (prima) e poi normalizza isolamento
+      isManualCodeChange.current = true;
+      onCodeChange?.(newCode);
+      
+      // Aggiorna gli indici dell'oggetto in editing
+      setEditingToObject(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          obj: {
+            ...prev.obj,
+            endIndex: newEndIndex
+          }
+        };
+      });
+      
+      // Aggiorna anche l'oggetto nella lista objects
+      setObjects(prevObjects => {
+        return prevObjects.map(o => {
+          if (o === obj || o.id === obj.id || o.ecObjectId === obj.ecObjectId) {
+            return { ...o, endIndex: newEndIndex };
+          }
+          // Sposta gli oggetti successivi
+          if (o.location === 'content' && o.startIndex > obj.startIndex) {
+            return {
+              ...o,
+              startIndex: o.startIndex + lengthDiff,
+              endIndex: o.endIndex + lengthDiff
+            };
+          }
+          return o;
+        });
+      });
+      
+      // FIX: Enforce isolamento IMMEDIATO, altrimenti il cursore scappa.
+      // La normalizzazione asincrona (setTimeout) creava un breve momento di inconsistenza.
+      // Ora, se abbiamo aggiunto un newline, dobbiamo essere sicuri che non sia considerato "fuori".
+      
+      // Nota: `enforceToObjectIsolation` non tocca l'oggetto in editing (grazie al fix precedente),
+      // ma dobbiamo assicurarci che `objects` sia aggiornato PRIMA che il render avvenga.
+      
+      // Il problema "fuoriuscita" può dipendere anche da come `handleProtectedCodeChange` interpreta il cursore.
+      // Se `changeStart` è esattamente `endIndex` (append), deve essere permesso.
+      
+      return;
+    }
+    
+    // Se NON siamo in modalità editing, blocca modifiche alle zone protette
+    const oldCode = state.code || '';
+    
+    // Trova dove è avvenuta la modifica
+    let changeStart = 0;
+    // ... (rest of logic to find changeStart)
+    
+    // Trova il primo carattere diverso
+    for (let i = 0; i < Math.min(oldCode.length, newCode.length); i++) {
+      if (oldCode[i] !== newCode[i]) {
+        changeStart = i;
+        break;
+      }
+      changeStart = i + 1;
+    }
+    
+    // MODIFICA RICHIESTA: Se stiamo editando un oggetto, NON permettere modifiche fuori da esso
+    if (editingToObject) {
+      const obj = editingToObject.obj;
+      // Se la modifica è fuori dal range dell'oggetto in editing
+      // Nota: newEndIndex è calcolato sopra nel blocco 'if (editingToObject)'
+      // Qui dobbiamo ricalcolare se siamo fuori dal blocco originale esteso
+      
+      // Semplicemente: la logica sopra 'if (editingToObject)' gestisce GIA' le modifiche *dentro* l'oggetto
+      // Se siamo arrivati qui (che non dovrebbe succedere se la logica sopra è corretta e completa), 
+      // significa che qualcosa non va.
+      
+      // Aspetta, la logica sopra 'if (editingToObject)' ha un return;
+      // Quindi se siamo qui, significa che NON siamo nel blocco 'if (editingToObject)'?
+      // NO. La funzione handleProtectedCodeChange ha due rami principali.
+      
+      // Ramo 1: if (editingToObject) { ... return; }
+      // Ramo 2: (nessun editing attivo) -> controlla se tocchiamo zone protette
+      
+      // Quindi dobbiamo modificare il Ramo 1 per controllare se la modifica è *dentro* l'oggetto.
+      // Se è fuori, la blocchiamo.
+    }
+    
+    // Verifica se la modifica tocca un oggetto TO protetto
+    for (const obj of contentObjects) {
+      // Se la modifica inizia dentro l'oggetto TO (con un margine per le righe di separazione)
+      if (changeStart >= obj.startIndex && changeStart < obj.endIndex) {
+        // Blocca la modifica - ripristina il codice originale
+        console.log('Modifica bloccata: tentativo di editare oggetto TO protetto. Fai doppio click per editare.');
+        return;
+      }
+    }
+    
+    // La modifica è fuori dalle zone protette, permetti
+    isManualCodeChange.current = true;
+    onCodeChange?.(newCode);
+    // Enforce isolamento (newline prima/dopo i blocchi)
+    setTimeout(() => {
+      const result = enforceToObjectIsolation(newCode, objects);
+      if (result.changed) {
+        isManualCodeChange.current = true;
+        onCodeChange?.(result.code);
+        setObjects(result.objects);
+        if (result.updatedEditing) setEditingToObject(result.updatedEditing);
+      }
+    }, 0);
+    
+    // Aggiorna gli indici degli oggetti se necessario
+    const lengthDiff = newCode.length - oldCode.length;
+    if (lengthDiff !== 0) {
+      setObjects(prevObjects => {
+        return prevObjects.map(o => {
+          if (o.location === 'content' && o.startIndex > changeStart) {
+            return {
+              ...o,
+              startIndex: o.startIndex + lengthDiff,
+              endIndex: o.endIndex + lengthDiff
+            };
+          }
+          return o;
+        });
+      });
+    }
+  };
+
+  // Smart Text: Annulla l'operazione di modifica (Abort)
+  const handlePropagationAbort = () => {
+    if (!showPropagationModal) return;
+    const { objectId, originalText } = showPropagationModal;
+    
+    // Trova l'oggetto modificato
+    const contentObjects = objects.filter(o => o.location === 'content');
+    const objIndex = parseInt(objectId.replace('content-obj-', ''));
+    const obj = contentObjects[objIndex];
+    
+    if (obj && state.code) {
+      // Ripristina il testo nel codice
+      const currentCode = state.code;
+      const currentText = currentCode.substring(obj.startIndex, obj.endIndex);
+      
+      // Se il testo è diverso dall'originale, ripristinalo
+      if (currentText !== originalText) {
+        const before = currentCode.substring(0, obj.startIndex);
+        const after = currentCode.substring(obj.endIndex);
+        const restoredCode = before + originalText + after;
+        
+        // Aggiorna il codice nell'editor
+        onCodeChange(restoredCode);
+        
+        // Aggiorna gli indici degli oggetti (poiché la lunghezza potrebbe cambiare)
+        const lengthDiff = originalText.length - currentText.length;
+        
+        setObjects(prev => {
+          return prev.map(o => {
+            // Aggiorna l'oggetto corrente
+            if (o === obj || o.id === obj.id || o.ecObjectId === obj.ecObjectId) {
+              return { ...o, endIndex: o.startIndex + originalText.length };
+            }
+            // Sposta gli oggetti successivi
+            if (o.location === 'content' && o.startIndex > obj.startIndex) {
+              return {
+                ...o,
+                startIndex: o.startIndex + lengthDiff,
+                endIndex: o.endIndex + lengthDiff
+              };
+            }
+            return o;
+          });
+        });
+        
+        onLogEvent?.('info', 'Modifica annullata: ripristinato testo originale.');
+      }
+    }
+    
+    setShowPropagationModal(null);
+    setEditingToObject(null);
+  };
+
+  // Smart Text: Conferma propagazione modifiche
+  const handlePropagationConfirm = async (propagate) => {
+    if (!showPropagationModal) return;
+    
+    const { objectId, newText, originalText, ecObjectId } = showPropagationModal;
+    
+    if (propagate) {
+      // Propaga la modifica a tutti gli oggetti To con lo stesso testo originale
+      console.log('Propagando modifica a tutti gli oggetti To con testo:', originalText);
+      
+      // Trova tutti gli oggetti To con lo stesso testo originale
+      const contentObjects = objects.filter(o => o.location === 'content');
+      const objectsToUpdate = contentObjects.filter(obj => {
+        const objText = state.code ? state.code.substring(obj.startIndex, obj.endIndex) : '';
+        return objText === originalText && (obj.ecObjectId || obj.id) !== ecObjectId;
+      });
+      
+      // Aggiorna tutti gli oggetti trovati
+      let newCode = state.code;
+      let shiftAmount = newText.length - originalText.length;
+      
+      // Ordina per startIndex decrescente per non invalidare gli indici
+      const sortedObjects = [...objectsToUpdate].sort((a, b) => b.startIndex - a.startIndex);
+      
+      for (const obj of sortedObjects) {
+        const before = newCode.substring(0, obj.startIndex);
+        const after = newCode.substring(obj.endIndex);
+        newCode = before + newText + after;
+      }
+      
+      // Aggiorna il codice
+      if (objectsToUpdate.length > 0) {
+        onCodeChange(newCode);
+        
+        // Aggiorna gli indici degli oggetti
+        setObjects(prev => {
+          const updated = prev.map(obj => {
+            if (obj.location !== 'content') return obj;
+            
+            const objText = state.code ? state.code.substring(obj.startIndex, obj.endIndex) : '';
+            if (objText === originalText) {
+              // Aggiorna il testo dell'oggetto nel database
+              if (obj.ecObjectId) {
+                api.updateECObject(sessionId, obj.ecObjectId, { text: newText }).catch(console.error);
+              }
+              return { ...obj, text: newText };
+            }
+            return obj;
+          });
+          onObjectsChange?.(updated);
+          return updated;
+        });
+        
+        onLogEvent?.('success', `Propagata modifica a ${objectsToUpdate.length} oggetti To`);
+      }
+    } else {
+      // Non propagare: rimuovi lo status dell'oggetto (elimina cornice e freccia)
+      console.log('Rimuovendo status oggetto To:', objectId);
+      
+      // Usa handleDeleteObject per rimuovere oggetto e binomi associati
+      // Questo mantiene il testo modificato nell'editor ma rimuove l'oggetto EC
+      await handleDeleteObject(objectId);
+      
+      onLogEvent?.('info', 'Oggetto To convertito in testo semplice (modifica mantenuta).');
+    }
+    
+    setShowPropagationModal(null);
+    setEditingToObject(null);
   };
 
   const startConnectionFrom = (fromObjectId, event) => {
@@ -3439,6 +4140,198 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     setConnectionHoverTarget(null);
   };
 
+  const [showForceMatchModal, setShowForceMatchModal] = useState(false);
+  const [forceMatchTargetObject, setForceMatchTargetObject] = useState(null);
+  const [availableBinomiForMatch, setAvailableBinomiForMatch] = useState([]);
+  const [allECObjectsForMatch, setAllECObjectsForMatch] = useState([]);
+  const [sortOrder, setSortOrder] = useState(null); // null | 'asc' | 'desc'
+
+  // Handler per aprire il menu "Forza Match"
+  const handleOpenForceMatch = async (objectId) => {
+    setObjectContextMenu(null);
+    setForceMatchTargetObject(objectId);
+    setShowForceMatchModal(true);
+    setSortOrder(null); // Reset ordinamento quando si apre la modale
+    
+    try {
+      const [binomiRes, objectsRes] = await Promise.all([
+        api.getBinomi(sessionId),
+        api.getECObjects(sessionId)
+      ]);
+      setAvailableBinomiForMatch(binomiRes.binomi || []);
+      setAllECObjectsForMatch(objectsRes.objects || []);
+    } catch (error) {
+      console.error("Errore caricamento dati per Force Match:", error);
+      alert("Errore nel caricamento dei dati.");
+    }
+  };
+
+  // Handler per toggle ordinamento
+  const handleToggleSort = () => {
+    if (sortOrder === null) {
+      setSortOrder('asc');
+    } else if (sortOrder === 'asc') {
+      setSortOrder('desc');
+    } else {
+      setSortOrder(null);
+    }
+  };
+
+  // Funzione per ordinare i binomi
+  const getSortedBinomi = () => {
+    if (sortOrder === null) {
+      return availableBinomiForMatch;
+    }
+    
+    const sorted = [...availableBinomiForMatch].sort((a, b) => {
+      const tcA = parseInt(a.testCaseId) || 0;
+      const tcB = parseInt(b.testCaseId) || 0;
+      return sortOrder === 'asc' ? tcA - tcB : tcB - tcA;
+    });
+    
+    return sorted;
+  };
+
+  // Handler per applicare il match forzato
+  const handleApplyForceMatch = async (selectedBinomio) => {
+    setShowForceMatchModal(false);
+    
+    if (!forceMatchTargetObject || !selectedBinomio) return;
+
+    try {
+      // 1. Identifica l'oggetto From target
+      const targetObjId = forceMatchTargetObject;
+      let actualTargetObj = objects.find(o => o.id === targetObjId || o.ecObjectId === targetObjId);
+      
+      if (!actualTargetObj && targetObjId.startsWith('header-obj-')) {
+         const idx = parseInt(targetObjId.replace('header-obj-', ''));
+         const headerObjects = objects.filter(o => o.location === 'header');
+         actualTargetObj = headerObjects[idx];
+      }
+
+      if (!actualTargetObj) {
+        alert("Oggetto target non trovato.");
+        return;
+      }
+
+      // 2. Trova il codice "To" dal binomio selezionato
+      const sourceToObject = allECObjectsForMatch.find(o => o.id === selectedBinomio.toObjectId);
+      if (!sourceToObject) {
+        alert("Oggetto sorgente 'To' non trovato.");
+        return;
+      }
+      const newCodeBlock = sourceToObject.text;
+
+      // 3. Calcola posizione inserimento (Ordinamento)
+      const headerObjects = objects.filter(o => o.location === 'header')
+                                   .sort((a, b) => a.startIndex - b.startIndex);
+      
+      const targetIndex = headerObjects.indexOf(actualTargetObj);
+      let insertionIndex = 0;
+      
+      if (targetIndex > 0) {
+        const precedingObjects = headerObjects.slice(0, targetIndex);
+        const precedingConnections = connections.filter(c => {
+           // Trova se c.from corrisponde a un oggetto precedente
+           return precedingObjects.some(po => 
+             c.from === po.id || 
+             c.from === po.ecObjectId || 
+             (c.from.startsWith('header-obj-') && parseInt(c.from.replace('header-obj-', '')) === headerObjects.indexOf(po))
+           );
+        });
+
+        const contentObjects = objects.filter(o => o.location === 'content');
+        const connectedToObjects = precedingConnections.map(c => {
+           if (c.to.startsWith('content-obj-')) {
+             const idx = parseInt(c.to.replace('content-obj-', ''));
+             return contentObjects[idx];
+           }
+           return contentObjects.find(co => co.id === c.to || co.ecObjectId === c.to);
+        }).filter(Boolean);
+
+        if (connectedToObjects.length > 0) {
+          insertionIndex = Math.max(...connectedToObjects.map(o => o.endIndex));
+        }
+      }
+
+      // Prepara il testo da inserire
+      const currentCode = state.code || '';
+      let prefix = "";
+      let suffix = "";
+      
+      if (insertionIndex > 0 && !currentCode.substring(0, insertionIndex).endsWith('\n\n')) prefix = "\n\n";
+      if (insertionIndex < currentCode.length && !currentCode.substring(insertionIndex).startsWith('\n\n')) suffix = "\n\n";
+      if (insertionIndex === 0 && currentCode.length > 0) suffix = "\n\n";
+
+      const textToInsert = prefix + newCodeBlock + suffix;
+      const finalCode = currentCode.slice(0, insertionIndex) + textToInsert + currentCode.slice(insertionIndex);
+      
+      // 4. Aggiorna il codice
+      onCodeChange(finalCode);
+
+      // 5. Shift oggetti successivi
+      const shiftAmount = textToInsert.length;
+      const newStartIndex = insertionIndex + prefix.length;
+      const newEndIndex = newStartIndex + newCodeBlock.length;
+
+      const updatedObjects = await Promise.all(objects.map(async (obj) => {
+        if (obj.location === 'content' && obj.startIndex >= insertionIndex) {
+          const updatedObj = { ...obj, startIndex: obj.startIndex + shiftAmount, endIndex: obj.endIndex + shiftAmount };
+          if (obj.ecObjectId) {
+             try {
+               await api.updateECObject(sessionId, obj.ecObjectId, { startIndex: updatedObj.startIndex, endIndex: updatedObj.endIndex });
+             } catch (e) { console.error("Errore shift:", e); }
+          }
+          return updatedObj;
+        }
+        return obj;
+      }));
+
+      // 6. Crea nuovo oggetto To
+      const boxNumber = await getNextBoxNumber(type);
+      const toObjectId = generateECObjectId(type, boxNumber);
+      
+      const ecObject = {
+        id: toObjectId, sessionId: sessionId, testCaseId: String(testCaseId), boxType: type, boxNumber: boxNumber,
+        text: newCodeBlock, location: 'content', startIndex: newStartIndex, endIndex: newEndIndex, createdAt: new Date().toISOString()
+      };
+      await api.saveECObject(sessionId, ecObject);
+      
+      const newToObject = { ...ecObject, ecObjectId: toObjectId };
+      updatedObjects.push(newToObject);
+      updatedObjects.sort((a, b) => a.startIndex - b.startIndex);
+      setObjects(updatedObjects);
+
+      // 7. Crea Binomio
+      const existingBinomiTC = availableBinomiForMatch.filter(b => b.testCaseId === String(testCaseId));
+      let currentMax = 0;
+      existingBinomiTC.forEach(b => {
+         const parts = b.id.split('-');
+         const lastPart = parts[parts.length - 1];
+         const num = parseInt(lastPart, 10);
+         if (!isNaN(num) && num > currentMax) currentMax = num;
+      });
+      
+      const binomioId = generateBinomioId(sessionId, testCaseId, currentMax);
+      
+      if (binomioId) {
+        const binomio = {
+          id: binomioId, sessionId: sessionId, testCaseId: String(testCaseId),
+          fromObjectId: actualTargetObj.ecObjectId || actualTargetObj.id, toObjectId: toObjectId,
+          fromPoint: { x: 0.5, y: 1 }, toPoint: { x: 0.5, y: 0 }, createdAt: new Date().toISOString()
+        };
+        
+        await api.saveBinomio(sessionId, binomio);
+        if (onBinomioSaved) onBinomioSaved(binomio);
+        alert("Match forzato applicato con successo!");
+      }
+
+    } catch (error) {
+      console.error("Errore applicazione Force Match:", error);
+      alert("Errore durante l'applicazione del match: " + error.message);
+    }
+  };
+
   const getConnectionPointPosition = useCallback((objectId, point) => {
     const allPositions = [...headerObjectPositions, ...contentObjectPositions];
     const objPos = allPositions.find(pos => pos.id === objectId);
@@ -3613,23 +4506,69 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       const codeText = state.code;
       const sortedObjects = [...contentObjects].sort((a, b) => a.startIndex - b.startIndex);
       
-      const positions = sortedObjects.map((obj, idx) => {
+      const positions = sortedObjects.map((originalObj, idx) => {
+        let obj = originalObj;
         try {
+          const objectId = `content-obj-${idx}`;
+          const isEditingThis =
+            editingToObject?.objectId === objectId ||
+            (editingToObject?.obj &&
+              (editingToObject.obj.id === obj.id ||
+                (editingToObject.obj.ecObjectId &&
+                  editingToObject.obj.ecObjectId === obj.ecObjectId)));
+
+          // FIX: Usa gli indici più aggiornati da editingToObject se disponibili
+          // Questo risolve il problema del "ritardo" nell'aggiornamento di objects vs editingToObject
+          if (isEditingThis && editingToObject?.obj) {
+             // Se gli indici sono diversi (anche startIndex o endIndex), diamo priorità a editingToObject
+             // che riflette lo stato "live" della modifica.
+             // Questo è critico per l'Enter finale: editingToObject.obj.endIndex include il nuovo carattere, obj.endIndex no.
+             if (editingToObject.obj.endIndex !== obj.endIndex || editingToObject.obj.startIndex !== obj.startIndex) {
+                obj = { ...obj, endIndex: editingToObject.obj.endIndex, startIndex: editingToObject.obj.startIndex };
+             }
+          }
+
           // Calcola le righe del codice selezionato in modo più preciso
           const beforeSelection = codeText.substring(0, obj.startIndex);
-          const selection = codeText.substring(obj.startIndex, obj.endIndex);
+          let selection = codeText.substring(obj.startIndex, obj.endIndex);
           
+          // FIX: Se editingToObject ha un endIndex maggiore, significa che abbiamo appena aggiunto testo.
+          // Se usiamo substring con i vecchi indici di obj, perdiamo il nuovo testo.
+          // Dobbiamo usare gli indici aggiornati se disponibili.
+          if (isEditingThis && editingToObject?.obj) {
+             // Se l'oggetto in editing ha indici diversi, usiamo sempre quelli più aggiornati
+             if (editingToObject.obj.endIndex !== obj.endIndex || editingToObject.obj.startIndex !== obj.startIndex) {
+                obj = { ...obj, endIndex: editingToObject.obj.endIndex, startIndex: editingToObject.obj.startIndex };
+                // Ricalcola selection usando i nuovi indici
+                selection = codeText.substring(obj.startIndex, obj.endIndex);
+             }
+          }
+
           // Trova la prima riga: conta i newline prima della selezione
           const linesBefore = beforeSelection.split('\n');
           const startLine = Math.max(0, linesBefore.length - 1); // Indice della prima riga (0-indexed)
           
-          // Trova l'ultima riga: rimuovi eventuali newline finali dalla selezione
+          // Trova l'ultima riga: NON rimuoviamo il newline finale, così il box copre sempre la riga vuota aggiunta con Enter
           let cleanSelection = selection;
-          if (cleanSelection.endsWith('\n')) {
-            cleanSelection = cleanSelection.slice(0, -1);
+          // FIX: Se l'oggetto finisce con newline, split produce una stringa vuota in più alla fine.
+          // Ma se stiamo editando, vogliamo vedere quella riga vuota come parte del box.
+          // Se NON stiamo editando, la rimuoviamo per estetica.
+          if (!isEditingThis && cleanSelection.endsWith('\n')) {
+             cleanSelection = cleanSelection.slice(0, -1);
           }
+          
           const selectionLines = cleanSelection.split('\n');
           const numLinesInSelection = selectionLines.length;
+          
+          // FIX CRITICO: Se stiamo editando e l'ultima riga è vuota (perché ho premuto Enter), 
+          // dobbiamo assicurarci che l'altezza includa questa riga vuota extra.
+          // split('\n') su "abc\n" dà ["abc", ""]. Length 2.
+          // split('\n') su "abc" dà ["abc"]. Length 1.
+          // Quindi se c'è newline finale, length aumenta di 1. Corretto.
+          
+          // Tuttavia, il calcolo dell'altezza (numLines * lineHeight) potrebbe non bastare se c'è padding o altro.
+          // Aggiungiamo un piccolo margine extra di sicurezza in modalità editing se finisce con newline.
+          
           const endLine = startLine + numLinesInSelection - 1; // Indice dell'ultima riga
           
           // Calcola la posizione usando gli stili del textarea
@@ -3642,7 +4581,15 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
           const top = padding + (startLine * lineHeight);
           
           // Height: da prima riga a ultima riga inclusa
-          const height = numLinesInSelection * lineHeight;
+          let height = numLinesInSelection * lineHeight;
+          
+          // FIX: Se siamo in editing e finisce con newline, aggiungi un po' di altezza extra per sicurezza visiva
+          if (isEditingThis && selection.endsWith('\n')) {
+             height += 5; // 5px extra per evitare che il cursore tocchi il bordo
+          }
+          
+          // Assicurati altezza minima
+          height = Math.max(height, lineHeight);
           
           // Larghezza fissa con offset laterali: leggermente più corta del box del codice
           const codeDisplayRect = codeDisplay.getBoundingClientRect();
@@ -3735,7 +4682,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       window.removeEventListener('resize', handleUpdate);
       window.removeEventListener('scroll', handleUpdate, true);
     };
-  }, [objects, isExpanded, state.code]);
+  }, [objects, isExpanded, state.code, editingToObject]);
 
   // Aggiorna i numeri di riga quando cambia il codice
   useEffect(() => {
@@ -4238,27 +5185,65 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
               }}
             >
               {/* Bordi degli oggetti creati nel contenuto - unici elementi visibili e cliccabili */}
-              {contentObjectPositions.map((pos) => (
+              {contentObjectPositions.map((pos) => {
+                const isEditing = editingToObject?.objectId === pos.id;
+                
+                return (
                 <div
                   key={pos.id}
-                    className="gherkin-object-border code-object-border"
-                    style={{
-                      position: 'absolute',
-                      left: `${pos.left}px`,
-                      top: `${pos.top}px`,
-                      width: `${pos.width}px`,
-                      height: `${pos.height}px`,
-                      border: '4px dashed #ff9800',
-                      borderRadius: '4px',
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
-                      backgroundColor: connectingFrom && connectingFrom !== pos.id 
+                  data-to-object-id={pos.id}
+                  className={`gherkin-object-border code-object-border ${isEditing ? 'editing' : 'locked'}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${pos.left}px`,
+                    top: `${pos.top}px`,
+                    width: `${pos.width}px`,
+                    height: `${pos.height}px`,
+                    border: '4px dashed #ff9800',
+                    borderRadius: '4px',
+                    boxSizing: 'border-box',
+                    backgroundColor: isEditing 
+                      ? 'rgba(255, 152, 0, 0.25)' 
+                      : (connectingFrom && connectingFrom !== pos.id 
                         ? 'rgba(255, 152, 0, 0.1)' 
-                        : 'transparent',
-                      transition: 'background-color 0.2s'
-                    }}
-                    title={pos.text}
+                        : 'transparent'),
+                    transition: 'background-color 0.2s',
+                    boxShadow: isEditing ? '0 0 10px rgba(255, 152, 0, 0.5)' : 'none',
+                    pointerEvents: 'none', // IMPORTANTE: Permette click alla textarea sottostante
+                    zIndex: isEditing ? 10 : 5 // Z-index più alto per stare sopra l'overlay quando in editing
+                  }}
+                  title={isEditing ? 'In modifica - clicca fuori per terminare' : `Oggetto TO: ${pos.text}`}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    // Double click disabled in favor of flag
+                  }}
                 >
+                  {/* EDIT ICON FOR EDITING - Deve avere pointerEvents auto */}
+                  {/* Show icon if not editing OR if editing THIS object (to allow toggle off) */}
+                  {(!isEditing || (editingToObject && editingToObject.objectId === pos.id)) && !connectingFrom && (
+                    <div 
+                      className="to-object-flag"
+                      title={isEditing ? "Termina modifica" : "Modifica testo (AI Guided)"}
+                      onClick={(e) => toggleToObjectEdit(pos.id, e)}
+                      style={{
+                        ...(isEditing ? { backgroundColor: '#e67e22', borderColor: '#e67e22' } : {}),
+                        pointerEvents: 'auto' // Riabilita click sull'icona
+                      }}
+                    >
+                      {isEditing ? (
+                        /* Checkmark icon for finishing edit */
+                        <svg viewBox="0 0 24 24">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                        </svg>
+                      ) : (
+                        /* Pencil icon for starting edit */
+                        <svg viewBox="0 0 24 24">
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                        </svg>
+                      )}
+                    </div>
+                  )}
+
                   {/* Bordo cliccabile - solo il perimetro è interattivo */}
                   {/* Bordo superiore */}
                   <div
@@ -4268,9 +5253,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                       top: '-4px',
                       left: '-4px',
                       right: '-4px',
-                      height: '4px',
-                      pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer'
+                      height: '8px', // Aumentato per facilitare click
+                      pointerEvents: 'auto', // Riabilita click
+                      cursor: connectingFrom ? 'crosshair' : 'pointer',
+                      zIndex: 10
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 2 && e.altKey) {
@@ -4296,9 +5282,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                       bottom: '-4px',
                       left: '-4px',
                       right: '-4px',
-                      height: '4px',
+                      height: '8px', // Aumentato
                       pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer'
+                      cursor: connectingFrom ? 'crosshair' : 'pointer',
+                      zIndex: 10
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 2 && e.altKey) {
@@ -4324,9 +5311,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                       top: '-4px',
                       left: '-4px',
                       bottom: '-4px',
-                      width: '4px',
+                      width: '8px', // Aumentato
                       pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer'
+                      cursor: connectingFrom ? 'crosshair' : 'pointer',
+                      zIndex: 10
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 2 && e.altKey) {
@@ -4352,9 +5340,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                       top: '-4px',
                       right: '-4px',
                       bottom: '-4px',
-                      width: '4px',
+                      width: '8px', // Aumentato
                       pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer'
+                      cursor: connectingFrom ? 'crosshair' : 'pointer',
+                      zIndex: 10
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 2 && e.altKey) {
@@ -4373,7 +5362,52 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                     }}
                   />
                 </div>
-              ))}
+              );})}
+
+              {/* Overlay per bloccare focus fuori dall'oggetto in editing */}
+              {editingToObject && (
+                <>
+                  {/* Overlay scuro che copre tutto tranne l'oggetto */}
+                  {/* Implementato come 4 rettangoli attorno all'oggetto per creare un 'buco' */}
+                  {/* Nota: questo è necessario perché 'pointer-events' non supporta 'forare' un div */}
+                  {(() => {
+                    const activeObjPos = contentObjectPositions.find(p => p.id === editingToObject.objectId);
+                    if (!activeObjPos) return null;
+
+                    // Dimensioni totali (approssimate, dovrebbero coprire tutto l'editor visibile)
+                    // Dato che siamo inside layer-ec-content che ha width 100% e height del contenuto
+                    // Possiamo usare 100% width e height
+                    
+                    return (
+                      <>
+                        {/* Top Mask */}
+                        <div style={{
+                          position: 'absolute', top: 0, left: 0, right: 0, height: activeObjPos.top + 'px',
+                          backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
+                        }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                        
+                        {/* Bottom Mask */}
+                        <div style={{
+                          position: 'absolute', top: (activeObjPos.top + activeObjPos.height) + 'px', left: 0, right: 0, bottom: 0,
+                          backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
+                        }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                        
+                        {/* Left Mask */}
+                        <div style={{
+                          position: 'absolute', top: activeObjPos.top + 'px', left: 0, width: activeObjPos.left + 'px', height: activeObjPos.height + 'px',
+                          backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
+                        }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                        
+                        {/* Right Mask */}
+                        <div style={{
+                          position: 'absolute', top: activeObjPos.top + 'px', left: (activeObjPos.left + activeObjPos.width) + 'px', right: 0, height: activeObjPos.height + 'px',
+                          backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
+                        }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -4427,10 +5461,103 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
           >
             🗑️ Elimina oggetto
           </button>
+          
+          {/* Opzione Forza Match solo per oggetti Header (From) */}
+          {objectContextMenu.objectId.includes('header-obj-') && (
+            <button 
+              className="context-menu-item"
+              onClick={() => handleOpenForceMatch(objectContextMenu.objectId)}
+              style={{ borderTop: '1px solid #eee', marginTop: '4px', paddingTop: '4px' }}
+            >
+              🔗 Forza Match
+            </button>
+          )}
         </div>
       )}
       
       {/* Menu contestuale per connessioni/binomi */}
+      {/* Modale per selezione Binomi Forza Match */}
+      {showForceMatchModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10002,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="modal-content" style={{
+            backgroundColor: 'white', padding: '20px', borderRadius: '8px',
+            maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>🔗 Seleziona Binomio per Forza Match</h3>
+              <button
+                onClick={handleToggleSort}
+                style={{
+                  padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px',
+                  backgroundColor: sortOrder ? '#3498db' : '#ecf0f1', color: sortOrder ? 'white' : '#2c3e50',
+                  cursor: 'pointer', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px'
+                }}
+                title={sortOrder === 'asc' ? 'Ordinato crescente' : sortOrder === 'desc' ? 'Ordinato decrescente' : 'Clicca per ordinare'}
+              >
+                {sortOrder === 'asc' ? '↑' : sortOrder === 'desc' ? '↓' : '⇅'} Ordina per Test Case
+              </button>
+            </div>
+            <p style={{ marginTop: '0', color: '#666' }}>Scegli un binomio esistente da applicare a questo oggetto.</p>
+            
+            <div className="binomi-list" style={{ marginTop: '15px' }}>
+              {availableBinomiForMatch.length === 0 ? (
+                <p>Nessun binomio disponibile.</p>
+              ) : (
+                getSortedBinomi().map(binomio => {
+                  const fromObj = allECObjectsForMatch.find(o => o.id === binomio.fromObjectId);
+                  const toObj = allECObjectsForMatch.find(o => o.id === binomio.toObjectId);
+                  
+                  if (!fromObj || !toObj) return null;
+                  
+                  return (
+                    <div 
+                      key={binomio.id} 
+                      onClick={() => handleApplyForceMatch(binomio)}
+                      style={{
+                        padding: '10px', border: '1px solid #ddd', borderRadius: '4px',
+                        marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s',
+                        display: 'flex', flexDirection: 'column', gap: '5px'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                        <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>FROM: {fromObj.text}</div>
+                        <div style={{ 
+                          fontSize: '0.85em', color: '#7f8c8d', 
+                          backgroundColor: '#ecf0f1', padding: '2px 8px', borderRadius: '3px',
+                          fontWeight: '500'
+                        }}>
+                          Test Case #{binomio.testCaseId}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        TO: {toObj.text.substring(0, 100)}...
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setShowForceMatchModal(false)}
+              style={{
+                marginTop: '15px', padding: '8px 16px', border: 'none',
+                borderRadius: '4px', backgroundColor: '#e74c3c', color: 'white', cursor: 'pointer'
+              }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
       {connectionContextMenu && (
         <div
           ref={connectionContextMenuRef}
@@ -4501,15 +5628,34 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                 )}
               </div>
 
-              <div className="prompt-input-container">
+              <div className={`prompt-input-container ${editingToObject ? 'editing-mode' : ''}`}>
+                {editingToObject && (
+                  <div className="editing-mode-badge" style={{
+                    position: 'absolute',
+                    top: '-30px',
+                    left: '0',
+                    backgroundColor: '#ff9800',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '4px 4px 0 0',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span>✏️ Modifica Oggetto</span>
+                  </div>
+                )}
                 <textarea
-                  className="prompt-input"
+                  className={`prompt-input ${editingToObject ? 'editing-active' : ''}`}
                   value={state.prompt}
                   onChange={(e) => onPromptChange(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder="Scrivi qui il tuo prompt per l'AI... (Ctrl+Enter per inviare)"
+                  placeholder={editingToObject ? "Descrivi come modificare l'oggetto selezionato... (l'AI aggiornerà il codice)" : "Scrivi qui il tuo prompt per l'AI... (Ctrl+Enter per inviare)"}
                   disabled={state.loading}
                   rows="3"
+                  style={editingToObject ? { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.05)' } : {}}
                 />
                 <div className="send-buttons-group">
                   <button
@@ -4604,7 +5750,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                   />
                   <Editor
                     value={state.code || ''}
-                    onValueChange={(code) => onCodeChange?.(code)}
+                    onValueChange={(code) => handleProtectedCodeChange(code)}
                     highlight={(code) => highlight(code, languages.javascript, 'javascript')}
                     padding={20}
                     className="code-editor"
@@ -4639,6 +5785,149 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale di propagazione modifiche oggetto TO */}
+      {showPropagationModal && (
+        <div 
+          className="modal-overlay" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 10003,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <div 
+            className="modal-content propagation-modal" 
+            style={{
+              backgroundColor: 'white',
+              padding: '25px',
+              borderRadius: '12px',
+              maxWidth: '500px',
+              width: '90%',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '24px' }}>🔄</span>
+              Propagazione Modifica
+            </h3>
+            
+            <p style={{ color: '#666', marginBottom: '20px', lineHeight: '1.6' }}>
+              Hai modificato il testo dell'oggetto TO.
+              <br /><br />
+              <strong>Testo originale:</strong>
+              <br />
+              <code style={{ 
+                display: 'block', 
+                padding: '10px', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: '4px', 
+                fontSize: '12px',
+                marginTop: '5px',
+                maxHeight: '80px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {showPropagationModal.originalText?.substring(0, 150)}
+                {showPropagationModal.originalText?.length > 150 ? '...' : ''}
+              </code>
+              <br />
+              <strong>Nuovo testo:</strong>
+              <br />
+              <code style={{ 
+                display: 'block', 
+                padding: '10px', 
+                backgroundColor: '#e8f5e9', 
+                borderRadius: '4px', 
+                fontSize: '12px',
+                marginTop: '5px',
+                maxHeight: '80px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {showPropagationModal.newText?.substring(0, 150)}
+                {showPropagationModal.newText?.length > 150 ? '...' : ''}
+              </code>
+            </p>
+            
+            <p style={{ color: '#555', marginBottom: '20px', fontWeight: '500' }}>
+              Vuoi propagare questa modifica a tutti gli oggetti TO con lo stesso testo originale?
+            </p>
+            
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handlePropagationAbort}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #6c757d',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  color: '#6c757d',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  fontSize: '14px'
+                }}
+                title="Annulla le modifiche e ripristina il testo originale"
+              >
+                🚫 Aborta operazione
+              </button>
+              <button
+                onClick={() => handlePropagationConfirm(false)}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #dc3545',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  color: '#dc3545',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  fontSize: '14px'
+                }}
+                title="L'oggetto TO perderà la sua cornice e la connessione con l'oggetto FROM"
+              >
+                ❌ No, Sciogli Oggetto
+              </button>
+              <button
+                onClick={() => handlePropagationConfirm(true)}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  fontSize: '14px'
+                }}
+              >
+                ✅ Sì, Propaga a Tutti
+              </button>
+            </div>
+            
+            <p style={{ 
+              marginTop: '15px', 
+              fontSize: '12px', 
+              color: '#888',
+              borderTop: '1px solid #eee',
+              paddingTop: '15px'
+            }}>
+              <strong>Nota:</strong> Se scegli "No", questo oggetto TO perderà il suo status: 
+              la cornice arancione e la freccia di connessione verranno rimosse.
+            </p>
           </div>
         </div>
       )}
