@@ -1,19 +1,67 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T12:55:20.736Z",
-  "lastUpdated": "2025-12-07T14:47:08.948Z",
+  "lastUpdated": "2025-12-08T10:53:45.068Z",
   "objects": [
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC17-THEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "17",
+      "boxType": "then",
+      "boxNumber": 1,
+      "text": "gatto\ncane\ncavallo\n",
+      "location": "content",
+      "startIndex": 6,
+      "endIndex": 25,
+      "createdAt": "2025-12-08T02:04:51.383Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-THEN-2",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "18",
+      "boxType": "then",
+      "boxNumber": 2,
+      "text": "gatto \ncane \nzebra\n",
+      "location": "content",
+      "startIndex": 8,
+      "endIndex": 27,
+      "createdAt": "2025-12-08T02:30:04.594Z"
+    },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-GIVEN-1",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
       "testCaseId": "18",
       "boxType": "given",
       "boxNumber": 1,
-      "text": "GATTO\nCANE\nGALLINA",
+      "text": "mela\npera \nbanana \ncafe",
       "location": "content",
-      "startIndex": 7,
+      "startIndex": 14,
+      "endIndex": 37,
+      "createdAt": "2025-12-08T02:33:39.075Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "16",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "mela\npera\nbanana\n",
+      "location": "content",
+      "startIndex": 8,
       "endIndex": 25,
-      "createdAt": "2025-12-07T13:57:49.588Z"
+      "createdAt": "2025-12-08T02:37:10.820Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "ela\npera\nbanana\ncaffe",
+      "location": "content",
+      "startIndex": 8,
+      "endIndex": 29,
+      "createdAt": "2025-12-08T02:38:43.832Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-WHEN-1",
@@ -21,11 +69,71 @@
       "testCaseId": "18",
       "boxType": "when",
       "boxNumber": 1,
-      "text": "CANE\nGATTO\nGALLINA",
+      "text": "cavallo\ncane\ngatti",
+      "location": "content",
+      "startIndex": 7,
+      "endIndex": 25,
+      "createdAt": "2025-12-08T02:58:43.976Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC17-GIVEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "17",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "gatto \nzebra\nciofeca",
+      "location": "content",
+      "startIndex": 8,
+      "endIndex": 28,
+      "createdAt": "2025-12-08T03:07:32.195Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC7-GIVEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "7",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "cane\ngatto\ncachorro",
+      "location": "content",
+      "startIndex": 6,
+      "endIndex": 25,
+      "createdAt": "2025-12-08T03:15:28.750Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC11-GIVEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "11",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "CANE\nGATTO \nCAVALO",
       "location": "content",
       "startIndex": 6,
       "endIndex": 24,
-      "createdAt": "2025-12-07T14:47:08.904Z"
+      "createdAt": "2025-12-08T03:17:04.598Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC11-WHEN-1",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "11",
+      "boxType": "when",
+      "boxNumber": 1,
+      "text": "mela \npera\nbanana\ncafe",
+      "location": "content",
+      "startIndex": 10,
+      "endIndex": 32,
+      "createdAt": "2025-12-08T10:30:16.521Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC14-GIVEN-2",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "14",
+      "boxType": "given",
+      "boxNumber": 2,
+      "text": "MELONI \nECCOLI QUA\n",
+      "location": "content",
+      "startIndex": 9,
+      "endIndex": 28,
+      "createdAt": "2025-12-08T10:53:45.063Z"
     }
   ]
 }

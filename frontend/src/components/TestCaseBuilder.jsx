@@ -2592,6 +2592,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const prevCodeRef = useRef(state.code);
   const isManualCodeChange = useRef(false);
   const isIsolationEnforcing = useRef(false);
+  const deletedObjectRef = useRef(null); // Per ripristinare blocchi cancellati con undo
 
   // Effetto per gestire le modifiche del codice da parte dell'AI durante l'editing di un oggetto
   useEffect(() => {
@@ -2820,60 +2821,10 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     // Ottieni il testo corrente dell'oggetto
     const contentObjects = objects.filter(o => o.location === 'content');
     const objIndex = parseInt(editingToObject.objectId.replace('content-obj-', ''));
-    let obj = contentObjects[objIndex];
+    const obj = contentObjects[objIndex];
     
     if (obj && state.code) {
-      // BUG FIX: Prima di salvare, rimuovi newline finali extra che potrebbero essere stati aggiunti
-      // Rimuovi TUTTI i newline finali, lasciando solo il contenuto reale
-      let adjustedEndIndex = obj.endIndex;
-      let removedCount = 0;
-      while (adjustedEndIndex > obj.startIndex && 
-             state.code[adjustedEndIndex - 1] === '\n' &&
-             removedCount < 10) { // Safety limit
-        adjustedEndIndex--;
-        removedCount++;
-      }
-      
-      // Se abbiamo rimosso tutto (tutto vuoto), ripristina almeno l'oggetto minimo
-      if (adjustedEndIndex === obj.startIndex) {
-        adjustedEndIndex = Math.min(obj.startIndex + 1, obj.endIndex);
-      }
-      
-      // Se abbiamo trimato dei newline, aggiorna l'oggetto negli state
-      if (adjustedEndIndex !== obj.endIndex) {
-        const lengthDiff = adjustedEndIndex - obj.endIndex;
-        
-        // Aggiorna il codice rimuovendo i newline extra
-        const before = state.code.substring(0, adjustedEndIndex);
-        const after = state.code.substring(obj.endIndex);
-        const cleanedCode = before + after;
-        
-        onCodeChange?.(cleanedCode);
-        
-        // Aggiorna gli indici di tutti gli oggetti successivi
-        setObjects(prevObjects => prevObjects.map(o => {
-          if (o === obj || o.id === obj.id || o.ecObjectId === obj.ecObjectId) {
-            return { ...o, endIndex: adjustedEndIndex };
-          }
-          if (o.location === 'content' && o.startIndex > obj.startIndex) {
-            return {
-              ...o,
-              startIndex: o.startIndex + lengthDiff,
-              endIndex: o.endIndex + lengthDiff
-            };
-          }
-          return o;
-        }));
-        
-        obj = { ...obj, endIndex: adjustedEndIndex };
-      }
-      
-      // Usa il codice aggiornato se è stato pulito
-      const finalCode = adjustedEndIndex !== obj.endIndex ? 
-        state.code.substring(0, adjustedEndIndex) + state.code.substring(obj.endIndex) : 
-        state.code;
-        
-      const currentText = finalCode.substring(obj.startIndex, adjustedEndIndex);
+      const currentText = state.code.substring(obj.startIndex, obj.endIndex);
       
       // Se il testo è cambiato, mostra il modale di propagazione
       if (currentText !== editingToObject.originalText) {
@@ -2886,12 +2837,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       }
     }
     
-    // Delay nel chiudere l'editing per permettere al cleanup di propagarsi
-    // Questo previene che enforceToObjectIsolation aggiunga di nuovo newline troppo presto
-    setTimeout(() => {
-      setEditingToObject(null);
-    }, 50);
-  }, [editingToObject, objects, state.code, onCodeChange]);
+    setEditingToObject(null);
+  }, [editingToObject, objects, state.code]);
 
   // Smart Text: Double-click/Click per toggle modalità editing sull'oggetto To
   // Nota: la funzione finishEditing è definita sopra ed usata qui
@@ -2915,28 +2862,11 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     
     const contentObjects = objects.filter(o => o.location === 'content');
     const objIndex = parseInt(objectId.replace('content-obj-', ''));
-    let obj = contentObjects[objIndex];
+    const obj = contentObjects[objIndex];
     
     if (!obj) return;
     
-    // BUG FIX: Rimuovi eventuali newline finali che sono solo per isolamento
-    // Questi non fanno parte del contenuto reale e causano la visualizzazione di righe vuote extra
-    let adjustedEndIndex = obj.endIndex;
-    if (state.code && adjustedEndIndex > obj.startIndex) {
-      // Rimuovi TUTTI i newline finali (con safety limit)
-      let removedNewlines = 0;
-      while (adjustedEndIndex > obj.startIndex && 
-             state.code[adjustedEndIndex - 1] === '\n' && 
-             removedNewlines < 10) { // Safety limit aumentato
-        adjustedEndIndex--;
-        removedNewlines++;
-      }
-    }
-    
-    // Aggiorna l'oggetto con gli indici corretti (senza newline di isolamento)
-    obj = { ...obj, endIndex: adjustedEndIndex };
-    
-    // Ottieni il testo originale (ora senza newline finali di isolamento)
+    // Ottieni il testo originale
     const originalText = state.code ? state.code.substring(obj.startIndex, obj.endIndex) : '';
     
     setEditingToObject({
@@ -3275,69 +3205,6 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     }
   };
 
-  // Gestisce le frecce per bypassare i blocchi arancioni protetti
-  const handleCodeKeyDown = (e) => {
-    // Solo se NON siamo in modalità editing di un oggetto
-    if (editingToObject) {
-      return; // Lascia che l'utente navighi normalmente dentro il box
-    }
-
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') {
-      return; // Non è una freccia, ignora
-    }
-
-    const textarea = codeEditorRef.current?.querySelector('textarea');
-    if (!textarea || !state.code) {
-      return;
-    }
-
-    const { selectionStart } = textarea;
-    const contentObjects = objects.filter(o => o.location === 'content');
-    
-    // Trova se il cursore sta per entrare in un blocco protetto
-    for (const obj of contentObjects) {
-      if (e.key === 'ArrowDown') {
-        // Se il cursore è PRIMA del blocco e la freccia lo porterebbe DENTRO
-        if (selectionStart < obj.startIndex && selectionStart + 1 >= obj.startIndex) {
-          e.preventDefault();
-          // Salta direttamente ALLA RIGA DOPO il blocco
-          const nextNl = state.code.indexOf('\n', obj.endIndex);
-          const target = nextNl === -1 ? state.code.length : nextNl + 1;
-          textarea.setSelectionRange(target, target);
-          return;
-        }
-        // Se il cursore è DENTRO il blocco, salta fuori (dopo il blocco)
-        if (selectionStart >= obj.startIndex && selectionStart < obj.endIndex) {
-          e.preventDefault();
-          const nextNl = state.code.indexOf('\n', obj.endIndex);
-          const target = nextNl === -1 ? state.code.length : nextNl + 1;
-          textarea.setSelectionRange(target, target);
-          return;
-        }
-      } else if (e.key === 'ArrowUp') {
-        // Se il cursore è DOPO il blocco e la freccia lo porterebbe DENTRO
-        if (selectionStart > obj.endIndex && selectionStart - 1 <= obj.endIndex) {
-          e.preventDefault();
-          // Salta direttamente ALLA RIGA PRIMA del blocco
-          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
-          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
-          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
-          textarea.setSelectionRange(target, target);
-          return;
-        }
-        // Se il cursore è DENTRO il blocco, salta fuori (prima del blocco)
-        if (selectionStart >= obj.startIndex && selectionStart <= obj.endIndex) {
-          e.preventDefault();
-          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
-          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
-          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
-          textarea.setSelectionRange(target, target);
-          return;
-        }
-      }
-    }
-  };
-
   const handleCodeContextMenu = (e) => {
     if (!codeEditorRef.current?.contains(e.target)) {
       return;
@@ -3362,6 +3229,201 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       });
       e.preventDefault();
       e.stopPropagation();
+    }
+  };
+
+  // Gestisce frecce e Backspace/Delete saltando o cancellando i blocchi arancioni
+  const handleCodeKeyDown = (e) => {
+    // Se siamo in editing del blocco arancione, non interferire
+    if (editingToObject) return;
+
+    // Undo blocchi cancellati
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      if (deletedObjectRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        const { obj: deletedObj, originalCode } = deletedObjectRef.current;
+
+        // Ripristina codice e oggetto
+        isManualCodeChange.current = true;
+        onCodeChange?.(originalCode);
+
+        setObjects(prev => {
+          const withoutDup = prev.filter(o =>
+            o.id !== deletedObj.id &&
+            (o.ecObjectId !== deletedObj.ecObjectId || !deletedObj.ecObjectId)
+          );
+          return [...withoutDup, { ...deletedObj }];
+        });
+
+        // Posiziona cursore alla riga sotto il blocco ripristinato
+        setTimeout(() => {
+          const ta = codeEditorRef.current?.querySelector('textarea');
+          if (ta && originalCode) {
+            const nextNl = originalCode.indexOf('\n', deletedObj.endIndex);
+            const target = nextNl !== -1 ? nextNl + 1 : originalCode.length;
+            ta.setSelectionRange(target, target);
+            ta.focus();
+          }
+        }, 10);
+
+        // Pulisci il ref
+        setTimeout(() => {
+          deletedObjectRef.current = null;
+        }, 100);
+      }
+      return;
+    }
+
+    const allowed = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'];
+    if (!allowed.includes(e.key)) return;
+
+    const textarea = codeEditorRef.current?.querySelector('textarea');
+    if (!textarea || !state.code) return;
+
+    const { selectionStart } = textarea;
+    const contentObjects = objects.filter(o => o.location === 'content');
+
+    for (const obj of contentObjects) {
+      // ArrowDown: se sta per entrare o è dentro, salta sotto
+      if (e.key === 'ArrowDown') {
+        if (selectionStart < obj.startIndex && selectionStart + 1 >= obj.startIndex) {
+          e.preventDefault();
+          const nextNl = state.code.indexOf('\n', obj.endIndex);
+          const target = nextNl === -1 ? state.code.length : nextNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+        if (selectionStart >= obj.startIndex && selectionStart < obj.endIndex) {
+          e.preventDefault();
+          const nextNl = state.code.indexOf('\n', obj.endIndex);
+          const target = nextNl === -1 ? state.code.length : nextNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+      }
+
+      // ArrowUp: se sta per entrare o è dentro, salta sopra
+      if (e.key === 'ArrowUp') {
+        if (selectionStart > obj.endIndex && selectionStart - 1 <= obj.endIndex) {
+          e.preventDefault();
+          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
+          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
+          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+        if (selectionStart >= obj.startIndex && selectionStart <= obj.endIndex) {
+          e.preventDefault();
+          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
+          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
+          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+      }
+
+      // ArrowRight: se sta per entrare o è dentro, salta sotto il blocco
+      if (e.key === 'ArrowRight') {
+        if (
+          (selectionStart >= obj.startIndex - 1 && selectionStart < obj.endIndex) ||
+          (selectionStart >= obj.startIndex && selectionStart < obj.endIndex)
+        ) {
+          e.preventDefault();
+          const nextNl = state.code.indexOf('\n', obj.endIndex);
+          const target = nextNl === -1 ? state.code.length : nextNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+      }
+
+      // ArrowLeft: se sta per entrare o è dentro, salta sopra il blocco
+      if (e.key === 'ArrowLeft') {
+        if (selectionStart > obj.endIndex && selectionStart - 1 <= obj.endIndex) {
+          e.preventDefault();
+          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
+          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
+          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+        if (selectionStart > obj.startIndex && selectionStart <= obj.endIndex) {
+          e.preventDefault();
+          const prevNl = state.code.lastIndexOf('\n', obj.startIndex - 1);
+          const prevPrevNl = prevNl === -1 ? -1 : state.code.lastIndexOf('\n', prevNl - 1);
+          const target = prevPrevNl === -1 ? 0 : prevPrevNl + 1;
+          textarea.setSelectionRange(target, target);
+          return;
+        }
+      }
+
+      // Backspace: se subito dopo o dentro, cancella tutto il blocco
+      if (e.key === 'Backspace') {
+        if (selectionStart === obj.endIndex || selectionStart === obj.endIndex + 1 || (selectionStart > obj.startIndex && selectionStart <= obj.endIndex)) {
+          e.preventDefault();
+          const before = state.code.substring(0, obj.startIndex);
+          const after = state.code.substring(obj.endIndex);
+          const newCode = before + after;
+          const newCursorPos = obj.startIndex;
+
+          deletedObjectRef.current = { obj: { ...obj }, originalCode: state.code };
+
+          isManualCodeChange.current = true;
+          onCodeChange?.(newCode);
+
+          setObjects(prevObjects => {
+            const updated = prevObjects.filter(o => o !== obj);
+            const lengthDiff = obj.startIndex - obj.endIndex; // negativo
+            const shifted = updated.map(o => {
+              if (o.location === 'content' && o.startIndex > obj.startIndex) {
+                return { ...o, startIndex: o.startIndex + lengthDiff, endIndex: o.endIndex + lengthDiff };
+              }
+              return o;
+            });
+            return shifted;
+          });
+
+          setTimeout(() => {
+            const ta = codeEditorRef.current?.querySelector('textarea');
+            if (ta) ta.setSelectionRange(newCursorPos, newCursorPos);
+          }, 0);
+          return;
+        }
+      }
+
+      // Delete: se subito prima o dentro, cancella tutto il blocco
+      if (e.key === 'Delete') {
+        if (selectionStart === obj.startIndex || selectionStart === obj.startIndex - 1 || (selectionStart >= obj.startIndex && selectionStart < obj.endIndex)) {
+          e.preventDefault();
+          const before = state.code.substring(0, obj.startIndex);
+          const after = state.code.substring(obj.endIndex);
+          const newCode = before + after;
+          const newCursorPos = obj.startIndex;
+
+          deletedObjectRef.current = { obj: { ...obj }, originalCode: state.code };
+
+          isManualCodeChange.current = true;
+          onCodeChange?.(newCode);
+
+          setObjects(prevObjects => {
+            const updated = prevObjects.filter(o => o !== obj);
+            const lengthDiff = obj.startIndex - obj.endIndex; // negativo
+            const shifted = updated.map(o => {
+              if (o.location === 'content' && o.startIndex > obj.startIndex) {
+                return { ...o, startIndex: o.startIndex + lengthDiff, endIndex: o.endIndex + lengthDiff };
+              }
+              return o;
+            });
+            return shifted;
+          });
+
+          setTimeout(() => {
+            const ta = codeEditorRef.current?.querySelector('textarea');
+            if (ta) ta.setSelectionRange(newCursorPos, newCursorPos);
+          }, 0);
+          return;
+        }
+      }
     }
   };
 
@@ -3808,42 +3870,36 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
         newCodeLength: newCode.length
       });
 
-      // PRIORITÀ ASSOLUTA: Permetti sempre modifiche dentro o adiacenti al box in editing
-      // Il box arancione è uno spazio dedicato che si espande con il contenuto
+      // Se la modifica è avvenuta FUORI dall'oggetto in editing (o ai suoi bordi critici), bloccala
+      // Consideriamo un margine di sicurezza per evitare di cancellare per errore i bordi dell'oggetto
+      // FIX CRITICO: changeStart è basato su oldCode.
+      // Se stiamo appendendo alla fine, changeStart == obj.endIndex.
+      // Se stiamo aggiungendo un newline che viene interpretato dopo la fine, dobbiamo permetterlo se siamo in editing.
       
-      // Blocca solo se la modifica è CHIARAMENTE fuori (prima dell'inizio o molto dopo la fine)
-      if (changeStart < obj.startIndex) {
-        logDiagnostic('EDIT_BLOCKED_BEFORE', {
-           changeStart,
-           objStart: obj.startIndex
-        });
-        console.log('Modifica bloccata: la modifica inizia prima dell\'oggetto attivo.');
-        return;
-      }
+      // Calcola se la modifica è un'estensione legittima (es. newline alla fine)
+      const isAppending = changeStart === obj.endIndex;
+      const isNewlineExtension = insertedText === '\n' || insertedText.trim() === ''; // Permetti spazi/newline
       
-      // Permetti modifiche fino a 20 caratteri dopo la fine (copre spazi di isolamento)
-      if (changeStart > obj.endIndex + 20) {
-        logDiagnostic('EDIT_BLOCKED_FAR', {
-           changeStart,
-           objEnd: obj.endIndex,
-           distance: changeStart - obj.endIndex
-        });
-        console.log('Modifica bloccata: la modifica è troppo lontana dall\'oggetto attivo.');
-        return;
-      }
-      
-      // TUTTO IL RESTO È PERMESSO - il box si espande per includere la modifica
+      // Permetti se siamo dentro, se stiamo appendendo, o se è un newline "vicino"
+      const isAllowed = (changeStart >= obj.startIndex && changeStart <= obj.endIndex) || 
+                       (isAppending) || 
+                       (changeStart > obj.endIndex && changeStart <= obj.endIndex + 1 && isNewlineExtension);
 
-      // Calcola il nuovo endIndex in modo intelligente:
-      // Se la modifica è dentro il box, espandi normalmente
-      // Se è dopo (es. in spazi di isolamento), espandi fino a includere la modifica
-      let newEndIndex;
-      if (changeStart <= obj.endIndex) {
-        newEndIndex = obj.endIndex + lengthDiff;
-      } else {
-        // Modifica dopo: espandi il box per includerla
-        newEndIndex = changeStart + lengthDiff;
+      if (!isAllowed) {
+        logDiagnostic('EDIT_BLOCKED_OUTSIDE', {
+           changeStart,
+           objStart: obj.startIndex,
+           objEnd: obj.endIndex,
+           insertedText
+        });
+        console.log('Modifica bloccata: puoi modificare solo l\'oggetto attivo.');
+        // Non aggiorniamo il codice, quindi la modifica viene annullata
+        return;
       }
+
+      // Verifica se la modifica è avvenuta nell'area dell'oggetto in editing
+      // Trova l'oggetto aggiornato con i nuovi indici
+      const newEndIndex = obj.endIndex + lengthDiff;
       
       // Aggiorna il codice (prima) e poi normalizza isolamento
       isManualCodeChange.current = true;
@@ -3930,102 +3986,46 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       // Se è fuori, la blocchiamo.
     }
     
-    // NOTA: Non blocchiamo più le modifiche "vicine" agli oggetti protetti
-    // Il sistema di isolamento e gli indici aggiornati automaticamente sono sufficienti
-    // per mantenere l'integrità degli oggetti.
-    // 
-    // Il vecchio check bloccava erroneamente modifiche legittime fatte SOPRA o SOTTO
-    // gli oggetti a causa dei newline di isolamento inclusi negli indici.
-    //
-    // Se un utente vuole modificare il CONTENUTO di un oggetto, deve usare la matita (editing mode)
+    // Verifica se la modifica tocca un oggetto TO protetto
+    for (const obj of contentObjects) {
+      // Se la modifica inizia dentro l'oggetto TO (con un margine per le righe di separazione)
+      if (changeStart >= obj.startIndex && changeStart < obj.endIndex) {
+        // Blocca la modifica - ripristina il codice originale
+        console.log('Modifica bloccata: tentativo di editare oggetto TO protetto. Fai doppio click per editare.');
+        return;
+      }
+    }
     
     // La modifica è fuori dalle zone protette, permetti
-    
-    // IMPORTANTE: Calcola lengthDiff PRIMA di usarlo
-    const lengthDiff = newCode.length - oldCode.length;
-    
-    // Salva la posizione del cursore PRIMA di modificare il codice
-    // NOTA: Il cursore in textarea.selectionStart è già DOPO l'inserimento dell'utente
-    // Non serve shiftarlo ulteriormente con lengthDiff perché è già nella posizione corretta
-    let savedCursorPosition = null;
-    if (codeEditorRef.current) {
-      const textarea = codeEditorRef.current.querySelector('textarea');
-      if (textarea) {
-        // Salva semplicemente la posizione corrente - è già corretta!
-        savedCursorPosition = textarea.selectionStart;
-      }
-    }
-    
     isManualCodeChange.current = true;
     onCodeChange?.(newCode);
-    
-    // Aggiorna gli indici degli oggetti PRIMA di chiamare enforceToObjectIsolation
-    let updatedObjects = objects;
-    
-    if (lengthDiff !== 0) {
-      console.log('🔧 AGGIORNAMENTO INDICI:', {
-        changeStart,
-        lengthDiff,
-        contentObjects: contentObjects.map(o => ({
-          id: o.id,
-          startIndex: o.startIndex,
-          endIndex: o.endIndex,
-          willUpdate: o.startIndex > changeStart
-        }))
-      });
-      
-      updatedObjects = objects.map(o => {
-        if (o.location === 'content' && o.startIndex >= changeStart) {
-          console.log('✅ Aggiornando oggetto:', o.id, 'da', o.startIndex, 'a', o.startIndex + lengthDiff);
-          return {
-            ...o,
-            startIndex: o.startIndex + lengthDiff,
-            endIndex: o.endIndex + lengthDiff
-          };
-        }
-        return o;
-      });
-      
-      // Aggiorna immediatamente gli oggetti
-      setObjects(updatedObjects);
-    }
-    
-    // Ripristina immediatamente il cursore dopo la modifica
-    if (savedCursorPosition !== null && codeEditorRef.current) {
-      const textarea = codeEditorRef.current.querySelector('textarea');
-      if (textarea) {
-        setTimeout(() => {
-          textarea.setSelectionRange(savedCursorPosition, savedCursorPosition);
-        }, 0);
-      }
-    }
-    
-    // Enforce isolamento (newline prima/dopo i blocchi) usando gli oggetti GIÀ AGGIORNATI
+    // Enforce isolamento (newline prima/dopo i blocchi)
     setTimeout(() => {
-      const result = enforceToObjectIsolation(newCode, updatedObjects);
+      const result = enforceToObjectIsolation(newCode, objects);
       if (result.changed) {
         isManualCodeChange.current = true;
         onCodeChange?.(result.code);
         setObjects(result.objects);
         if (result.updatedEditing) setEditingToObject(result.updatedEditing);
-        
-        // Ripristina di nuovo il cursore se enforceToObjectIsolation ha modificato il codice
-        if (savedCursorPosition !== null && codeEditorRef.current) {
-          const textarea = codeEditorRef.current.querySelector('textarea');
-          if (textarea) {
-            // Calcola l'offset aggiunto da enforceToObjectIsolation
-            const additionalOffset = result.code.length - newCode.length;
-            const finalPosition = savedCursorPosition <= changeStart ? 
-              savedCursorPosition : 
-              savedCursorPosition + additionalOffset;
-            
-            setTimeout(() => {
-              textarea.setSelectionRange(finalPosition, finalPosition);
-            }, 0);
-          }
-        }
       }
     }, 0);
+    
+    // Aggiorna gli indici degli oggetti se necessario
+    const lengthDiff = newCode.length - oldCode.length;
+    if (lengthDiff !== 0) {
+      setObjects(prevObjects => {
+        return prevObjects.map(o => {
+          if (o.location === 'content' && o.startIndex > changeStart) {
+            return {
+              ...o,
+              startIndex: o.startIndex + lengthDiff,
+              endIndex: o.endIndex + lengthDiff
+            };
+          }
+          return o;
+        });
+      });
+    }
   };
 
   // Smart Text: Annulla l'operazione di modifica (Abort)
@@ -6143,3 +6143,4 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     </div>
   );
 }
+
