@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-javascript';
@@ -2573,9 +2573,19 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
   const [headerObjectPositions, setHeaderObjectPositions] = useState([]); // Posizioni bordi oggetti nell'header del Layer EC
   const [contentObjectPositions, setContentObjectPositions] = useState([]); // Posizioni bordi oggetti nel contenuto del Layer EC
-  const [codeSelection, setCodeSelection] = useState({ start: null, end: null, text: '' }); // Selezione codice
+  const [codeSelection, setCodeSelection] = useState({ start: null, end: null, text: '', editorId: null }); // Selezione codice
   const [objectContextMenu, setObjectContextMenu] = useState(null); // Menu contestuale per oggetti
   const [connections, setConnections] = useState([]); // Array di connessioni: { from: objectId, to: objectId, fromPoint: {x, y}, toPoint: {x, y} }
+  const [codeEditors, setCodeEditors] = useState([{ id: 'editor-0', code: state.code || '', type: 'normal' }]);
+  const codeEditorRefs = useRef({});
+  const lastSyncedCodeRef = useRef(state.code || '');
+  const updatingEditorsRef = useRef(false);
+  const editorsInitializedRef = useRef(false);
+  const editorLocalSelectionRef = useRef({}); // { editorId: { start, end } }
+  const [caretMap, setCaretMap] = useState({}); // { editorId: { line, col } }
+  const [caretPixelMap, setCaretPixelMap] = useState({}); // { editorId: { top, left } }
+  const [activeEditorId, setActiveEditorId] = useState(null); // ID dell'EN con focus attivo (un solo pallino per fase GWT)
+  const charWidthCacheRef = useRef({});
   const [connectingFrom, setConnectingFrom] = useState(null); // ID oggetto da cui si sta creando la connessione
   const [connectingFromPoint, setConnectingFromPoint] = useState(null); // Punto relativo (0-1) sul perimetro di partenza
   const [connectingMousePos, setConnectingMousePos] = useState(null); // Posizione mouse durante connessione: { x, y }
@@ -2593,6 +2603,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const isManualCodeChange = useRef(false);
   const isIsolationEnforcing = useRef(false);
   const deletedObjectRef = useRef(null); // Per ripristinare blocchi cancellati con undo
+  const desiredCursorPosition = useRef(null); // Per ripristinare il cursore dopo normalizzazioni asincrone
 
   // Effetto per gestire le modifiche del codice da parte dell'AI durante l'editing di un oggetto
   useEffect(() => {
@@ -2787,6 +2798,128 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const codeDisplayRef = useRef(null);
   const lineNumbersRef = useRef(null);
 
+  // Costruisce la lista di "editor neri" a partire dal codice e dagli oggetti di contenuto
+  const buildCodeEditorsFromCode = useCallback((code, objList = []) => {
+    const safeCode = code || '';
+    const contentObjects = (objList || [])
+      .filter(o => o.location === 'content')
+      .sort((a, b) => a.startIndex - b.startIndex);
+
+    if (!contentObjects.length) {
+      return [{ id: 'editor-0', code: safeCode, type: 'normal' }];
+    }
+
+    const segments = [];
+    let cursor = 0;
+
+    contentObjects.forEach((obj, idx) => {
+      if (obj.startIndex > cursor) {
+        segments.push({
+          id: `seg-${segments.length}`,
+          code: safeCode.substring(cursor, obj.startIndex),
+          type: 'normal'
+        });
+      }
+
+      segments.push({
+        id: `obj-${obj.ecObjectId || obj.id || idx}`,
+        code: safeCode.substring(obj.startIndex, obj.endIndex),
+        type: 'object',
+        objectId: obj.ecObjectId || obj.id
+      });
+
+      cursor = obj.endIndex;
+    });
+
+    if (cursor < safeCode.length) {
+      segments.push({
+        id: `seg-${segments.length}`,
+        code: safeCode.substring(cursor),
+        type: 'normal'
+      });
+    }
+
+    // Mantieni almeno un editor per permettere l'editing anche se vuoto
+    return segments.length ? segments : [{ id: 'editor-0', code: safeCode, type: 'normal' }];
+  }, []);
+
+  // Inizializza gli editor una sola volta in base al codice corrente e agli oggetti
+  useEffect(() => {
+    if (editorsInitializedRef.current) return;
+    const currentCode = state.code || '';
+    const built = buildCodeEditorsFromCode(currentCode, objects);
+    setCodeEditors(built);
+    lastSyncedCodeRef.current = currentCode;
+    editorsInitializedRef.current = true;
+  }, [state.code, objects, buildCodeEditorsFromCode]);
+
+  // Pulisce i ref degli editor non più presenti
+  useEffect(() => {
+    const ids = new Set(codeEditors.map(ed => ed.id));
+    Object.keys(codeEditorRefs.current).forEach(id => {
+      if (!ids.has(id)) {
+        delete codeEditorRefs.current[id];
+      }
+    });
+  }, [codeEditors]);
+
+  // Calcola l'offset iniziale (startIndex globale) di un editor specifico
+  const getEditorPrefix = useCallback((editorId) => {
+    let total = 0;
+    for (const seg of codeEditors) {
+      if (seg.id === editorId) break;
+      total += seg.code.length;
+    }
+    return total;
+  }, [codeEditors]);
+
+  // Posiziona il cursore in base agli indici globali del codice complessivo
+  const focusRangeInEditors = useCallback((start, end) => {
+    let offset = 0;
+    for (const seg of codeEditors) {
+      const segStart = offset;
+      const segEnd = offset + seg.code.length;
+      if (start >= segStart && start <= segEnd) {
+        const container = codeEditorRefs.current[seg.id];
+        const textarea = container?.querySelector('textarea');
+        if (textarea) {
+          const localStart = Math.max(0, start - segStart);
+          const localEnd = Math.max(localStart, Math.min(seg.code.length, end - segStart));
+          textarea.focus();
+          textarea.setSelectionRange(localStart, localEnd);
+        }
+        break;
+      }
+      offset = segEnd;
+    }
+  }, [codeEditors]);
+
+  const joinEditorsCode = useCallback((segments) => {
+    return segments.map(seg => seg.code).join('');
+  }, []);
+
+  const getLineCol = useCallback((text, pos) => {
+    const safePos = Math.max(0, Math.min(pos ?? 0, text.length));
+    const untilPos = text.substring(0, safePos);
+    const lines = untilPos.split('\n');
+    const line = lines.length; // 1-based
+    const col = (lines[lines.length - 1] || '').length + 1; // 1-based
+    return { line, col };
+  }, []);
+
+  const getCharWidth = useCallback((fontSizePx = 13, fontFamily = 'monospace') => {
+    const key = `${fontSizePx}-${fontFamily}`;
+    if (charWidthCacheRef.current[key]) return charWidthCacheRef.current[key];
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 8;
+    ctx.font = `${fontSizePx}px ${fontFamily}`;
+    const metrics = ctx.measureText('m');
+    const width = metrics.width || 8;
+    charWidthCacheRef.current[key] = width;
+    return width;
+  }, []);
+
   // NOTA: onObjectsChange viene chiamato solo durante l'inizializzazione (linea 2461)
   // e durante le azioni utente (transform, delete, etc.), NON qui per evitare loop infiniti
 
@@ -2876,13 +3009,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     });
     
     // Focus sull'editor nella posizione dell'oggetto
-    if (codeEditorRef.current) {
-      const textarea = codeEditorRef.current.querySelector('textarea');
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(obj.startIndex, obj.endIndex);
-      }
-    }
+    focusRangeInEditors(obj.startIndex, obj.endIndex);
     
     console.log('Editing To object started:', objectId, 'testo originale:', originalText);
   };
@@ -3181,47 +3308,68 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     }
   };
 
-  const handleCodeSelection = () => {
-    if (!codeEditorRef.current) {
-      setCodeSelection({ start: null, end: null, text: '' });
-      return;
-    }
+  const handleCodeSelection = (editorId) => {
+    // Aggiorna la posizione in modo asincrono per non interferire con la scrittura
+    setTimeout(() => {
+      const container = codeEditorRefs.current[editorId];
+      const textarea = container?.querySelector('textarea');
+      if (!textarea) {
+        setCodeSelection({ start: null, end: null, text: '', editorId: null });
+        return;
+      }
 
-    const textarea = codeEditorRef.current.querySelector('textarea');
-    if (!textarea) {
-      setCodeSelection({ start: null, end: null, text: '' });
-      return;
-    }
+      const { selectionStart, selectionEnd } = textarea;
+      const value = textarea.value || '';
 
-    const { selectionStart, selectionEnd, value } = textarea;
-    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && selectionEnd > selectionStart) {
-      setCodeSelection({
-        start: selectionStart,
-        end: selectionEnd,
-        text: value.substring(selectionStart, selectionEnd)
-      });
-    } else {
-      setCodeSelection({ start: null, end: null, text: '' });
-    }
+      if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && selectionEnd > selectionStart) {
+        const prefix = getEditorPrefix(editorId);
+        setCodeSelection({
+          start: prefix + selectionStart,
+          end: prefix + selectionEnd,
+          text: value.substring(selectionStart, selectionEnd),
+          editorId
+        });
+        editorLocalSelectionRef.current[editorId] = { start: selectionStart, end: selectionEnd };
+        setCaretMap(prev => ({
+          ...prev,
+          [editorId]: getLineCol(value, selectionStart)
+        }));
+      } else {
+        setCodeSelection({ start: null, end: null, text: '', editorId: null });
+        editorLocalSelectionRef.current[editorId] = { start: textarea.selectionStart, end: textarea.selectionEnd };
+        setCaretMap(prev => ({
+          ...prev,
+          [editorId]: getLineCol(value, textarea.selectionStart)
+        }));
+      }
+    }, 0);
   };
 
-  const handleCodeContextMenu = (e) => {
-    if (!codeEditorRef.current?.contains(e.target)) {
+  const handleCodeContextMenu = (e, editorId) => {
+    const container = codeEditorRefs.current[editorId];
+    if (!container?.contains(e.target)) {
       return;
     }
 
-    const textarea = codeEditorRef.current.querySelector('textarea');
+    const textarea = container.querySelector('textarea');
     if (!textarea) {
       return;
     }
 
     const { selectionStart, selectionEnd, value } = textarea;
     if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && selectionEnd > selectionStart) {
+      const prefix = getEditorPrefix(editorId);
       setCodeSelection({
-        start: selectionStart,
-        end: selectionEnd,
-        text: value.substring(selectionStart, selectionEnd)
+        start: prefix + selectionStart,
+        end: prefix + selectionEnd,
+        text: value.substring(selectionStart, selectionEnd),
+        editorId
       });
+      editorLocalSelectionRef.current[editorId] = { start: selectionStart, end: selectionEnd };
+      setCaretMap(prev => ({
+        ...prev,
+        [editorId]: getLineCol(value, selectionStart)
+      }));
       setContextMenu({
         x: e.clientX,
         y: e.clientY,
@@ -3230,6 +3378,342 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       e.preventDefault();
       e.stopPropagation();
     }
+  };
+
+  const handleEditorFocus = (editorId) => {
+    // Quando un EN riceve il focus, diventa l'EN attivo (un solo pallino per fase GWT)
+    setActiveEditorId(editorId);
+    
+    // Aggiorna la posizione del cursore in modo asincrono per non interferire con la scrittura
+    setTimeout(() => {
+      const container = codeEditorRefs.current[editorId];
+      const textarea = container?.querySelector('textarea');
+      if (!textarea || document.activeElement !== textarea) return;
+      const value = textarea.value || '';
+      const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
+      const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
+      editorLocalSelectionRef.current[editorId] = { start, end };
+      setCaretMap(prev => ({
+        ...prev,
+        [editorId]: getLineCol(value, start)
+      }));
+    }, 0);
+  };
+      // Log granulari per ogni tasto
+      const keydownHandler = (e) => {
+        console.debug('[EN DEBUG] keydown', {
+          editorId: editor.id,
+          key: e.key,
+          code: e.code,
+          selectionStart: textarea.selectionStart,
+          selectionEnd: textarea.selectionEnd,
+          valueLength: (textarea.value || '').length,
+          activeEditorId,
+          caret: caretMap[editor.id]
+        });
+      };
+      const keyupHandler = (e) => {
+        console.debug('[EN DEBUG] keyup', {
+          editorId: editor.id,
+          key: e.key,
+          code: e.code,
+          selectionStart: textarea.selectionStart,
+          selectionEnd: textarea.selectionEnd,
+          valueLength: (textarea.value || '').length,
+          activeEditorId,
+          caret: caretMap[editor.id]
+        });
+      };
+
+  const handleEditorBlur = (editorId, e) => {
+    const container = codeEditorRefs.current[editorId];
+    const textarea = container?.querySelector('textarea');
+    if (!textarea) return;
+    const value = textarea.value || '';
+    const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
+    const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
+    editorLocalSelectionRef.current[editorId] = { start, end };
+    setCaretMap(prev => ({
+      ...prev,
+      [editorId]: getLineCol(value, start)
+    }));
+    
+    // Controlla se un altro EN della stessa fase ha ricevuto il focus
+    // Usa un timeout per permettere al nuovo focus di essere registrato
+    setTimeout(() => {
+      const anyEditorFocused = codeEditors.some(editor => {
+        const editorContainer = codeEditorRefs.current[editor.id];
+        const editorTextarea = editorContainer?.querySelector('textarea');
+        return editorTextarea && document.activeElement === editorTextarea;
+      });
+      
+      // Se nessun EN ha il focus, mantieni il pallino sull'ultimo EN attivo
+      // Se un altro EN ha il focus, activeEditorId sarà già stato aggiornato da handleEditorFocus
+      if (!anyEditorFocused && activeEditorId === editorId) {
+        // Nessun altro EN ha il focus, mantieni il pallino su questo EN
+        // activeEditorId rimane invariato
+      }
+    }, 0);
+  };
+
+  // Disabilitato: i listener diretti sui textarea vengono rimossi per evitare interferenze con la digitazione
+  // useEffect(() => {
+  //   const focusHandlers = {};
+  //   const blurHandlers = {};
+  //   const inputHandlers = {};
+  //
+  //   codeEditors.forEach((editor) => {
+  //     const container = codeEditorRefs.current[editor.id];
+  //     if (!container) return;
+  //     const textarea = container.querySelector('textarea');
+  //     if (!textarea) return;
+  //
+  //     const focusHandler = () => handleEditorFocus(editor.id);
+  //     const blurHandler = (e) => handleEditorBlur(editor.id, e);
+  //     const inputHandler = () => {
+  //       if (document.activeElement === textarea) {
+  //         setTimeout(() => {
+  //           const value = textarea.value || '';
+  //           const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
+  //           const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
+  //           editorLocalSelectionRef.current[editor.id] = { start, end };
+  //           setCaretMap(prev => ({
+  //             ...prev,
+  //             [editor.id]: getLineCol(value, start)
+  //           }));
+  //         }, 0);
+  //       }
+  //     };
+  //
+  //     focusHandlers[editor.id] = focusHandler;
+  //     blurHandlers[editor.id] = blurHandler;
+  //     inputHandlers[editor.id] = inputHandler;
+  //
+  //     textarea.addEventListener('focus', focusHandler);
+  //     textarea.addEventListener('blur', blurHandler);
+  //     textarea.addEventListener('input', inputHandler);
+  //   });
+  //
+  //   return () => {
+  //     codeEditors.forEach((editor) => {
+  //       const container = codeEditorRefs.current[editor.id];
+  //       if (!container) return;
+  //       const textarea = container.querySelector('textarea');
+  //       if (!textarea) return;
+  //
+  //       if (focusHandlers[editor.id]) {
+  //         textarea.removeEventListener('focus', focusHandlers[editor.id]);
+  //       }
+  //       if (blurHandlers[editor.id]) {
+  //         textarea.removeEventListener('blur', blurHandlers[editor.id]);
+  //       }
+  //       if (inputHandlers[editor.id]) {
+  //         textarea.removeEventListener('input', inputHandlers[editor.id]);
+  //       }
+  //     });
+  //   };
+  // }, [codeEditors]);
+
+  // Calcola la posizione pixel del caret per mostrare il pallino fuori fuoco
+  useLayoutEffect(() => {
+    const nextPixels = {};
+    codeEditors.forEach((seg) => {
+      const pos = caretMap[seg.id];
+      if (!pos) return;
+      const container = codeEditorRefs.current[seg.id];
+      if (!container) return;
+      const textarea = container.querySelector('textarea');
+      if (!textarea) return;
+
+      const localSel = editorLocalSelectionRef.current[seg.id];
+      if (!localSel) return;
+      const caretPos = localSel.start;
+
+      const styles = window.getComputedStyle(textarea);
+      const paddingTop = parseFloat(styles.paddingTop) || 8;
+      const paddingLeft = parseFloat(styles.paddingLeft) || 12;
+      const lineHeightPx = parseFloat(styles.lineHeight) || 18;
+      const fontSizePx = parseFloat(styles.fontSize) || 13;
+      const fontFamily = styles.fontFamily || 'monospace';
+
+      const value = textarea.value || '';
+      
+      // Usa direttamente pos.line da caretMap (già calcolato correttamente)
+      const lineNumber = pos.line; // 1-based
+      
+      // Calcola la posizione esatta usando il testo fino al cursore per la colonna
+      const textBeforeCaret = value.substring(0, caretPos);
+      const lines = textBeforeCaret.split('\n');
+      const currentLine = lines[lines.length - 1] || '';
+      
+      // Crea un elemento temporaneo per misurare la larghezza esatta del testo sulla riga corrente
+      const measureEl = document.createElement('span');
+      measureEl.style.position = 'absolute';
+      measureEl.style.visibility = 'hidden';
+      measureEl.style.whiteSpace = 'pre';
+      measureEl.style.fontFamily = fontFamily;
+      measureEl.style.fontSize = `${fontSizePx}px`;
+      measureEl.style.padding = '0';
+      measureEl.style.margin = '0';
+      measureEl.style.border = 'none';
+      measureEl.textContent = currentLine;
+      document.body.appendChild(measureEl);
+      
+      const textWidth = measureEl.offsetWidth;
+      document.body.removeChild(measureEl);
+
+      // Ottieni la posizione del textarea rispetto al wrapper
+      const textareaRect = textarea.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const textareaOffsetTop = textareaRect.top - containerRect.top;
+      const textareaOffsetLeft = textareaRect.left - containerRect.left;
+      
+      // Calcola top: posizione della riga corrente (lineNumber è 1-based, quindi -1 per l'indice)
+      // Il baricentro del cursore è al centro verticale della linea (metà lineHeight)
+      // Aggiungi l'offset del textarea rispetto al wrapper
+      const lineTop = textareaOffsetTop + paddingTop + (lineNumber - 1) * lineHeightPx - (textarea.scrollTop || 0);
+      const top = lineTop + (lineHeightPx / 2); // Baricentro verticale del cursore
+      
+      // Calcola left: padding + larghezza del testo sulla riga corrente meno lo scroll
+      // Aggiungi l'offset del textarea rispetto al wrapper
+      const left = textareaOffsetLeft + paddingLeft + textWidth - (textarea.scrollLeft || 0);
+
+      nextPixels[seg.id] = { top, left };
+    });
+    setCaretPixelMap(nextPixels);
+
+    // Aggiungi listener per aggiornare la posizione quando il cursore si muove o lo scroll cambia
+    const updatePositions = () => {
+      const updatedPixels = {};
+      codeEditors.forEach((seg) => {
+        const pos = caretMap[seg.id];
+        if (!pos) return;
+        const container = codeEditorRefs.current[seg.id];
+        if (!container) return;
+        const textarea = container.querySelector('textarea');
+        if (!textarea) return;
+
+        const localSel = editorLocalSelectionRef.current[seg.id];
+        if (!localSel) return;
+        const caretPos = localSel.start;
+
+        const styles = window.getComputedStyle(textarea);
+        const paddingTop = parseFloat(styles.paddingTop) || 8;
+        const paddingLeft = parseFloat(styles.paddingLeft) || 12;
+        const lineHeightPx = parseFloat(styles.lineHeight) || 18;
+        const fontSizePx = parseFloat(styles.fontSize) || 13;
+        const fontFamily = styles.fontFamily || 'monospace';
+
+        const value = textarea.value || '';
+        
+        // Usa direttamente pos.line da caretMap (già calcolato correttamente)
+        const lineNumber = pos.line; // 1-based
+        
+        // Calcola la posizione esatta usando il testo fino al cursore per la colonna
+        const textBeforeCaret = value.substring(0, caretPos);
+        const lines = textBeforeCaret.split('\n');
+        const currentLine = lines[lines.length - 1] || '';
+
+        const measureEl = document.createElement('span');
+        measureEl.style.position = 'absolute';
+        measureEl.style.visibility = 'hidden';
+        measureEl.style.whiteSpace = 'pre';
+        measureEl.style.fontFamily = fontFamily;
+        measureEl.style.fontSize = `${fontSizePx}px`;
+        measureEl.style.padding = '0';
+        measureEl.style.margin = '0';
+        measureEl.style.border = 'none';
+        measureEl.textContent = currentLine;
+        document.body.appendChild(measureEl);
+        const textWidth = measureEl.offsetWidth;
+        document.body.removeChild(measureEl);
+
+        // Ottieni la posizione del textarea rispetto al wrapper
+        const textareaRect = textarea.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const textareaOffsetTop = textareaRect.top - containerRect.top;
+        const textareaOffsetLeft = textareaRect.left - containerRect.left;
+
+        // Calcola top: posizione della riga corrente (lineNumber è 1-based, quindi -1 per l'indice)
+        // Il baricentro del cursore è al centro verticale della linea (metà lineHeight)
+        // Aggiungi l'offset del textarea rispetto al wrapper
+        const lineTop = textareaOffsetTop + paddingTop + (lineNumber - 1) * lineHeightPx - (textarea.scrollTop || 0);
+        const top = lineTop + (lineHeightPx / 2); // Baricentro verticale del cursore
+        const left = textareaOffsetLeft + paddingLeft + textWidth - (textarea.scrollLeft || 0);
+        updatedPixels[seg.id] = { top, left };
+      });
+      setCaretPixelMap(updatedPixels);
+    };
+
+    // Listener per scroll e movimento cursore
+    const textareas = codeEditors.map(seg => {
+      const container = codeEditorRefs.current[seg.id];
+      return container?.querySelector('textarea');
+    }).filter(Boolean);
+
+    textareas.forEach(textarea => {
+      textarea.addEventListener('scroll', updatePositions);
+      textarea.addEventListener('input', updatePositions);
+      textarea.addEventListener('keyup', updatePositions);
+      textarea.addEventListener('mouseup', updatePositions);
+    });
+
+    return () => {
+      textareas.forEach(textarea => {
+        textarea.removeEventListener('scroll', updatePositions);
+        textarea.removeEventListener('input', updatePositions);
+        textarea.removeEventListener('keyup', updatePositions);
+        textarea.removeEventListener('mouseup', updatePositions);
+      });
+    };
+  }, [caretMap, codeEditors]);
+
+  const handleSegmentChange = (editorId, newValue) => {
+    console.debug('[EN DEBUG] onValueChange', { editorId, newValueLength: newValue?.length });
+    setCodeEditors(prevSegments => {
+      const idx = prevSegments.findIndex(seg => seg.id === editorId);
+      if (idx === -1) return prevSegments;
+
+      const editedSegment = prevSegments[idx];
+      const oldCode = editedSegment.code;
+      if (oldCode === newValue) return prevSegments;
+
+      const updatedSegments = prevSegments.map((seg, i) =>
+        i === idx ? { ...seg, code: newValue } : seg
+      );
+      const joinedCode = joinEditorsCode(updatedSegments);
+
+      updatingEditorsRef.current = true;
+      isManualCodeChange.current = true;
+      onCodeChange?.(joinedCode);
+      lastSyncedCodeRef.current = joinedCode;
+
+      setObjects(prevObjects => {
+        const updatedObjects = prevObjects.map(obj => {
+          if (obj.location !== 'content') return obj;
+
+          const isEditedObj =
+            editedSegment.type === 'object' &&
+            (obj.ecObjectId === editedSegment.objectId || obj.id === editedSegment.objectId);
+
+          if (isEditedObj) {
+            return {
+              ...obj,
+              text: newValue,
+              endIndex: obj.startIndex + newValue.length
+            };
+          }
+          return obj;
+        });
+        return updatedObjects;
+      });
+
+      setTimeout(() => {
+        updatingEditorsRef.current = false;
+      }, 0);
+
+      return updatedSegments;
+    });
   };
 
   // Gestisce frecce e Backspace/Delete saltando o cancellando i blocchi arancioni
@@ -3555,7 +4039,20 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
 
     const start = codeSelection.start;
     const end = codeSelection.end;
-    
+    const targetEditorId = codeSelection.editorId;
+    const targetEditor = codeEditors.find(e => e.id === targetEditorId);
+
+    if (!targetEditor) {
+      alert('Editor non trovato per la selezione.');
+      setContextMenu(null);
+      setCodeSelection({ start: null, end: null, text: '', editorId: null });
+      return;
+    }
+
+    const prefix = getEditorPrefix(targetEditorId);
+    const localStart = start - prefix;
+    const localEnd = end - prefix;
+
     // Verifica che l'oggetto non sia già stato creato per questa posizione
     const isDuplicate = objects.some(obj => {
       if (obj.location !== 'content') return false;
@@ -3567,7 +4064,7 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     if (isDuplicate) {
       alert('Questa porzione di codice è già stata trasformata in oggetto.');
       setContextMenu(null);
-      setCodeSelection({ start: null, end: null, text: '' });
+      setCodeSelection({ start: null, end: null, text: '', editorId: null });
       return;
     }
     
@@ -3577,23 +4074,6 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       alert('Impossibile salvare oggetto EC: parametri mancanti');
       return;
     }
-    
-    // APPLICA SPAZIATURA (Smart Text)
-    // Aggiungi 2 righe vuote sopra e sotto
-    const spacing = '\n\n';
-    const textToWrap = codeSelection.text;
-    const newTextSegment = spacing + textToWrap + spacing;
-    
-    const currentCode = state.code || '';
-    const newCode = currentCode.substring(0, start) + newTextSegment + currentCode.substring(end);
-    
-    // Aggiorna il codice nell'editor
-    onCodeChange?.(newCode);
-    
-    // Calcola i nuovi indici dell'oggetto (spostato di 2 caratteri per via degli spazi iniziali)
-    const newObjectStart = start + spacing.length;
-    const newObjectEnd = newObjectStart + textToWrap.length;
-    const lengthDiff = spacing.length * 2; // Totale caratteri aggiunti
 
     const boxNumber = await getNextBoxNumber(type);
     const objectId = generateECObjectId(type, boxNumber);
@@ -3606,11 +4086,39 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     
     const newObject = {
       text: codeSelection.text,
-      startIndex: newObjectStart,
-      endIndex: newObjectEnd,
+      startIndex: start,
+      endIndex: end,
       location: 'content'
     };
     
+    // Costruisci i nuovi editor: before / extracted / after
+    const newSegments = [];
+    codeEditors.forEach(seg => {
+      if (seg.id !== targetEditorId) {
+        newSegments.push(seg);
+        return;
+      }
+
+      const beforeText = seg.code.substring(0, localStart);
+      const extractedText = seg.code.substring(localStart, localEnd);
+      const afterText = seg.code.substring(localEnd);
+
+      if (beforeText.trim().length > 0) {
+        newSegments.push({ id: `${seg.id}-before-${Date.now()}`, code: beforeText, type: 'normal' });
+      }
+
+      newSegments.push({
+        id: `${seg.id}-obj-${Date.now()}`,
+        code: extractedText,
+        type: 'object',
+        objectId
+      });
+
+      if (afterText.trim().length > 0) {
+        newSegments.push({ id: `${seg.id}-after-${Date.now()}`, code: afterText, type: 'normal' });
+      }
+    });
+
     // Salva nel database
     try {
       const ecObject = {
@@ -3621,8 +4129,8 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
         boxNumber: boxNumber,
         text: codeSelection.text,
         location: 'content',
-        startIndex: newObjectStart,
-        endIndex: newObjectEnd,
+        startIndex: start,
+        endIndex: end,
         createdAt: new Date().toISOString()
       };
       
@@ -3643,28 +4151,23 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     }
     
     setObjects(prev => {
-      // Aggiorna gli indici degli oggetti successivi
-      const shiftedObjects = prev.map(obj => {
-        if (obj.location === 'content' && obj.startIndex >= end) {
-          return {
-            ...obj,
-            startIndex: obj.startIndex + lengthDiff,
-            endIndex: obj.endIndex + lengthDiff
-          };
-        }
-        return obj;
-      });
-      
-      const updated = [...shiftedObjects, newObject].sort((a, b) => a.startIndex - b.startIndex);
+      const updated = [...prev, newObject].sort((a, b) => a.startIndex - b.startIndex);
       console.log('Oggetti aggiornati:', updated);
       onObjectsChange?.(updated);
       return updated;
     });
+
+    // Aggiorna editor e codice unito
+    setCodeEditors(newSegments);
+    const joined = joinEditorsCode(newSegments);
+    isManualCodeChange.current = true;
+    onCodeChange?.(joined);
+    lastSyncedCodeRef.current = joined;
     
     console.log('Oggetto codice creato con successo:', newObject);
     
     setContextMenu(null);
-    setCodeSelection({ start: null, end: null, text: '' });
+    setCodeSelection({ start: null, end: null, text: '', editorId: null });
   };
 
   // Funzione per cancellare un binomio/connessione
@@ -3832,6 +4335,14 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     return () => { delete window.copyDiagnostics; };
   }, []);
 
+  // Ripristina il cursore se abbiamo una posizione salvata (evita salti dopo enforceIsolation)
+  useEffect(() => {
+    if (desiredCursorPosition.current === null) return;
+    const target = Math.max(0, Math.min(desiredCursorPosition.current, (state.code || '').length));
+    focusRangeInEditors(target, target);
+    desiredCursorPosition.current = null;
+  }, [state.code, focusRangeInEditors]);
+
   // Smart Text: Gestisce le modifiche al codice proteggendo gli oggetti TO
   const handleProtectedCodeChange = (newCode) => {
     const contentObjects = objects.filter(o => o.location === 'content');
@@ -3963,6 +4474,10 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       }
       changeStart = i + 1;
     }
+
+    // Testo inserito (se positivo) per capire se è un semplice "Enter" sopra il blocco
+    const lengthDiff = newCode.length - oldCode.length;
+    const insertedText = lengthDiff > 0 ? newCode.substring(changeStart, changeStart + lengthDiff) : '';
     
     // MODIFICA RICHIESTA: Se stiamo editando un oggetto, NON permettere modifiche fuori da esso
     if (editingToObject) {
@@ -3988,44 +4503,50 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     
     // Verifica se la modifica tocca un oggetto TO protetto
     for (const obj of contentObjects) {
-      // Se la modifica inizia dentro l'oggetto TO (con un margine per le righe di separazione)
-      if (changeStart >= obj.startIndex && changeStart < obj.endIndex) {
-        // Blocca la modifica - ripristina il codice originale
+      const isInsideObject = changeStart > obj.startIndex && changeStart < obj.endIndex;
+
+      // Consenti un singolo Enter subito prima del blocco per spingerlo in basso
+      const isEnterBeforeObject =
+        lengthDiff > 0 &&
+        insertedText === '\n' &&
+        changeStart <= obj.startIndex + 1;
+
+      if (isInsideObject && !isEnterBeforeObject) {
         console.log('Modifica bloccata: tentativo di editare oggetto TO protetto. Fai doppio click per editare.');
         return;
       }
     }
     
     // La modifica è fuori dalle zone protette, permetti
-    isManualCodeChange.current = true;
-    onCodeChange?.(newCode);
-    // Enforce isolamento (newline prima/dopo i blocchi)
-    setTimeout(() => {
-      const result = enforceToObjectIsolation(newCode, objects);
-      if (result.changed) {
-        isManualCodeChange.current = true;
-        onCodeChange?.(result.code);
-        setObjects(result.objects);
-        if (result.updatedEditing) setEditingToObject(result.updatedEditing);
+    const textarea = codeEditorRef.current?.querySelector('textarea');
+    const savedCursorPosition = textarea ? textarea.selectionStart : null;
+    // Applica subito lo shift agli oggetti in base alla modifica (prima dell'isolamento)
+    const shiftedObjects = lengthDiff === 0 ? objects : objects.map(o => {
+      if (o.location === 'content' && o.startIndex > changeStart) {
+        return {
+          ...o,
+          startIndex: o.startIndex + lengthDiff,
+          endIndex: o.endIndex + lengthDiff
+        };
       }
-    }, 0);
-    
-    // Aggiorna gli indici degli oggetti se necessario
-    const lengthDiff = newCode.length - oldCode.length;
-    if (lengthDiff !== 0) {
-      setObjects(prevObjects => {
-        return prevObjects.map(o => {
-          if (o.location === 'content' && o.startIndex > changeStart) {
-            return {
-              ...o,
-              startIndex: o.startIndex + lengthDiff,
-              endIndex: o.endIndex + lengthDiff
-            };
-          }
-          return o;
-        });
-      });
+      return o;
+    });
+
+    // Enforce isolamento (newline prima/dopo i blocchi) preservando il cursore,
+    // usando gli oggetti già shiftati per evitare doppi spostamenti/race
+    const isolationResult = enforceToObjectIsolation(newCode, shiftedObjects);
+    if (isolationResult.changed) {
+      if (savedCursorPosition !== null) {
+        desiredCursorPosition.current = savedCursorPosition;
+      }
     }
+    const finalCode = isolationResult.changed ? isolationResult.code : newCode;
+    const finalObjects = isolationResult.changed ? isolationResult.objects : shiftedObjects;
+
+    isManualCodeChange.current = true;
+    onCodeChange?.(finalCode);
+    setObjects(finalObjects);
+    if (isolationResult.updatedEditing) setEditingToObject(isolationResult.updatedEditing);
   };
 
   // Smart Text: Annulla l'operazione di modifica (Abort)
@@ -4701,196 +5222,47 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
   useEffect(() => {
     const contentObjects = objects.filter(obj => obj.location === 'content');
     
-    if (contentObjects.length === 0 || !isExpanded || !gherkinBlockContentRef.current || !codeEditorRef.current || !state.code) {
+    if (contentObjects.length === 0 || !isExpanded || !gherkinBlockContentRef.current) {
       setContentObjectPositions([]);
       return;
     }
 
     const calculateContentObjectPositions = () => {
-      const textarea = codeEditorRef.current.querySelector('textarea');
-      const codeDisplay = codeDisplayRef.current;
-      if (!textarea || !codeDisplay) return;
-
-      const codeText = state.code;
+      const containerRect = gherkinBlockContentRef.current.getBoundingClientRect();
       const sortedObjects = [...contentObjects].sort((a, b) => a.startIndex - b.startIndex);
-      
-      const positions = sortedObjects.map((originalObj, idx) => {
-        let obj = originalObj;
-        try {
-          const objectId = `content-obj-${idx}`;
-          const isEditingThis =
-            editingToObject?.objectId === objectId ||
-            (editingToObject?.obj &&
-              (editingToObject.obj.id === obj.id ||
-                (editingToObject.obj.ecObjectId &&
-                  editingToObject.obj.ecObjectId === obj.ecObjectId)));
 
-          // FIX: Usa gli indici più aggiornati da editingToObject se disponibili
-          // Questo risolve il problema del "ritardo" nell'aggiornamento di objects vs editingToObject
-          if (isEditingThis && editingToObject?.obj) {
-             // Se gli indici sono diversi (anche startIndex o endIndex), diamo priorità a editingToObject
-             // che riflette lo stato "live" della modifica.
-             // Questo è critico per l'Enter finale: editingToObject.obj.endIndex include il nuovo carattere, obj.endIndex no.
-             if (editingToObject.obj.endIndex !== obj.endIndex || editingToObject.obj.startIndex !== obj.startIndex) {
-                obj = { ...obj, endIndex: editingToObject.obj.endIndex, startIndex: editingToObject.obj.startIndex };
-             }
-          }
+      const positions = sortedObjects.map((obj, idx) => {
+        const seg = codeEditors.find(
+          s => s.type === 'object' && (s.objectId === obj.ecObjectId || s.objectId === obj.id)
+        );
+        const editorEl = seg ? codeEditorRefs.current[seg.id] : null;
+        if (!editorEl) return null;
 
-          // Calcola le righe del codice selezionato in modo più preciso
-          const beforeSelection = codeText.substring(0, obj.startIndex);
-          let selection = codeText.substring(obj.startIndex, obj.endIndex);
-          
-          // FIX: Se editingToObject ha un endIndex maggiore, significa che abbiamo appena aggiunto testo.
-          // Se usiamo substring con i vecchi indici di obj, perdiamo il nuovo testo.
-          // Dobbiamo usare gli indici aggiornati se disponibili.
-          if (isEditingThis && editingToObject?.obj) {
-             // Se l'oggetto in editing ha indici diversi, usiamo sempre quelli più aggiornati
-             if (editingToObject.obj.endIndex !== obj.endIndex || editingToObject.obj.startIndex !== obj.startIndex) {
-                obj = { ...obj, endIndex: editingToObject.obj.endIndex, startIndex: editingToObject.obj.startIndex };
-                // Ricalcola selection usando i nuovi indici
-                selection = codeText.substring(obj.startIndex, obj.endIndex);
-             }
-          }
-
-          // Trova la prima riga: conta i newline prima della selezione
-          const linesBefore = beforeSelection.split('\n');
-          const startLine = Math.max(0, linesBefore.length - 1); // Indice della prima riga (0-indexed)
-          
-          // Trova l'ultima riga: NON rimuoviamo il newline finale, così il box copre sempre la riga vuota aggiunta con Enter
-          let cleanSelection = selection;
-          // FIX: Se l'oggetto finisce con newline, split produce una stringa vuota in più alla fine.
-          // Ma se stiamo editando, vogliamo vedere quella riga vuota come parte del box.
-          // Se NON stiamo editando, la rimuoviamo per estetica.
-          if (!isEditingThis && cleanSelection.endsWith('\n')) {
-             cleanSelection = cleanSelection.slice(0, -1);
-          }
-          
-          const selectionLines = cleanSelection.split('\n');
-          const numLinesInSelection = selectionLines.length;
-          
-          // FIX CRITICO: Se stiamo editando e l'ultima riga è vuota (perché ho premuto Enter), 
-          // dobbiamo assicurarci che l'altezza includa questa riga vuota extra.
-          // split('\n') su "abc\n" dà ["abc", ""]. Length 2.
-          // split('\n') su "abc" dà ["abc"]. Length 1.
-          // Quindi se c'è newline finale, length aumenta di 1. Corretto.
-          
-          // Tuttavia, il calcolo dell'altezza (numLines * lineHeight) potrebbe non bastare se c'è padding o altro.
-          // Aggiungiamo un piccolo margine extra di sicurezza in modalità editing se finisce con newline.
-          
-          const endLine = startLine + numLinesInSelection - 1; // Indice dell'ultima riga
-          
-          // Calcola la posizione usando gli stili del textarea
-          const textareaStyles = window.getComputedStyle(textarea);
-          const fontSize = parseFloat(textareaStyles.fontSize) || 13;
-          const lineHeight = parseFloat(textareaStyles.lineHeight) || (fontSize * 1.6);
-          const padding = parseFloat(textareaStyles.paddingTop) || 20;
-          
-          // Top: allineato esattamente alla prima riga della selezione
-          const top = padding + (startLine * lineHeight);
-          
-          // Height: da prima riga a ultima riga inclusa
-          let height = numLinesInSelection * lineHeight;
-          
-          // FIX: Se siamo in editing e finisce con newline, aggiungi un po' di altezza extra per sicurezza visiva
-          if (isEditingThis && selection.endsWith('\n')) {
-             height += 5; // 5px extra per evitare che il cursore tocchi il bordo
-          }
-          
-          // Assicurati altezza minima
-          height = Math.max(height, lineHeight);
-          
-          // Larghezza fissa con offset laterali: leggermente più corta del box del codice
-          const codeDisplayRect = codeDisplay.getBoundingClientRect();
-          const horizontalOffset = 10; // Offset di 10px da entrambi i lati
-          const width = Math.max(codeDisplayRect.width - (horizontalOffset * 2), 100);
-          const left = horizontalOffset;
-          
-          // Calcola posizione relativa al contenuto del Layer EC
-          const contentRect = gherkinBlockContentRef.current.getBoundingClientRect();
-          const codeSection = codeDisplay.closest('.code-section');
-          if (!codeSection) return null;
-          
-          const codeSectionRect = codeSection.getBoundingClientRect();
-          const textareaRect = textarea.getBoundingClientRect();
-          
-          // Posizione relativa al contenuto del Layer EC
-          // Top: posizione del textarea + top calcolato - top del contenuto
-          const relativeTop = (textareaRect.top - contentRect.top) + top;
-          const relativeLeft = (textareaRect.left - contentRect.left) + left;
-          
-          console.log(`Oggetto ${idx}:`, {
-            startIndex: obj.startIndex,
-            endIndex: obj.endIndex,
-            startLine,
-            endLine,
-            numLines: numLinesInSelection,
-            top,
-            height,
-            relativeTop,
-            relativeLeft
-          });
-          
-          return {
-            id: `content-obj-${idx}`,
-            left: relativeLeft,
-            top: relativeTop,
-            width: width,
-            height: height,
-            text: obj.text.substring(0, 50) + (obj.text.length > 50 ? '...' : ''),
-            startLine: startLine,
-            endLine: endLine,
-            numLines: numLinesInSelection
-          };
-        } catch (error) {
-          console.warn('Errore calcolo posizione oggetto codice:', error, obj);
-        }
-        
-        return null;
-      }).filter(pos => pos !== null);
+        const rect = editorEl.getBoundingClientRect();
+        return {
+          id: `content-obj-${idx}`,
+          left: rect.left - containerRect.left,
+          top: rect.top - containerRect.top,
+          width: rect.width,
+          height: rect.height,
+          text: obj.text?.substring(0, 50) + (obj.text?.length > 50 ? '...' : '')
+        };
+      }).filter(Boolean);
 
       setContentObjectPositions(positions);
     };
 
     const timeoutId = setTimeout(calculateContentObjectPositions, 100);
-    
-    const resizeObserver = new ResizeObserver(() => {
-      calculateContentObjectPositions();
-    });
-    
-    if (codeEditorRef.current) {
-      resizeObserver.observe(codeEditorRef.current);
-    }
-    if (codeDisplayRef.current) {
-      resizeObserver.observe(codeDisplayRef.current);
-    }
-    if (gherkinBlockContentRef.current) {
-      resizeObserver.observe(gherkinBlockContentRef.current);
-    }
-    
-    const mutationObserver = new MutationObserver(() => {
-      calculateContentObjectPositions();
-    });
-    
-    if (codeEditorRef.current) {
-      mutationObserver.observe(codeEditorRef.current, {
-        childList: true,
-        subtree: true,
-        characterData: true
-      });
-    }
-    
     const handleUpdate = () => calculateContentObjectPositions();
     window.addEventListener('resize', handleUpdate);
     window.addEventListener('scroll', handleUpdate, true);
-    
+
     return () => {
       clearTimeout(timeoutId);
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
       window.removeEventListener('resize', handleUpdate);
       window.removeEventListener('scroll', handleUpdate, true);
     };
-  }, [objects, isExpanded, state.code, editingToObject]);
+  }, [objects, isExpanded, codeEditors]);
 
   // Aggiorna i numeri di riga quando cambia il codice
   useEffect(() => {
@@ -5930,15 +6302,6 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
             <div className="code-section">
               <div className="code-section-header">
                 <h4>📝 Codice Cypress Generato</h4>
-                {state.code && state.code.trim() && onOpenRunner && (
-                  <button
-                    className="test-runner-button"
-                    onClick={() => onOpenRunner()}
-                    title="Apri Test Runner per testare il test completo (Given + When + Then)"
-                  >
-                    🧪 Testa Test Completo
-                  </button>
-                )}
               </div>
               <div 
                 ref={codeDisplayRef}
@@ -5947,28 +6310,105 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
               >
                 <div
                   ref={codeEditorRef}
-                  onMouseUp={handleCodeSelection}
-                  onKeyUp={handleCodeSelection}
-                  onKeyDown={handleCodeKeyDown}
-                  onContextMenu={handleCodeContextMenu}
-                  style={{ position: 'relative' }}
+                  className="code-editor-stack"
+                  style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px' }}
                 >
-                  <div
-                    ref={lineNumbersRef}
-                    className="code-editor-line-numbers"
-                  />
-                  <Editor
-                    value={state.code || ''}
-                    onValueChange={(code) => handleProtectedCodeChange(code)}
-                    highlight={(code) => highlight(code, languages.javascript, 'javascript')}
-                    padding={20}
-                    className="code-editor"
-                    placeholder="Scrivi o modifica il codice Cypress qui..."
-                    style={{
-                      minHeight: '400px',
-                      outline: 'none'
-                    }}
-                  />
+                  {codeEditors.map((editor, idx) => {
+                    const lineHeight = 18;
+                    const paddingY = 8;
+                    const codeText = editor.code || '';
+                    const isEmpty = codeText.trim().length === 0;
+                    
+                    // a) Vuoto: esattamente 4 righe
+                    // b) Con codice: esattamente le righe del codice estratto (trim righe vuote superiori e inferiori)
+                    // c) Durante modifica: si adatta dinamicamente
+                    let lineCount;
+                    if (isEmpty) {
+                      lineCount = 4; // Editor vuoto: 4 righe
+                    } else {
+                      const rawLines = codeText.split('\n');
+                      // Rimuovi righe vuote finali (trim inferiore)
+                      let trimmedLines = [...rawLines];
+                      while (trimmedLines.length > 0 && trimmedLines[trimmedLines.length - 1].trim() === '') {
+                        trimmedLines.pop();
+                      }
+                      // Rimuovi righe vuote iniziali (trim superiore)
+                      while (trimmedLines.length > 0 && trimmedLines[0].trim() === '') {
+                        trimmedLines.shift();
+                      }
+                      // Se il testo finisce con \n e l'ultima riga non è vuota, aggiungi una riga per il newline finale
+                      const extraLine = codeText.endsWith('\n') && trimmedLines.length > 0 && trimmedLines[trimmedLines.length - 1].trim() !== '' ? 1 : 0;
+                      const baseLines = Math.max(1, trimmedLines.length + extraLine);
+                      // Correzione: aggiungi una riga vuota di margine dopo l'ultima linea per evitare troncamenti visivi
+                      lineCount = baseLines + 1;
+                    }
+                    
+                    const exactHeight = lineCount * lineHeight + paddingY * 2;
+
+                    return (
+                      <div
+                        key={editor.id}
+                        ref={(el) => {
+                          if (el) {
+                            codeEditorRefs.current[editor.id] = el;
+                          } else {
+                            delete codeEditorRefs.current[editor.id];
+                          }
+                        }}
+                        className={`code-editor-wrapper ${editor.type === 'object' ? 'code-editor-object' : 'code-editor-normal'}`}
+                        style={{ position: 'relative' }}
+                        onContextMenu={(e) => handleCodeContextMenu(e, editor.id)}
+                      >
+                        <div className="code-editor-title" style={{ marginBottom: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>Editor Nero {idx + 1}{editor.type === 'object' ? ' (oggetto)' : ''}</span>
+                          {caretMap[editor.id] && (
+                            <span style={{ fontSize: '12px', color: '#9aa0a6' }}>
+                              Posizione: riga {caretMap[editor.id].line}, col {caretMap[editor.id].col}
+                            </span>
+                          )}
+                        </div>
+                        <Editor
+                          value={editor.code}
+                          onValueChange={(code) => handleSegmentChange(editor.id, code)}
+                          highlight={(code) => highlight(code, languages.javascript, 'javascript')}
+                          padding={0}
+                          className="code-editor compact-editor"
+                          placeholder="Scrivi o modifica il codice Cypress qui..."
+                          style={{
+                            height: `${exactHeight}px`,
+                            minHeight: `${exactHeight}px`,
+                            outline: 'none',
+                            lineHeight: `${lineHeight}px`,
+                            overflow: 'hidden'
+                          }}
+                          onFocus={() => handleEditorFocus(editor.id)}
+                          onBlur={(e) => handleEditorBlur(editor.id, e)}
+                          onMouseUp={() => handleCodeSelection(editor.id)}
+                          onKeyUp={() => handleCodeSelection(editor.id)}
+                        />
+                        {activeEditorId === editor.id && caretMap[editor.id] && caretPixelMap[editor.id] && (
+                          <div
+                            className="caret-indicator"
+                            style={{
+                              position: 'absolute',
+                              left: `${caretPixelMap[editor.id].left}px`,
+                              top: `${caretPixelMap[editor.id].top}px`,
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: '#fff',
+                              boxShadow: '0 0 4px rgba(0,0,0,0.35)',
+                              opacity: 0.9,
+                              pointerEvents: 'none',
+                              transform: 'translate(-4px, -4px)',
+                              zIndex: 10
+                            }}
+                            title={`Ultima posizione: riga ${caretMap[editor.id].line}, col ${caretMap[editor.id].col}`}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 {state.code && state.code.trim() && (
                   <div className="code-actions">
@@ -5987,7 +6427,7 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                         onClick={() => onOpenRunner()}
                         title="Apri Test Runner per testare il test completo (Given + When + Then)"
                       >
-                        ▶️ Testa Test Completo
+                        🧪 Testa Test Completo
                       </button>
                     )}
                   </div>

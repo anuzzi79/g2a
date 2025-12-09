@@ -821,6 +821,22 @@
   min-height: 400px !important;
 }
 
+/* Modalità compatta per gli editor neri impilati */
+.code-editor.compact-editor {
+  min-height: auto !important;
+  padding: 0 !important;
+  resize: none !important;
+  overflow: hidden !important;
+}
+.code-editor.compact-editor textarea,
+.code-editor.compact-editor pre {
+  min-height: 0 !important;
+  padding: 8px 12px !important;
+  line-height: 18px !important;
+  font-size: 13px !important;
+  width: 100% !important;
+}
+
 .code-editor textarea {
   background: transparent !important;
   color: transparent !important;

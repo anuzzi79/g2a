@@ -1,55 +1,19 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T12:55:20.736Z",
-  "lastUpdated": "2025-12-08T10:53:45.068Z",
+  "lastUpdated": "2025-12-09T05:42:02.384Z",
   "objects": [
     {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC17-THEN-1",
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-1",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "17",
-      "boxType": "then",
-      "boxNumber": 1,
-      "text": "gatto\ncane\ncavallo\n",
-      "location": "content",
-      "startIndex": 6,
-      "endIndex": 25,
-      "createdAt": "2025-12-08T02:04:51.383Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-THEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "18",
-      "boxType": "then",
-      "boxNumber": 2,
-      "text": "gatto \ncane \nzebra\n",
-      "location": "content",
-      "startIndex": 8,
-      "endIndex": 27,
-      "createdAt": "2025-12-08T02:30:04.594Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "18",
+      "testCaseId": "4",
       "boxType": "given",
       "boxNumber": 1,
-      "text": "mela\npera \nbanana \ncafe",
+      "text": "l mio dura tuttora, né più mi occorrono\nle coincidenze, le prenotazioni,\nle trappole, gli scorni di chi crede\nche la realtà sia quella che si vede.",
       "location": "content",
-      "startIndex": 14,
-      "endIndex": 37,
-      "createdAt": "2025-12-08T02:33:39.075Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "16",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "mela\npera\nbanana\n",
-      "location": "content",
-      "startIndex": 8,
-      "endIndex": 25,
-      "createdAt": "2025-12-08T02:37:10.820Z"
+      "startIndex": 157,
+      "endIndex": 304,
+      "createdAt": "2025-12-09T05:05:07.271Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
@@ -57,83 +21,47 @@
       "testCaseId": "1",
       "boxType": "given",
       "boxNumber": 1,
-      "text": "ela\npera\nbanana\ncaffe",
+      "text": "Il mio dura tuttora, né più mi occorrono\nle coincidenze, le prenotazioni,\nle trappole, gli scorni di chi crede\nche la realtà sia quella che si vede.",
       "location": "content",
-      "startIndex": 8,
-      "endIndex": 29,
-      "createdAt": "2025-12-08T02:38:43.832Z"
+      "startIndex": 156,
+      "endIndex": 304,
+      "createdAt": "2025-12-09T05:10:01.291Z"
     },
     {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC18-WHEN-1",
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "18",
-      "boxType": "when",
-      "boxNumber": 1,
-      "text": "cavallo\ncane\ngatti",
-      "location": "content",
-      "startIndex": 7,
-      "endIndex": 25,
-      "createdAt": "2025-12-08T02:58:43.976Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC17-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "17",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "gatto \nzebra\nciofeca",
-      "location": "content",
-      "startIndex": 8,
-      "endIndex": 28,
-      "createdAt": "2025-12-08T03:07:32.195Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC7-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "7",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "cane\ngatto\ncachorro",
-      "location": "content",
-      "startIndex": 6,
-      "endIndex": 25,
-      "createdAt": "2025-12-08T03:15:28.750Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC11-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "11",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "CANE\nGATTO \nCAVALO",
-      "location": "content",
-      "startIndex": 6,
-      "endIndex": 24,
-      "createdAt": "2025-12-08T03:17:04.598Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC11-WHEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "11",
-      "boxType": "when",
-      "boxNumber": 1,
-      "text": "mela \npera\nbanana\ncafe",
-      "location": "content",
-      "startIndex": 10,
-      "endIndex": 32,
-      "createdAt": "2025-12-08T10:30:16.521Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC14-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "14",
+      "testCaseId": "1",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "MELONI \nECCOLI QUA\n",
+      "text": "le sole vere pupille, sebbene tanto offuscate,\n",
       "location": "content",
-      "startIndex": 9,
-      "endIndex": 28,
-      "createdAt": "2025-12-08T10:53:45.063Z"
+      "startIndex": 453,
+      "endIndex": 500,
+      "createdAt": "2025-12-09T05:25:07.740Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-3",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 3,
+      "text": "e ora che non ci sei è il vuoto ad ogni gradino.",
+      "location": "content",
+      "startIndex": 57,
+      "endIndex": 105,
+      "createdAt": "2025-12-09T05:31:25.605Z"
+    },
+    {
+      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-4",
+      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 4,
+      "text": "Ho sceso, dandoti il braccio, almeno un milione di scale\n",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 57,
+      "createdAt": "2025-12-09T05:42:02.365Z"
     }
   ]
 }
