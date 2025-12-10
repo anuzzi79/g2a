@@ -729,7 +729,7 @@
   padding: 25px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible; /* IMPORTANTE: permette alla freccia di uscire dai bordi */
 }
 
 .code-section-header {
@@ -777,7 +777,7 @@
 .code-display {
   border: 1px solid #e9ecef;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible; /* IMPORTANTE: permette alla freccia di uscire dai bordi */
   max-width: 100%;
   position: relative;
 }
@@ -826,7 +826,7 @@
   min-height: auto !important;
   padding: 0 !important;
   resize: none !important;
-  overflow: hidden !important;
+  overflow: visible !important; /* IMPORTANTE: permette alla freccia di uscire dai bordi */
 }
 .code-editor.compact-editor textarea,
 .code-editor.compact-editor pre {

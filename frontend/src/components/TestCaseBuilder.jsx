@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-javascript';
@@ -2581,11 +2581,8 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const lastSyncedCodeRef = useRef(state.code || '');
   const updatingEditorsRef = useRef(false);
   const editorsInitializedRef = useRef(false);
-  const editorLocalSelectionRef = useRef({}); // { editorId: { start, end } }
-  const [caretMap, setCaretMap] = useState({}); // { editorId: { line, col } }
-  const [caretPixelMap, setCaretPixelMap] = useState({}); // { editorId: { top, left } }
-  const [activeEditorId, setActiveEditorId] = useState(null); // ID dell'EN con focus attivo (un solo pallino per fase GWT)
-  const charWidthCacheRef = useRef({});
+  const [caretIndicator, setCaretIndicator] = useState(null); // { editorId, line }
+  const [focusedEditorId, setFocusedEditorId] = useState(null); // ID dell'editor che ha attualmente il focus
   const [connectingFrom, setConnectingFrom] = useState(null); // ID oggetto da cui si sta creando la connessione
   const [connectingFromPoint, setConnectingFromPoint] = useState(null); // Punto relativo (0-1) sul perimetro di partenza
   const [connectingMousePos, setConnectingMousePos] = useState(null); // Posizione mouse durante connessione: { x, y }
@@ -2898,28 +2895,6 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     return segments.map(seg => seg.code).join('');
   }, []);
 
-  const getLineCol = useCallback((text, pos) => {
-    const safePos = Math.max(0, Math.min(pos ?? 0, text.length));
-    const untilPos = text.substring(0, safePos);
-    const lines = untilPos.split('\n');
-    const line = lines.length; // 1-based
-    const col = (lines[lines.length - 1] || '').length + 1; // 1-based
-    return { line, col };
-  }, []);
-
-  const getCharWidth = useCallback((fontSizePx = 13, fontFamily = 'monospace') => {
-    const key = `${fontSizePx}-${fontFamily}`;
-    if (charWidthCacheRef.current[key]) return charWidthCacheRef.current[key];
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return 8;
-    ctx.font = `${fontSizePx}px ${fontFamily}`;
-    const metrics = ctx.measureText('m');
-    const width = metrics.width || 8;
-    charWidthCacheRef.current[key] = width;
-    return width;
-  }, []);
-
   // NOTA: onObjectsChange viene chiamato solo durante l'inizializzazione (linea 2461)
   // e durante le azioni utente (transform, delete, etc.), NON qui per evitare loop infiniti
 
@@ -3171,6 +3146,50 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     };
   }, [draggingConnectionPoint, headerObjectPositions, contentObjectPositions, getPointOnPerimeter]);
 
+  // Gestisce click su altri editor per aggiornare l'indicatore del cursore
+  useEffect(() => {
+    const handleClickOnEditor = (event) => {
+      console.log('[CARET_INDICATOR] Click rilevato', {
+        target: event.target,
+        currentIndicator: caretIndicator
+      });
+      
+      // Verifica se il click è su un editor dello stesso box GWT
+      const clickedEditorId = Object.keys(codeEditorRefs.current).find(editorId => {
+        const container = codeEditorRefs.current[editorId];
+        const contains = container && container.contains(event.target);
+        if (contains) {
+          console.log('[CARET_INDICATOR] Click su editor', { editorId });
+        }
+        return contains;
+      });
+      
+      if (clickedEditorId) {
+        console.log('[CARET_INDICATOR] Click su editor rilevato - handleCodeSelection verrà chiamato automaticamente', {
+          clickedEditorId,
+          currentIndicator: caretIndicator
+        });
+        // Se si clicca su un editor, aggiorna l'indicatore
+        // handleCodeSelection verrà chiamato automaticamente dagli handler onFocus/onMouseUp
+        // Non serve fare nulla qui, la freccia si aggiornerà automaticamente
+      } else if (caretIndicator) {
+        console.log('[CARET_INDICATOR] Click FUORI da tutti gli editor - mantieni freccia visibile', {
+          currentIndicator: caretIndicator,
+          availableEditors: Object.keys(codeEditorRefs.current)
+        });
+        // Se si clicca fuori da tutti gli editor, mantieni la freccia visibile
+        // Non fare nulla, la freccia rimane visibile
+      } else {
+        console.log('[CARET_INDICATOR] Click fuori editor ma nessun indicatore attivo');
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOnEditor);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOnEditor);
+    };
+  }, [caretIndicator, codeEditorRefs]);
+
   // Chiudi il menu quando si clicca fuori
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -3309,40 +3328,46 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
   };
 
   const handleCodeSelection = (editorId) => {
-    // Aggiorna la posizione in modo asincrono per non interferire con la scrittura
-    setTimeout(() => {
-      const container = codeEditorRefs.current[editorId];
-      const textarea = container?.querySelector('textarea');
-      if (!textarea) {
-        setCodeSelection({ start: null, end: null, text: '', editorId: null });
-        return;
-      }
+    console.log('[CARET_INDICATOR] handleCodeSelection chiamato', { editorId });
+    const container = codeEditorRefs.current[editorId];
+    const textarea = container?.querySelector('textarea');
+    if (!textarea) {
+      console.log('[CARET_INDICATOR] Textarea non trovato per editor', editorId);
+      setCodeSelection({ start: null, end: null, text: '', editorId: null });
+      return;
+    }
 
-      const { selectionStart, selectionEnd } = textarea;
-      const value = textarea.value || '';
-
-      if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && selectionEnd > selectionStart) {
-        const prefix = getEditorPrefix(editorId);
-        setCodeSelection({
-          start: prefix + selectionStart,
-          end: prefix + selectionEnd,
-          text: value.substring(selectionStart, selectionEnd),
-          editorId
-        });
-        editorLocalSelectionRef.current[editorId] = { start: selectionStart, end: selectionEnd };
-        setCaretMap(prev => ({
-          ...prev,
-          [editorId]: getLineCol(value, selectionStart)
-        }));
-      } else {
-        setCodeSelection({ start: null, end: null, text: '', editorId: null });
-        editorLocalSelectionRef.current[editorId] = { start: textarea.selectionStart, end: textarea.selectionEnd };
-        setCaretMap(prev => ({
-          ...prev,
-          [editorId]: getLineCol(value, textarea.selectionStart)
-        }));
-      }
-    }, 0);
+    const { selectionStart, selectionEnd, value } = textarea;
+    
+    // Salva sempre la posizione del cursore (anche senza selezione)
+    const safeStart = typeof selectionStart === 'number' ? selectionStart : 0;
+    const beforeCaret = value.substring(0, safeStart);
+    const caretLine = Math.max(1, beforeCaret.split('\n').length);
+    const newIndicator = { editorId, line: caretLine };
+    
+    console.log('[CARET_INDICATOR] Aggiornamento posizione cursore', {
+      editorId,
+      selectionStart: safeStart,
+      caretLine,
+      beforeCaretLength: beforeCaret.length,
+      valueLength: value.length,
+      newIndicator,
+      previousIndicator: caretIndicator
+    });
+    
+    setCaretIndicator(newIndicator);
+    
+    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number' && selectionEnd > selectionStart) {
+      const prefix = getEditorPrefix(editorId);
+      setCodeSelection({
+        start: prefix + selectionStart,
+        end: prefix + selectionEnd,
+        text: value.substring(selectionStart, selectionEnd),
+        editorId
+      });
+    } else {
+      setCodeSelection({ start: null, end: null, text: '', editorId: null });
+    }
   };
 
   const handleCodeContextMenu = (e, editorId) => {
@@ -3365,11 +3390,6 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
         text: value.substring(selectionStart, selectionEnd),
         editorId
       });
-      editorLocalSelectionRef.current[editorId] = { start: selectionStart, end: selectionEnd };
-      setCaretMap(prev => ({
-        ...prev,
-        [editorId]: getLineCol(value, selectionStart)
-      }));
       setContextMenu({
         x: e.clientX,
         y: e.clientY,
@@ -3380,296 +3400,7 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
     }
   };
 
-  const handleEditorFocus = (editorId) => {
-    // Quando un EN riceve il focus, diventa l'EN attivo (un solo pallino per fase GWT)
-    setActiveEditorId(editorId);
-    
-    // Aggiorna la posizione del cursore in modo asincrono per non interferire con la scrittura
-    setTimeout(() => {
-      const container = codeEditorRefs.current[editorId];
-      const textarea = container?.querySelector('textarea');
-      if (!textarea || document.activeElement !== textarea) return;
-      const value = textarea.value || '';
-      const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
-      const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
-      editorLocalSelectionRef.current[editorId] = { start, end };
-      setCaretMap(prev => ({
-        ...prev,
-        [editorId]: getLineCol(value, start)
-      }));
-    }, 0);
-  };
-      // Log granulari per ogni tasto
-      const keydownHandler = (e) => {
-        console.debug('[EN DEBUG] keydown', {
-          editorId: editor.id,
-          key: e.key,
-          code: e.code,
-          selectionStart: textarea.selectionStart,
-          selectionEnd: textarea.selectionEnd,
-          valueLength: (textarea.value || '').length,
-          activeEditorId,
-          caret: caretMap[editor.id]
-        });
-      };
-      const keyupHandler = (e) => {
-        console.debug('[EN DEBUG] keyup', {
-          editorId: editor.id,
-          key: e.key,
-          code: e.code,
-          selectionStart: textarea.selectionStart,
-          selectionEnd: textarea.selectionEnd,
-          valueLength: (textarea.value || '').length,
-          activeEditorId,
-          caret: caretMap[editor.id]
-        });
-      };
-
-  const handleEditorBlur = (editorId, e) => {
-    const container = codeEditorRefs.current[editorId];
-    const textarea = container?.querySelector('textarea');
-    if (!textarea) return;
-    const value = textarea.value || '';
-    const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
-    const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
-    editorLocalSelectionRef.current[editorId] = { start, end };
-    setCaretMap(prev => ({
-      ...prev,
-      [editorId]: getLineCol(value, start)
-    }));
-    
-    // Controlla se un altro EN della stessa fase ha ricevuto il focus
-    // Usa un timeout per permettere al nuovo focus di essere registrato
-    setTimeout(() => {
-      const anyEditorFocused = codeEditors.some(editor => {
-        const editorContainer = codeEditorRefs.current[editor.id];
-        const editorTextarea = editorContainer?.querySelector('textarea');
-        return editorTextarea && document.activeElement === editorTextarea;
-      });
-      
-      // Se nessun EN ha il focus, mantieni il pallino sull'ultimo EN attivo
-      // Se un altro EN ha il focus, activeEditorId sarà già stato aggiornato da handleEditorFocus
-      if (!anyEditorFocused && activeEditorId === editorId) {
-        // Nessun altro EN ha il focus, mantieni il pallino su questo EN
-        // activeEditorId rimane invariato
-      }
-    }, 0);
-  };
-
-  // Disabilitato: i listener diretti sui textarea vengono rimossi per evitare interferenze con la digitazione
-  // useEffect(() => {
-  //   const focusHandlers = {};
-  //   const blurHandlers = {};
-  //   const inputHandlers = {};
-  //
-  //   codeEditors.forEach((editor) => {
-  //     const container = codeEditorRefs.current[editor.id];
-  //     if (!container) return;
-  //     const textarea = container.querySelector('textarea');
-  //     if (!textarea) return;
-  //
-  //     const focusHandler = () => handleEditorFocus(editor.id);
-  //     const blurHandler = (e) => handleEditorBlur(editor.id, e);
-  //     const inputHandler = () => {
-  //       if (document.activeElement === textarea) {
-  //         setTimeout(() => {
-  //           const value = textarea.value || '';
-  //           const start = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : value.length;
-  //           const end = typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start;
-  //           editorLocalSelectionRef.current[editor.id] = { start, end };
-  //           setCaretMap(prev => ({
-  //             ...prev,
-  //             [editor.id]: getLineCol(value, start)
-  //           }));
-  //         }, 0);
-  //       }
-  //     };
-  //
-  //     focusHandlers[editor.id] = focusHandler;
-  //     blurHandlers[editor.id] = blurHandler;
-  //     inputHandlers[editor.id] = inputHandler;
-  //
-  //     textarea.addEventListener('focus', focusHandler);
-  //     textarea.addEventListener('blur', blurHandler);
-  //     textarea.addEventListener('input', inputHandler);
-  //   });
-  //
-  //   return () => {
-  //     codeEditors.forEach((editor) => {
-  //       const container = codeEditorRefs.current[editor.id];
-  //       if (!container) return;
-  //       const textarea = container.querySelector('textarea');
-  //       if (!textarea) return;
-  //
-  //       if (focusHandlers[editor.id]) {
-  //         textarea.removeEventListener('focus', focusHandlers[editor.id]);
-  //       }
-  //       if (blurHandlers[editor.id]) {
-  //         textarea.removeEventListener('blur', blurHandlers[editor.id]);
-  //       }
-  //       if (inputHandlers[editor.id]) {
-  //         textarea.removeEventListener('input', inputHandlers[editor.id]);
-  //       }
-  //     });
-  //   };
-  // }, [codeEditors]);
-
-  // Calcola la posizione pixel del caret per mostrare il pallino fuori fuoco
-  useLayoutEffect(() => {
-    const nextPixels = {};
-    codeEditors.forEach((seg) => {
-      const pos = caretMap[seg.id];
-      if (!pos) return;
-      const container = codeEditorRefs.current[seg.id];
-      if (!container) return;
-      const textarea = container.querySelector('textarea');
-      if (!textarea) return;
-
-      const localSel = editorLocalSelectionRef.current[seg.id];
-      if (!localSel) return;
-      const caretPos = localSel.start;
-
-      const styles = window.getComputedStyle(textarea);
-      const paddingTop = parseFloat(styles.paddingTop) || 8;
-      const paddingLeft = parseFloat(styles.paddingLeft) || 12;
-      const lineHeightPx = parseFloat(styles.lineHeight) || 18;
-      const fontSizePx = parseFloat(styles.fontSize) || 13;
-      const fontFamily = styles.fontFamily || 'monospace';
-
-      const value = textarea.value || '';
-      
-      // Usa direttamente pos.line da caretMap (già calcolato correttamente)
-      const lineNumber = pos.line; // 1-based
-      
-      // Calcola la posizione esatta usando il testo fino al cursore per la colonna
-      const textBeforeCaret = value.substring(0, caretPos);
-      const lines = textBeforeCaret.split('\n');
-      const currentLine = lines[lines.length - 1] || '';
-      
-      // Crea un elemento temporaneo per misurare la larghezza esatta del testo sulla riga corrente
-      const measureEl = document.createElement('span');
-      measureEl.style.position = 'absolute';
-      measureEl.style.visibility = 'hidden';
-      measureEl.style.whiteSpace = 'pre';
-      measureEl.style.fontFamily = fontFamily;
-      measureEl.style.fontSize = `${fontSizePx}px`;
-      measureEl.style.padding = '0';
-      measureEl.style.margin = '0';
-      measureEl.style.border = 'none';
-      measureEl.textContent = currentLine;
-      document.body.appendChild(measureEl);
-      
-      const textWidth = measureEl.offsetWidth;
-      document.body.removeChild(measureEl);
-
-      // Ottieni la posizione del textarea rispetto al wrapper
-      const textareaRect = textarea.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const textareaOffsetTop = textareaRect.top - containerRect.top;
-      const textareaOffsetLeft = textareaRect.left - containerRect.left;
-      
-      // Calcola top: posizione della riga corrente (lineNumber è 1-based, quindi -1 per l'indice)
-      // Il baricentro del cursore è al centro verticale della linea (metà lineHeight)
-      // Aggiungi l'offset del textarea rispetto al wrapper
-      const lineTop = textareaOffsetTop + paddingTop + (lineNumber - 1) * lineHeightPx - (textarea.scrollTop || 0);
-      const top = lineTop + (lineHeightPx / 2); // Baricentro verticale del cursore
-      
-      // Calcola left: padding + larghezza del testo sulla riga corrente meno lo scroll
-      // Aggiungi l'offset del textarea rispetto al wrapper
-      const left = textareaOffsetLeft + paddingLeft + textWidth - (textarea.scrollLeft || 0);
-
-      nextPixels[seg.id] = { top, left };
-    });
-    setCaretPixelMap(nextPixels);
-
-    // Aggiungi listener per aggiornare la posizione quando il cursore si muove o lo scroll cambia
-    const updatePositions = () => {
-      const updatedPixels = {};
-      codeEditors.forEach((seg) => {
-        const pos = caretMap[seg.id];
-        if (!pos) return;
-        const container = codeEditorRefs.current[seg.id];
-        if (!container) return;
-        const textarea = container.querySelector('textarea');
-        if (!textarea) return;
-
-        const localSel = editorLocalSelectionRef.current[seg.id];
-        if (!localSel) return;
-        const caretPos = localSel.start;
-
-        const styles = window.getComputedStyle(textarea);
-        const paddingTop = parseFloat(styles.paddingTop) || 8;
-        const paddingLeft = parseFloat(styles.paddingLeft) || 12;
-        const lineHeightPx = parseFloat(styles.lineHeight) || 18;
-        const fontSizePx = parseFloat(styles.fontSize) || 13;
-        const fontFamily = styles.fontFamily || 'monospace';
-
-        const value = textarea.value || '';
-        
-        // Usa direttamente pos.line da caretMap (già calcolato correttamente)
-        const lineNumber = pos.line; // 1-based
-        
-        // Calcola la posizione esatta usando il testo fino al cursore per la colonna
-        const textBeforeCaret = value.substring(0, caretPos);
-        const lines = textBeforeCaret.split('\n');
-        const currentLine = lines[lines.length - 1] || '';
-
-        const measureEl = document.createElement('span');
-        measureEl.style.position = 'absolute';
-        measureEl.style.visibility = 'hidden';
-        measureEl.style.whiteSpace = 'pre';
-        measureEl.style.fontFamily = fontFamily;
-        measureEl.style.fontSize = `${fontSizePx}px`;
-        measureEl.style.padding = '0';
-        measureEl.style.margin = '0';
-        measureEl.style.border = 'none';
-        measureEl.textContent = currentLine;
-        document.body.appendChild(measureEl);
-        const textWidth = measureEl.offsetWidth;
-        document.body.removeChild(measureEl);
-
-        // Ottieni la posizione del textarea rispetto al wrapper
-        const textareaRect = textarea.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const textareaOffsetTop = textareaRect.top - containerRect.top;
-        const textareaOffsetLeft = textareaRect.left - containerRect.left;
-
-        // Calcola top: posizione della riga corrente (lineNumber è 1-based, quindi -1 per l'indice)
-        // Il baricentro del cursore è al centro verticale della linea (metà lineHeight)
-        // Aggiungi l'offset del textarea rispetto al wrapper
-        const lineTop = textareaOffsetTop + paddingTop + (lineNumber - 1) * lineHeightPx - (textarea.scrollTop || 0);
-        const top = lineTop + (lineHeightPx / 2); // Baricentro verticale del cursore
-        const left = textareaOffsetLeft + paddingLeft + textWidth - (textarea.scrollLeft || 0);
-        updatedPixels[seg.id] = { top, left };
-      });
-      setCaretPixelMap(updatedPixels);
-    };
-
-    // Listener per scroll e movimento cursore
-    const textareas = codeEditors.map(seg => {
-      const container = codeEditorRefs.current[seg.id];
-      return container?.querySelector('textarea');
-    }).filter(Boolean);
-
-    textareas.forEach(textarea => {
-      textarea.addEventListener('scroll', updatePositions);
-      textarea.addEventListener('input', updatePositions);
-      textarea.addEventListener('keyup', updatePositions);
-      textarea.addEventListener('mouseup', updatePositions);
-    });
-
-    return () => {
-      textareas.forEach(textarea => {
-        textarea.removeEventListener('scroll', updatePositions);
-        textarea.removeEventListener('input', updatePositions);
-        textarea.removeEventListener('keyup', updatePositions);
-        textarea.removeEventListener('mouseup', updatePositions);
-      });
-    };
-  }, [caretMap, codeEditors]);
-
   const handleSegmentChange = (editorId, newValue) => {
-    console.debug('[EN DEBUG] onValueChange', { editorId, newValueLength: newValue?.length });
     setCodeEditors(prevSegments => {
       const idx = prevSegments.findIndex(seg => seg.id === editorId);
       if (idx === -1) return prevSegments;
@@ -6311,7 +6042,7 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                 <div
                   ref={codeEditorRef}
                   className="code-editor-stack"
-                  style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px' }}
+                  style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'visible' }}
                 >
                   {codeEditors.map((editor, idx) => {
                     const lineHeight = 18;
@@ -6356,16 +6087,11 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                           }
                         }}
                         className={`code-editor-wrapper ${editor.type === 'object' ? 'code-editor-object' : 'code-editor-normal'}`}
-                        style={{ position: 'relative' }}
                         onContextMenu={(e) => handleCodeContextMenu(e, editor.id)}
+                        style={{ position: 'relative', overflow: 'visible', paddingLeft: '20px' }}
                       >
-                        <div className="code-editor-title" style={{ marginBottom: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span>Editor Nero {idx + 1}{editor.type === 'object' ? ' (oggetto)' : ''}</span>
-                          {caretMap[editor.id] && (
-                            <span style={{ fontSize: '12px', color: '#9aa0a6' }}>
-                              Posizione: riga {caretMap[editor.id].line}, col {caretMap[editor.id].col}
-                            </span>
-                          )}
+                        <div className="code-editor-title" style={{ marginBottom: '6px', fontWeight: 600 }}>
+                          Editor Nero {idx + 1}{editor.type === 'object' ? ' (oggetto)' : ''}
                         </div>
                         <Editor
                           value={editor.code}
@@ -6381,31 +6107,162 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                             lineHeight: `${lineHeight}px`,
                             overflow: 'hidden'
                           }}
-                          onFocus={() => handleEditorFocus(editor.id)}
-                          onBlur={(e) => handleEditorBlur(editor.id, e)}
                           onMouseUp={() => handleCodeSelection(editor.id)}
                           onKeyUp={() => handleCodeSelection(editor.id)}
+                          onFocus={() => {
+                            console.log('[CARET_INDICATOR] onFocus - Editor riceve focus', { editorId: editor.id });
+                            setFocusedEditorId(editor.id);
+                            // Quando si clicca su questo editor, aggiorna la posizione
+                            handleCodeSelection(editor.id);
+                          }}
+                          onBlur={() => {
+                            console.log('[CARET_INDICATOR] onBlur - Editor perde focus', { 
+                              editorId: editor.id,
+                              currentIndicator: caretIndicator 
+                            });
+                            // Quando si perde il focus, mantieni l'indicatore (non rimuoverlo)
+                            // La freccia rimarrà visibile finché non si clicca su un'altra riga
+                            setFocusedEditorId(null);
+                          }}
                         />
-                        {activeEditorId === editor.id && caretMap[editor.id] && caretPixelMap[editor.id] && (
-                          <div
-                            className="caret-indicator"
-                            style={{
-                              position: 'absolute',
-                              left: `${caretPixelMap[editor.id].left}px`,
-                              top: `${caretPixelMap[editor.id].top}px`,
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              backgroundColor: '#fff',
-                              boxShadow: '0 0 4px rgba(0,0,0,0.35)',
-                              opacity: 0.9,
-                              pointerEvents: 'none',
-                              transform: 'translate(-4px, -4px)',
-                              zIndex: 10
-                            }}
-                            title={`Ultima posizione: riga ${caretMap[editor.id].line}, col ${caretMap[editor.id].col}`}
-                          />
-                        )}
+                        {caretIndicator?.editorId === editor.id && caretIndicator.line && (() => {
+                          console.log('[CARET_INDICATOR] Render freccia - Verifica condizioni', {
+                            editorId: editor.id,
+                            indicatorEditorId: caretIndicator.editorId,
+                            indicatorLine: caretIndicator.line,
+                            match: caretIndicator.editorId === editor.id,
+                            focusedEditorId,
+                            isFocused: focusedEditorId === editor.id
+                          });
+                          
+                          const textarea = codeEditorRefs.current[editor.id]?.querySelector('textarea');
+                          if (!textarea) {
+                            console.log('[CARET_INDICATOR] Textarea non trovato durante render freccia');
+                            return null;
+                          }
+                          
+                          // Se l'editor NON ha il focus, mostra sempre la freccia
+                          const isEditorFocused = focusedEditorId === editor.id;
+                          
+                          if (!isEditorFocused) {
+                            console.log('[CARET_INDICATOR] Editor non ha focus - mostra freccia');
+                            // Editor non ha focus, mostra la freccia
+                          } else {
+                            // Se l'editor ha il focus, verifica se il cursore è ancora su quella riga
+                            const currentStart = textarea.selectionStart || 0;
+                            const currentBeforeCaret = editor.code.substring(0, currentStart);
+                            const currentLine = Math.max(1, currentBeforeCaret.split('\n').length);
+                            const isCaretOnLine = currentLine === caretIndicator.line;
+                            
+                            console.log('[CARET_INDICATOR] Verifica posizione cursore (editor ha focus)', {
+                              editorId: editor.id,
+                              currentStart,
+                              currentLine,
+                              indicatorLine: caretIndicator.line,
+                              isCaretOnLine,
+                              willShowArrow: !isCaretOnLine,
+                              editorCodeLength: editor.code.length,
+                              lineCount
+                            });
+                            
+                            // Se il cursore è ancora sulla stessa riga, non mostrare la freccia
+                            if (isCaretOnLine) {
+                              console.log('[CARET_INDICATOR] Freccia NON mostrata - cursore ancora sulla stessa riga');
+                              return null;
+                            }
+                          }
+                          
+                          const indicatorLine = Math.max(1, Math.min(caretIndicator.line, lineCount));
+                          // Correzione offset: il padding Y è 8px, line-height 18px.
+                          // Il testo inizia a paddingY. La prima riga è a paddingY.
+                          // Il centro della linea N è: paddingY + (N-1)*lineHeight + lineHeight/2.
+                          // Tuttavia, l'editor ha padding: 8px.
+                          // Se il cursore è alla riga 3, indicatorLine=3.
+                          // Top = 8 + (2)*18 + 9 = 8 + 36 + 9 = 53px.
+                          // Se la freccia appare più in alto, forse il padding non è 8px o il line-height non è 18px.
+                          
+                          // Verifichiamo i valori reali usati nel render dell'editor (riga 5981):
+                          // const lineHeight = 18;
+                          // const paddingY = 12; // ATTENZIONE: Qui era 12px nel map, ma 8px nel CSS compact-editor!
+                          
+                          // Nel CSS compact-editor (TestCaseBuilder.css:834): padding: 8px 12px !important;
+                          // Quindi paddingY deve essere 8px per il calcolo.
+                          
+                          // SE la freccia è troppo in alto, significa che indicatorTop è troppo piccolo.
+                          // Forse indicatorLine è sbagliato?
+                          // Se indicatorLine è 3, e appare tra riga 1 e 2, sembra che venga renderizzato come ~1.5.
+                          
+                          // Ricontrolliamo il calcolo di indicatorLine.
+                          // const currentLine = Math.max(1, currentBeforeCaret.split('\n').length);
+                          // Se il cursore è a inizio riga 3 (dopo due \n), split da 3 elementi. Corretto.
+                          
+                          // Proviamo ad aggiungere un offset correttivo empirico se il calcolo teorico fallisce visivamente.
+                          // Ma prima, assicuriamoci che paddingY sia coerente con il CSS.
+                          // Nel map sopra (riga 5982): const paddingY = 12; -> MODIFICATO in 8px nel patch precedente?
+                          // Controlliamo il codice attuale.
+                          
+                          const indicatorTop = 8 + (indicatorLine - 1) * lineHeight + lineHeight / 2;
+                          
+                          // Correzione ulteriore: sembra che visivamente manchi quasi una riga intera.
+                          // Aggiungiamo mezza riga extra per compensare eventuali differenze di rendering font/padding.
+                          // O forse il container ha un padding che non stiamo considerando?
+                          // Il wrapper ha position: relative. L'editor ha padding 8px.
+                          // La freccia è absolute rispetto al wrapper.
+                          // Se il titolo "Editor Nero X" sposta tutto giù?
+                          // Il titolo è DENTRO il wrapper, PRIMA dell'editor.
+                          // <div className="code-editor-title" ...> ... </div>
+                          // <Editor ... />
+                          
+                          // AH! L'Editor è un fratello del titolo. La freccia è absolute nel wrapper.
+                          // `top: 0` nel wrapper è l'angolo in alto a sinistra del WRAPPER.
+                          // Ma l'editor inizia DOPO il titolo!
+                          // Quindi dobbiamo aggiungere l'altezza del titolo all'offset della freccia!
+                          
+                          const titleHeight = 24; // Stima altezza titolo + margin (18px font + 6px margin)
+                          // Correzione offset: centra la freccia (alta 16px) rispetto alla riga di 18px
+                          // Top parte da paddingY (8px) + offset righe
+                          // Offset righe = (linea - 1) * 18px
+                          // Centro riga = Offset righe + 18px/2 = Offset righe + 9px
+                          // Top freccia = paddingY + Centro riga - altezza freccia/2
+                          
+                          // Nuova freccia più grande: border 8px -> altezza 16px
+                          const arrowHeight = 16;
+                          const lineHeightVal = 18;
+                          const centerLine = paddingY + (indicatorLine - 1) * lineHeightVal + lineHeightVal / 2;
+                          const correctedIndicatorTop = centerLine + titleHeight;
+                          
+                          console.log('[CARET_INDICATOR] Freccia RENDERIZZATA', {
+                            editorId: editor.id,
+                            indicatorLine,
+                            correctedIndicatorTop,
+                            paddingY,
+                            lineHeight,
+                            lineCount,
+                            titleHeight,
+                            wrapperRect: codeEditorRefs.current[editor.id]?.getBoundingClientRect()
+                          });
+                          
+                          return (
+                            <div
+                              className="caret-arrow-indicator"
+                              style={{
+                                position: 'absolute',
+                                left: '0px', // Attaccato al bordo sinistro (padding-left del wrapper fa spazio)
+                                top: `${correctedIndicatorTop}px`,
+                                width: 0,
+                                height: 0,
+                                borderTop: '8px solid transparent',
+                                borderBottom: '8px solid transparent',
+                                borderLeft: '10px solid black', // Freccia più grande
+                                transform: 'translateY(-50%)', // Centra verticalmente rispetto a top
+                                pointerEvents: 'none',
+                                zIndex: 99999,
+                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
+                              }}
+                              title={`Ultima posizione cursore: linea ${indicatorLine}`}
+                            />
+                          );
+                        })()}
                       </div>
                     );
                   })}
