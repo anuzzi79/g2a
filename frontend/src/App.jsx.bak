@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CSVUploader } from './components/CSVUploader';
 import { ContextBuilder } from './components/ContextBuilder';
 import { TestCaseBuilder } from './components/TestCaseBuilder';
@@ -118,7 +118,7 @@ export default function App() {
           console.error('Errore caricamento CSV automatico:', csvError);
           logEvent('warning', `Impossibile caricare CSV automaticamente: ${csvError.message}`);
           
-        // Fallback a localStorage se c'è un errore
+          // Fallback a localStorage se c'è un errore
           const savedTestCases = localStorage.getItem(testCasesKey);
           if (savedTestCases) {
             const parsed = JSON.parse(savedTestCases);
@@ -200,11 +200,11 @@ export default function App() {
             logEvent('info', `🔵 [SEARCH] Ricerca sessione con id "${savedSessionId}": ${sessionToOpen ? 'TROVATA' : 'NON TROVATA'}`);
             
             if (!sessionToOpen) {
-            logEvent('warning', '🔴 [ERROR] Sessione salvata non trovata nella lista sessioni');
+              logEvent('warning', '🔴 [ERROR] Sessione salvata non trovata nella lista sessioni');
               localStorage.removeItem('g2a_current_session_id');
               setSavedSessionName(null);
               setStep('sessions');
-            logEvent('warning', '🔴 [ACTION] Aperto menu sessioni (sessione non trovata)');
+              logEvent('warning', '🔴 [ACTION] Aperto menu sessioni (sessione non trovata)');
               setLoadingSession(false);
               return;
             }
@@ -1045,7 +1045,7 @@ export default function App() {
               // Salva Binomio
               await api.saveBinomio(currentSession.id, newBinomio);
               
-              logEvent('success', `📏 [AUTO-MATCH] TC#${tc.id}: Collegato "${obj.text.substring(0, 20)}..." a nuovo oggetto TO (sim: ${(bestSimilarity*100).toFixed(0)}%)`);
+              logEvent('success', `🔗 [AUTO-MATCH] TC#${tc.id}: Collegato "${obj.text.substring(0, 20)}..." a nuovo oggetto TO (sim: ${(bestSimilarity*100).toFixed(0)}%)`);
               
               boxUpdated = true;
               tcUpdated = true;
@@ -1105,7 +1105,7 @@ export default function App() {
     }
   };
 
-// Funzione per calcolare similarità testuale tra due testi
+  // Funzione per calcolare similarità testuale tra due testi
   const calculateTextSimilarity = (text1, text2) => {
     if (!text1 || !text2) return 0;
     const normalize = (text) => {
@@ -1127,7 +1127,7 @@ export default function App() {
     return intersection / union;
   };
 
-// Funzione per trovare match parziali: cerca se l'oggetto EC è contenuto o molto simile
+  // Funzione per trovare match parziali: cerca se l'oggetto EC è contenuto o molto simile
   // a una parte dell'enunciato del test case
   // IMPORTANTE: La porzione estratta deve essere IDENTICA (o quasi identica > 0.95) all'oggetto EC
   const findPartialMatch = (enunciato, ecObjectText) => {
@@ -1307,6 +1307,526 @@ export default function App() {
   };
 
   // Funzione principale Object Autocomplete
+  const handleObjectAutocomplete = async () => {
+    if (!currentSession) {
+      logEvent('error', 'Nessuna sessione disponibile');
+      return;
+    }
+
+    setIsObjectAutocompleteRunning(true);
+    try {
+      logEvent('info', '🚀 Avvio Object Autocomplete (Raziocinio per Oggetti)...');
+      
+      // Fase 1: Preparazione Dati
+      logEvent('info', '📦 Fase 1: Caricamento oggetti EC e binomi fondamentali...');
+      const [ecObjectsResult, binomiResult] = await Promise.all([
+        api.getECObjects(currentSession.id),
+        api.getBinomi(currentSession.id)
+      ]);
+      
+      const allECObjects = ecObjectsResult.objects || [];
+      const allBinomi = binomiResult.binomi || [];
+      
+      logEvent('info', `✅ Caricati ${allECObjects.length} oggetti EC e ${allBinomi.length} binomi fondamentali`);
+      
+      // Filtra oggetti EC che hanno binomi (solo quelli con codice associato)
+      logEvent('info', '🔍 Analisi binomi per identificare oggetti EC con codice associato...');
+      const ecObjectsWithBinomi = new Set();
+      const fromObjectToCodeMap = new Map(); // fromObjectId -> toObject (codice)
+      
+      for (const binomio of allBinomi) {
+        ecObjectsWithBinomi.add(binomio.fromObjectId);
+        const toObject = allECObjects.find(obj => obj.id === binomio.toObjectId);
+        if (toObject) {
+          fromObjectToCodeMap.set(binomio.fromObjectId, toObject);
+        }
+      }
+      
+      // Filtra oggetti EC "From" (enunciati GWT, location: 'header') che hanno binomi
+      const fromECObjects = allECObjects.filter(obj => 
+        obj.location === 'header' && ecObjectsWithBinomi.has(obj.id)
+      );
+      
+      if (fromECObjects.length === 0) {
+        logEvent('warning', '⚠️ Nessun oggetto EC con binomio trovato. Crea prima alcuni oggetti EC con binomi.');
+        return;
+      }
+      
+      logEvent('info', `✅ Trovati ${fromECObjects.length} oggetti EC "From" (enunciati) con codice associato`);
+      
+      // Carica tutti i test cases della sessione
+      logEvent('info', '📋 Caricamento test cases della sessione...');
+      const allTestCases = await loadAllTestCasesWithState(currentSession.id);
+      
+      if (allTestCases.length === 0) {
+        logEvent('warning', '⚠️ Nessun test case trovato nella sessione');
+        return;
+      }
+      
+      logEvent('info', `✅ Caricati ${allTestCases.length} test cases`);
+      logEvent('info', '🔍 Fase 2: Ricerca similarità tra enunciati GWT e oggetti EC...');
+      
+      // Fase 2: Ricerca Similarità e Creazione Oggetti
+      let totalMatches = 0;
+      let totalObjectsCreated = 0;
+      let totalBinomiCreated = 0;
+      const matches = []; // { testCaseId, phase, enunciato, matchedECObject, codiceAssociato }
+      // Carica i metadati esistenti per non perderli
+      const metadataKey = `session-${currentSession.id}_object_autocomplete_metadata`;
+      const existingMetadata = localStorage.getItem(metadataKey);
+      const completedFields = existingMetadata ? JSON.parse(existingMetadata) : {};
+      
+      for (let i = 0; i < allTestCases.length; i++) {
+        const testCase = allTestCases[i];
+        logEvent('info', `🔎 Analizzando Test Case #${testCase.id} (${i + 1}/${allTestCases.length})...`);
+        
+        // Per ogni fase GWT (given, when, then)
+        for (const phase of ['given', 'when', 'then']) {
+          const phaseText = testCase[phase];
+          if (!phaseText || !phaseText.trim()) continue;
+          
+          logEvent('info', `  📝 Analizzando fase ${phase.toUpperCase()}: "${phaseText.substring(0, 50)}${phaseText.length > 50 ? '...' : ''}"`);
+          
+          // Cerca match con oggetti EC "From"
+          // IMPORTANTE: Escludi gli oggetti EC che appartengono già a questo test case
+          // per evitare di creare duplicati nel test case di origine
+          const fromECObjectsToCheck = fromECObjects.filter(obj => 
+            obj.testCaseId !== String(testCase.id)
+          );
+          
+          let matchFound = false;
+          for (const fromECObject of fromECObjectsToCheck) {
+            // Prima prova con match completo
+            let similarity = calculateTextSimilarity(phaseText, fromECObject.text);
+            let extractedText = null;
+            let startIndex = 0;
+            let endIndex = phaseText.length;
+            
+            // Se la similarità è bassa, prova con match parziale
+            if (similarity < 0.7) {
+              const partialMatch = findPartialMatch(phaseText, fromECObject.text);
+              if (partialMatch && partialMatch.similarity >= 0.7) {
+                similarity = partialMatch.similarity;
+                extractedText = partialMatch.extractedText;
+                startIndex = partialMatch.startIndex;
+                endIndex = partialMatch.endIndex;
+              }
+            } else {
+              // Match completo: usa tutto l'enunciato
+              extractedText = phaseText;
+            }
+            
+            // Soglia di similarità: 0.7 (alta)
+            if (similarity >= 0.7) {
+              const toObject = fromObjectToCodeMap.get(fromECObject.id);
+              if (toObject) {
+                // IMPORTANTE: Verifica sovrapposizioni PRIMA di aggiungere il match
+                // Controlla se esiste già un oggetto EC "From" per questo test case e fase che si sovrappone
+                const finalTextToCheck = extractedText || phaseText;
+                const existingFromObjectsForPhase = allECObjects.filter(obj => 
+                  obj.testCaseId === String(testCase.id) &&
+                  obj.boxType === phase &&
+                  obj.location === 'header'
+                );
+                
+                // Verifica se il nuovo oggetto si sovrappone a uno esistente
+                let hasOverlap = false;
+                for (const existingObj of existingFromObjectsForPhase) {
+                  const existingText = existingObj.text.toLowerCase().trim();
+                  const newText = finalTextToCheck.toLowerCase().trim();
+                  
+                  // Controlla se il nuovo testo è contenuto nell'esistente o viceversa
+                  // Questo previene sovrapposizioni come "the user is at path..." vs "Given the user is at path..."
+                  if (existingText.includes(newText) || newText.includes(existingText)) {
+                    hasOverlap = true;
+                    logEvent('warning', `  ⚠️ Sovrapposizione rilevata! Esiste già un oggetto EC "From" per TC${testCase.id} - ${phase.toUpperCase()}: "${existingObj.text.substring(0, 50)}${existingObj.text.length > 50 ? '...' : ''}". Il nuovo oggetto "${finalTextToCheck.substring(0, 50)}${finalTextToCheck.length > 50 ? '...' : ''}" si sovrappone. Match saltato.`);
+                    break;
+                  }
+                }
+                
+                // Aggiungi il match solo se non c'è sovrapposizione
+                if (!hasOverlap) {
+                  matches.push({
+                    testCaseId: testCase.id,
+                    phase: phase,
+                    enunciato: phaseText, // Testo completo originale
+                    extractedText: extractedText, // Porzione estratta (se match parziale)
+                    startIndex: startIndex,
+                    endIndex: endIndex,
+                    matchedECObject: fromECObject,
+                    codiceAssociato: toObject,
+                    similarity: similarity
+                  });
+                  totalMatches++;
+                  matchFound = true;
+                  const matchType = extractedText && extractedText !== phaseText ? ' (parziale)' : '';
+                  logEvent('success', `    ✅ Match trovato${matchType}! Similarità: ${(similarity * 100).toFixed(1)}% con oggetto EC "${fromECObject.text.substring(0, 40)}..."`);
+                }
+              }
+            }
+          }
+          if (!matchFound) {
+            logEvent('info', `    ⏭️ Nessun match trovato per questa fase`);
+          }
+        }
+      }
+      
+      logEvent('info', `✅ Fase 2 completata: trovati ${totalMatches} match con similarità >= 0.7`);
+      
+      if (matches.length === 0) {
+        logEvent('info', 'ℹ️ Nessun match trovato. Prova a creare più oggetti EC con binomi.');
+        return;
+      }
+      
+      // Fase 3: Creazione Oggetti EC e Inserimento Codice
+      logEvent('info', '🔨 Fase 3: Creazione oggetti EC e inserimento codice...');
+      
+      // Inizializza contatori binomi basandosi sull'ID più alto esistente per evitare sovrascritture
+      const binomiCountByTestCase = new Map(); // testCaseId -> maxIndex
+      for (const binomio of allBinomi) {
+        const tcId = String(binomio.testCaseId); // Assicura che sia stringa per la chiave
+        // L'ID è nel formato bf-SESSION-TC#-NNN o bf-SESSION-TC#-NNN-TIMESTAMP
+        // Cerchiamo la parte numerica sequenziale dopo TC#
+        const parts = binomio.id.split('-');
+        // Cerca la parte che è un numero di 3 cifre (001, 002...)
+        const tcPartIndex = parts.findIndex(p => p.startsWith('TC') && p.length > 2);
+        if (tcPartIndex !== -1 && tcPartIndex + 1 < parts.length) {
+          const potentialNum = parseInt(parts[tcPartIndex + 1], 10);
+          if (!isNaN(potentialNum)) {
+            const currentMax = binomiCountByTestCase.get(tcId) || 0;
+            if (potentialNum > currentMax) {
+              binomiCountByTestCase.set(tcId, potentialNum);
+            }
+          }
+        }
+      }
+      
+      // Inizializza mappa dei codici correnti per gestire l'append corretto e gli indici
+      const currentCodes = new Map(); // testCaseId -> { given: '', when: '', then: '' }
+      for (const tc of allTestCases) {
+        const tcIdStr = String(tc.id); // Usa chiave stringa
+        currentCodes.set(tcIdStr, {
+          given: tc.blockStates?.given?.code || '',
+          when: tc.blockStates?.when?.code || '',
+          then: tc.blockStates?.then?.code || ''
+        });
+      }
+      
+      // Raggruppa match per test case e fase per evitare duplicati
+      const processedMatches = new Set();
+      
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
+        const matchKey = `${match.testCaseId}-${match.phase}`;
+        
+        // Processa solo il match con la similarità più alta per ogni test case + fase
+        if (processedMatches.has(matchKey)) continue;
+        
+        // Trova il match migliore per questa combinazione
+        const bestMatch = matches
+          .filter(m => `${m.testCaseId}-${m.phase}` === matchKey)
+          .sort((a, b) => b.similarity - a.similarity)[0];
+        
+        processedMatches.add(matchKey);
+        
+        logEvent('info', `🔧 Processando match ${i + 1}/${matches.length}: TC${bestMatch.testCaseId} - ${bestMatch.phase.toUpperCase()} (similarità: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+        
+        try {
+          // Verifica se esiste già un binomio per questa combinazione testCaseId + phase
+          // per evitare duplicati quando si esegue Object Autocomplete più volte
+          const fullText = bestMatch.enunciato;
+          const matchedText = bestMatch.matchedECObject.text;
+          const similarity = bestMatch.similarity;
+          
+          let startIndex, endIndex, finalText;
+          
+          // Se c'è un testo estratto (match parziale), usalo
+          if (bestMatch.extractedText) {
+            finalText = bestMatch.extractedText;
+            startIndex = bestMatch.startIndex;
+            endIndex = bestMatch.endIndex;
+          } else if (similarity > 0.9) {
+            // Match completo con alta similarità
+            finalText = fullText;
+            startIndex = 0;
+            endIndex = fullText.length;
+          } else {
+            // Cerca la posizione nel testo
+            const lowerFullText = fullText.toLowerCase();
+            const lowerMatchedText = matchedText.toLowerCase();
+            const foundIndex = lowerFullText.indexOf(lowerMatchedText);
+            
+            if (foundIndex >= 0) {
+              finalText = matchedText;
+              startIndex = foundIndex;
+              endIndex = foundIndex + matchedText.length;
+            } else {
+              finalText = fullText;
+              startIndex = 0;
+              endIndex = fullText.length;
+            }
+          }
+          
+          // Verifica se esiste già un oggetto EC "From" con lo stesso testo per questo test case e fase
+          const existingFromObject = allECObjects.find(obj => 
+            obj.testCaseId === String(bestMatch.testCaseId) &&
+            obj.boxType === bestMatch.phase &&
+            obj.location === 'header' &&
+            obj.text === finalText
+          );
+          
+          // IMPORTANTE: Verifica sovrapposizioni con oggetti EC "From" esistenti
+          // Se esiste già un oggetto EC "From" per questo test case e fase, verifica se il nuovo si sovrappone
+          if (!existingFromObject) {
+            const existingFromObjectsForPhase = allECObjects.filter(obj => 
+              obj.testCaseId === String(bestMatch.testCaseId) &&
+              obj.boxType === bestMatch.phase &&
+              obj.location === 'header'
+            );
+            
+            // Verifica se il nuovo oggetto si sovrappone a uno esistente
+            let hasOverlap = false;
+            for (const existingObj of existingFromObjectsForPhase) {
+              const existingText = existingObj.text.toLowerCase().trim();
+              const newText = finalText.toLowerCase().trim();
+              
+              // Controlla se il nuovo testo è contenuto nell'esistente o viceversa
+              // Questo previene sovrapposizioni come "the user is at path..." vs "Given the user is at path..."
+              // IMPORTANTE: Non considerare sovrapposizione se i testi sono identici (già gestito da existingFromObject)
+              if (existingText !== newText && (existingText.includes(newText) || newText.includes(existingText))) {
+                hasOverlap = true;
+                logEvent('warning', `  ⚠️ Sovrapposizione rilevata! Esiste già un oggetto EC "From" per TC${bestMatch.testCaseId} - ${bestMatch.phase.toUpperCase()}: "${existingObj.text.substring(0, 50)}${existingObj.text.length > 50 ? '...' : ''}". Il nuovo oggetto "${finalText.substring(0, 50)}${finalText.length > 50 ? '...' : ''}" si sovrappone. Saltato.`);
+                break;
+              }
+            }
+            
+            if (hasOverlap) {
+              continue; // Salta questo match per evitare sovrapposizione
+            }
+          }
+          
+          let fromObjectId;
+          let fromECObject;
+          let boxNumber;
+          
+          if (existingFromObject) {
+            // Verifica se esiste già un binomio che collega questo oggetto EC "From" a un oggetto EC "To" con lo stesso codice
+            const existingBinomio = allBinomi.find(b => 
+              b.fromObjectId === existingFromObject.id &&
+              b.testCaseId === String(bestMatch.testCaseId)
+            );
+            
+            if (existingBinomio) {
+              const existingToObject = allECObjects.find(obj => obj.id === existingBinomio.toObjectId);
+              if (existingToObject && existingToObject.text === bestMatch.codiceAssociato.text) {
+                logEvent('info', `  ⏭️ Binomio già esistente per TC${bestMatch.testCaseId} - ${bestMatch.phase.toUpperCase()}. Saltato.`);
+                continue;
+              }
+            }
+            
+            // Usa l'oggetto EC "From" esistente
+            fromObjectId = existingFromObject.id;
+            fromECObject = existingFromObject;
+            boxNumber = existingFromObject.boxNumber;
+            logEvent('info', `  ℹ️ Oggetto EC "From" già esistente: ${fromObjectId}`);
+          } else {
+            // 1. Crea oggetto EC per l'enunciato
+            logEvent('info', `  📌 Creazione oggetto EC "From" per enunciato...`);
+            boxNumber = await getNextBoxNumber(
+              currentSession.id,
+              bestMatch.testCaseId,
+              bestMatch.phase
+            );
+            fromObjectId = generateECObjectId(
+              currentSession.id,
+              bestMatch.testCaseId,
+              bestMatch.phase,
+              boxNumber
+            );
+            
+            if (!fromObjectId) {
+              logEvent('error', `    ❌ Impossibile generare ID per oggetto EC in TC${bestMatch.testCaseId}`);
+              continue;
+            }
+            
+            fromECObject = {
+              id: fromObjectId,
+              sessionId: currentSession.id,
+              testCaseId: String(bestMatch.testCaseId),
+              boxType: bestMatch.phase,
+              boxNumber: boxNumber,
+              text: finalText,
+              location: 'header',
+              startIndex: startIndex,
+              endIndex: endIndex,
+              createdAt: new Date().toISOString()
+            };
+            
+            await api.saveECObject(currentSession.id, fromECObject);
+            totalObjectsCreated++;
+            logEvent('success', `    ✅ Oggetto EC "From" creato: ${fromObjectId}`);
+          }
+          
+          // 2. Verifica se esiste già un oggetto EC "To" con lo stesso codice
+          const existingToObject = allECObjects.find(obj => 
+            obj.testCaseId === String(bestMatch.testCaseId) &&
+            obj.boxType === bestMatch.phase &&
+            obj.location === 'content' &&
+            obj.text === bestMatch.codiceAssociato.text
+          );
+          
+          let toObjectId;
+          let toECObject;
+          
+          if (existingToObject) {
+            // Usa l'oggetto EC "To" esistente
+            toObjectId = existingToObject.id;
+            toECObject = existingToObject;
+            logEvent('info', `  ℹ️ Oggetto EC "To" già esistente: ${toObjectId}`);
+          } else {
+            // Crea oggetto EC per il codice
+            logEvent('info', `  💻 Creazione oggetto EC "To" per codice...`);
+            const codeBoxNumber = boxNumber + 1;
+            toObjectId = generateECObjectId(
+              currentSession.id,
+              bestMatch.testCaseId,
+              bestMatch.phase,
+              codeBoxNumber
+            );
+            
+            if (!toObjectId) {
+              logEvent('error', `    ❌ Impossibile generare ID per oggetto EC codice in TC${bestMatch.testCaseId}`);
+              continue;
+            }
+            
+            // Calcola indice corretto per l'oggetto codice usando il codice corrente aggiornato
+            const tcIdStr = String(bestMatch.testCaseId); // Usa chiave stringa
+            const currentCode = currentCodes.get(tcIdStr)?.[bestMatch.phase] || '';
+            const separator = currentCode.trim() ? '\n\n' : '';
+            const codeStartIndex = currentCode.length + separator.length;
+            
+            toECObject = {
+              id: toObjectId,
+              sessionId: currentSession.id,
+              testCaseId: String(bestMatch.testCaseId),
+              boxType: bestMatch.phase,
+              boxNumber: codeBoxNumber,
+              text: bestMatch.codiceAssociato.text,
+              location: 'content',
+              startIndex: codeStartIndex,
+              endIndex: codeStartIndex + bestMatch.codiceAssociato.text.length,
+              createdAt: new Date().toISOString()
+            };
+            
+            await api.saveECObject(currentSession.id, toECObject);
+            totalObjectsCreated++;
+            logEvent('success', `    ✅ Oggetto EC "To" creato: ${toObjectId}`);
+          }
+          
+          // 3. Verifica se esiste già un binomio che collega questi due oggetti EC
+          const existingBinomioForObjects = allBinomi.find(b => 
+            b.fromObjectId === fromObjectId &&
+            b.toObjectId === toObjectId &&
+            b.testCaseId === String(bestMatch.testCaseId)
+          );
+          
+          if (existingBinomioForObjects) {
+            logEvent('info', `  ⏭️ Binomio già esistente che collega questi oggetti EC. Saltato.`);
+            continue;
+          }
+          
+          // Crea binomio fondamentale
+          logEvent('info', `  🔗 Creazione binomio fondamentale...`);
+          const tcIdKey = String(bestMatch.testCaseId); // Usa chiave stringa
+          const currentMax = binomiCountByTestCase.get(tcIdKey) || 0;
+          
+          // Genera ID basato sul massimo attuale (generateBinomioId userà currentMax + 1)
+          const binomioId = generateBinomioId(
+            currentSession.id,
+            bestMatch.testCaseId,
+            currentMax
+          );
+          
+          // Aggiorna il contatore per il prossimo binomio di questo test case
+          binomiCountByTestCase.set(tcIdKey, currentMax + 1);
+          
+          if (binomioId) {
+            const binomio = {
+              id: binomioId,
+              sessionId: currentSession.id,
+              testCaseId: String(bestMatch.testCaseId),
+              fromObjectId: fromObjectId,
+              toObjectId: toObjectId,
+              fromPoint: { x: 0.5, y: 1 },
+              toPoint: { x: 0.5, y: 0 },
+              createdAt: new Date().toISOString()
+            };
+            
+            await api.saveBinomio(currentSession.id, binomio);
+            totalBinomiCreated++;
+            logEvent('success', `    ✅ Binomio fondamentale creato: ${binomioId}`);
+          }
+          
+          // 4. Inserisci codice nel test case (smart insertion)
+          logEvent('info', `  📝 Inserimento codice nel test case...`);
+          
+          const newCodeBlock = bestMatch.codiceAssociato.text;
+          
+          // Aggiorna la mappa locale dei codici per le prossime iterazioni
+          const tcIdStr = String(bestMatch.testCaseId); // Usa chiave stringa
+          if (currentCodes.has(tcIdStr)) {
+             const currentCode = currentCodes.get(tcIdStr)[bestMatch.phase] || '';
+             const separator = currentCode.trim() ? '\n\n' : '';
+             currentCodes.get(tcIdStr)[bestMatch.phase] = currentCode + separator + newCodeBlock;
+          } else {
+             // Caso di fallback se il test case non era in currentCodes
+             const separator = ''; 
+             currentCodes.set(tcIdStr, { given: '', when: '', then: '' });
+             currentCodes.get(tcIdStr)[bestMatch.phase] = newCodeBlock;
+          }
+
+          await saveGeneratedCode(
+            bestMatch.testCaseId,
+            bestMatch.phase,
+            newCodeBlock,
+            null,
+            currentSession.id
+          );
+          logEvent('success', `    ✅ Codice inserito nel box ${bestMatch.phase.toUpperCase()}`);
+          
+          // Salva metadati per questo test case
+          if (!completedFields[bestMatch.testCaseId]) {
+            completedFields[bestMatch.testCaseId] = {};
+          }
+          completedFields[bestMatch.testCaseId][bestMatch.phase] = true;
+          
+          logEvent('success', `✅ Processato TC${bestMatch.testCaseId} - ${bestMatch.phase.toUpperCase()}: creati oggetti EC e binomio`);
+          
+        } catch (error) {
+          console.error('Errore processamento match:', error);
+          logEvent('error', `❌ Errore processamento match per TC${match.testCaseId}: ${error.message}`);
+        }
+      }
+      
+      // Salva i metadati
+      if (Object.keys(completedFields).length > 0) {
+        saveObjectAutocompleteMetadata(currentSession.id, completedFields);
+      }
+      
+      logEvent('success', `✅ Object Autocomplete completato!`);
+      logEvent('info', `📊 Statistiche finali: ${totalMatches} match trovati, ${totalObjectsCreated} oggetti EC creati, ${totalBinomiCreated} binomi creati`);
+      
+      // Forza refresh della lista
+      setRefreshKey(prev => prev + 1);
+      
+    } catch (error) {
+      console.error('Errore Object Autocomplete:', error);
+      logEvent('error', `❌ Errore Object Autocomplete: ${error.message}`);
+    } finally {
+      setIsObjectAutocompleteRunning(false);
+    }
+  };
+
   // ========== END GLOBAL AUTOCOMPLETE FUNCTIONS ==========
 
   // Listener per aggiornamento lista dopo Global Autocomplete
@@ -1756,7 +2276,7 @@ export default function App() {
                       }}
                       title="Visualizza Binomi Fondamentali"
                     >
-                      📏
+                      🔗
                     </button>
                   </>
                 )}
@@ -1820,7 +2340,7 @@ export default function App() {
                 border: '1px solid #2196f3', 
                 borderRadius: '5px',
                 fontSize: '14px'
-                }}>
+              }}>
                 <strong>⏳ Global Autocomplete in corso...</strong>
                 <div style={{ marginTop: '8px' }}>
                   {globalAutocompleteProgress.message}
@@ -1874,16 +2394,16 @@ export default function App() {
                       }}>
                         <strong>✨ Completato da Global Autocomplete:</strong>
                         <div style={{ marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {globalAutocompleteMeta.given && (
-                      <span style={{ 
-                        padding: '2px 8px', 
-                        backgroundColor: '#4caf50', 
-                        color: 'white', 
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '600'
-                      }}>Given</span>
-                    )}
+                          {globalAutocompleteMeta.given && (
+                            <span style={{ 
+                              padding: '2px 8px', 
+                              backgroundColor: '#4caf50', 
+                              color: 'white', 
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>Given</span>
+                          )}
                           {globalAutocompleteMeta.when && (
                             <span style={{ 
                               padding: '2px 8px', 
@@ -1950,7 +2470,7 @@ export default function App() {
                         >
                           ×
                         </button>
-                        <strong>🛠️ Editato da Raziocinio per Oggetti:</strong>
+                        <strong>🔷 Editato da Raziocinio per Oggetti:</strong>
                         <div style={{ marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {objectAutocompleteMeta.given && (
                             <span style={{ 

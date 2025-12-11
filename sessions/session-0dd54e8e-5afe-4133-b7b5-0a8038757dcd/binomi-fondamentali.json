@@ -1,87 +1,23 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T13:07:20.419Z",
-  "lastUpdated": "2025-12-11T02:13:59.804Z",
+  "lastUpdated": "2025-12-11T10:56:32.092Z",
   "binomi": [
     {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-001-1765419228162",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "1",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
-      "fromPoint": {
-        "x": 0.9733576201102428,
-        "y": 1
-      },
-      "toPoint": {
-        "x": 0,
-        "y": 0.00367010960338985
-      },
-      "createdAt": "2025-12-11T02:13:48.162Z"
-    },
-    {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-001",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "2",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-2",
-      "fromPoint": {
-        "x": 0.5,
-        "y": 1
-      },
-      "toPoint": {
-        "x": 0.5,
-        "y": 0
-      },
-      "createdAt": "2025-12-11T02:13:59.632Z"
-    },
-    {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-001",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "3",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-2",
-      "fromPoint": {
-        "x": 0.5,
-        "y": 1
-      },
-      "toPoint": {
-        "x": 0.5,
-        "y": 0
-      },
-      "createdAt": "2025-12-11T02:13:59.691Z"
-    },
-    {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-001",
+      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-001-1765450592087",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
       "testCaseId": "4",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-2",
+      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-2",
+      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-1",
       "fromPoint": {
-        "x": 0.5,
+        "x": 0.8226169252861372,
         "y": 1
       },
       "toPoint": {
-        "x": 0.5,
+        "x": 0.08063404209406523,
         "y": 0
       },
-      "createdAt": "2025-12-11T02:13:59.745Z"
-    },
-    {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-001",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "16",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-2",
-      "fromPoint": {
-        "x": 0.5,
-        "y": 1
-      },
-      "toPoint": {
-        "x": 0.5,
-        "y": 0
-      },
-      "createdAt": "2025-12-11T02:13:59.799Z"
+      "createdAt": "2025-12-11T10:56:32.087Z"
     }
   ]
 }

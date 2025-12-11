@@ -1160,13 +1160,22 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
       }
 
       // Salva sempre i messaggi della conversazione
+      const newCode = shouldUpdateCode ? (finalCode || prev[blockType].code) : prev[blockType].code;
+      
+      console.log('[AI-RESPONSE] Aggiornamento stato blocco:', {
+        type: blockType,
+        shouldUpdateCode,
+        hasFinalCode: !!finalCode,
+        newCodeLength: newCode ? newCode.length : 0
+      });
+
       setBlockStates(prev => ({
         ...prev,
         [blockType]: {
           ...prev[blockType],
           messages: [...newMessages, { role: 'assistant', content: result.response }],
           // Aggiorna il codice solo se richiesto
-          code: shouldUpdateCode ? (finalCode || prev[blockType].code) : prev[blockType].code,
+          code: newCode,
           loading: false
         }
       }));
@@ -2660,6 +2669,14 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     const prevCode = prevCodeRef.current || '';
     const newCode = state.code || '';
     
+    // LOG DEBUG per tracciare aggiornamenti codice
+    console.log('[CODE-SYNC] Verifica cambio codice', {
+      prevLength: prevCode.length,
+      newLength: newCode.length,
+      isManual: isManualCodeChange.current,
+      editingObject: !!editingToObject
+    });
+    
     // Se il codice è cambiato
     if (prevCode !== newCode) {
       prevCodeRef.current = newCode;
@@ -2900,15 +2917,25 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     return segments.length ? segments : [{ id: 'editor-0', code: safeCode, type: 'normal' }];
   }, []);
 
-  // Inizializza gli editor una sola volta in base al codice corrente e agli oggetti
+  // Inizializza e aggiorna gli editor in base al codice corrente e agli oggetti
+  // Rimuoviamo il blocco editorsInitializedRef per permettere l'aggiornamento quando gli oggetti vengono caricati asincronamente
   useEffect(() => {
-    if (editorsInitializedRef.current) return;
+    // Se stiamo editando manualmente o processando un aggiornamento interno, non ricostruire
+    if (updatingEditorsRef.current || isManualCodeChange.current) return;
+
     const currentCode = state.code || '';
+    // Ricostruisci gli editor visuali basandoti sugli oggetti correnti (es. appena caricati dal DB)
     const built = buildCodeEditorsFromCode(currentCode, objects);
+    
     setCodeEditors(built);
     lastSyncedCodeRef.current = currentCode;
     editorsInitializedRef.current = true;
-  }, [state.code, objects, buildCodeEditorsFromCode]);
+    
+    console.log('[EDITORS-SYNC] Editor visuali ricostruiti.', { 
+      objectsCount: objects.length, 
+      editorsCount: built.length 
+    });
+  }, [objects, buildCodeEditorsFromCode, state.code]);
 
   // Pulisce i ref degli editor non più presenti
   useEffect(() => {

@@ -1,91 +1,19 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T12:55:20.736Z",
-  "lastUpdated": "2025-12-11T02:13:59.795Z",
+  "lastUpdated": "2025-12-11T10:56:22.522Z",
   "objects": [
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "1",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "the user is at path \"WEB FG/ListofProject /Active_tab/\"",
-      "location": "header",
-      "startIndex": 6,
-      "endIndex": 61,
-      "createdAt": "2025-12-11T02:13:34.889Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "1",
-      "boxType": "given",
-      "boxNumber": 2,
-      "text": "// ===== GIVEN PHASE =====\ncy.log('🔵 GIVEN: Given the user is at path \"WEB FG/ListofProject /Active_tab/\"');\ncy.log('Given the user is at path \"WEB FG/ListofProject /Active_tab/\"')\n\n// Visita la pagina di login\ncy.visit('https://loadtest.facilitygrid.net/login')\n\n// Inserisce l'email\ncy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br')\n\n\ncy.wait(3000)\n\n// Clicca sul pulsante di submit per procedere al campo password\ncy.get('input#submit_btn').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Inserisce la password\ncy.get('input#user_pass').type('@Nuzzi79FA')\n\n// Clicca sul pulsante di login\ncy.get('input#submit_btn[type=\"submit\"]').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Naviga al percorso specificato\ncy.get('.mat-list-item-content span:contains(\"Facility Grid - Load Test\")').click()\n\n// Clicca sull'immagine per mostrare la lista dei progetti\ncy.get('img[title=\"Show Project List\"]').click()",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 929,
-      "createdAt": "2025-12-11T02:13:41.193Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "2",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "the user is at path \"WEB FG/ListofProject /Active_tab/\"",
-      "location": "header",
-      "startIndex": 6,
-      "endIndex": 61,
-      "createdAt": "2025-12-11T02:13:59.602Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "2",
-      "boxType": "given",
-      "boxNumber": 2,
-      "text": "// ===== GIVEN PHASE =====\ncy.log('🔵 GIVEN: Given the user is at path \"WEB FG/ListofProject /Active_tab/\"');\ncy.log('Given the user is at path \"WEB FG/ListofProject /Active_tab/\"')\n\n// Visita la pagina di login\ncy.visit('https://loadtest.facilitygrid.net/login')\n\n// Inserisce l'email\ncy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br')\n\n\ncy.wait(3000)\n\n// Clicca sul pulsante di submit per procedere al campo password\ncy.get('input#submit_btn').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Inserisce la password\ncy.get('input#user_pass').type('@Nuzzi79FA')\n\n// Clicca sul pulsante di login\ncy.get('input#submit_btn[type=\"submit\"]').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Naviga al percorso specificato\ncy.get('.mat-list-item-content span:contains(\"Facility Grid - Load Test\")').click()\n\n// Clicca sull'immagine per mostrare la lista dei progetti\ncy.get('img[title=\"Show Project List\"]').click()",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 929,
-      "createdAt": "2025-12-11T02:13:59.614Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "3",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "the user is at path \"WEB FG/ListofProject /Active_tab/\"",
-      "location": "header",
-      "startIndex": 6,
-      "endIndex": 61,
-      "createdAt": "2025-12-11T02:13:59.664Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC3-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "3",
-      "boxType": "given",
-      "boxNumber": 2,
-      "text": "// ===== GIVEN PHASE =====\ncy.log('🔵 GIVEN: Given the user is at path \"WEB FG/ListofProject /Active_tab/\"');\ncy.log('Given the user is at path \"WEB FG/ListofProject /Active_tab/\"')\n\n// Visita la pagina di login\ncy.visit('https://loadtest.facilitygrid.net/login')\n\n// Inserisce l'email\ncy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br')\n\n\ncy.wait(3000)\n\n// Clicca sul pulsante di submit per procedere al campo password\ncy.get('input#submit_btn').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Inserisce la password\ncy.get('input#user_pass').type('@Nuzzi79FA')\n\n// Clicca sul pulsante di login\ncy.get('input#submit_btn[type=\"submit\"]').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Naviga al percorso specificato\ncy.get('.mat-list-item-content span:contains(\"Facility Grid - Load Test\")').click()\n\n// Clicca sull'immagine per mostrare la lista dei progetti\ncy.get('img[title=\"Show Project List\"]').click()",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 929,
-      "createdAt": "2025-12-11T02:13:59.671Z"
-    },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-1",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
       "testCaseId": "4",
       "boxType": "given",
       "boxNumber": 1,
-      "text": "the user is at path \"WEB FG/ListofProject /Active_tab/\"",
-      "location": "header",
-      "startIndex": 6,
-      "endIndex": 61,
-      "createdAt": "2025-12-11T02:13:59.716Z"
+      "text": "aaa\naaa\naaa",
+      "location": "content",
+      "startIndex": 9,
+      "endIndex": 20,
+      "createdAt": "2025-12-11T10:56:19.996Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC4-GIVEN-2",
@@ -93,35 +21,11 @@
       "testCaseId": "4",
       "boxType": "given",
       "boxNumber": 2,
-      "text": "// ===== GIVEN PHASE =====\ncy.log('🔵 GIVEN: Given the user is at path \"WEB FG/ListofProject /Active_tab/\"');\ncy.log('Given the user is at path \"WEB FG/ListofProject /Active_tab/\"')\n\n// Visita la pagina di login\ncy.visit('https://loadtest.facilitygrid.net/login')\n\n// Inserisce l'email\ncy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br')\n\n\ncy.wait(3000)\n\n// Clicca sul pulsante di submit per procedere al campo password\ncy.get('input#submit_btn').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Inserisce la password\ncy.get('input#user_pass').type('@Nuzzi79FA')\n\n// Clicca sul pulsante di login\ncy.get('input#submit_btn[type=\"submit\"]').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Naviga al percorso specificato\ncy.get('.mat-list-item-content span:contains(\"Facility Grid - Load Test\")').click()\n\n// Clicca sull'immagine per mostrare la lista dei progetti\ncy.get('img[title=\"Show Project List\"]').click()",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 929,
-      "createdAt": "2025-12-11T02:13:59.725Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-1",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "16",
-      "boxType": "given",
-      "boxNumber": 1,
-      "text": "Given the user is at path \"WEB FG/ListofProject /Active_tab\"",
+      "text": "Given the user is at path \"WEB FG/ListofProject /Active_tab/\" AND Copy Modal is open AND Save as is set \"Active\"",
       "location": "header",
       "startIndex": 0,
-      "endIndex": 60,
-      "createdAt": "2025-12-11T02:13:59.771Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC16-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "16",
-      "boxType": "given",
-      "boxNumber": 2,
-      "text": "// ===== GIVEN PHASE =====\ncy.log('🔵 GIVEN: Given the user is at path \"WEB FG/ListofProject /Active_tab/\"');\ncy.log('Given the user is at path \"WEB FG/ListofProject /Active_tab/\"')\n\n// Visita la pagina di login\ncy.visit('https://loadtest.facilitygrid.net/login')\n\n// Inserisce l'email\ncy.get('input#user_login').type('antonio.nuzzi@brilliantmachine.com.br')\n\n\ncy.wait(3000)\n\n// Clicca sul pulsante di submit per procedere al campo password\ncy.get('input#submit_btn').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Inserisce la password\ncy.get('input#user_pass').type('@Nuzzi79FA')\n\n// Clicca sul pulsante di login\ncy.get('input#submit_btn[type=\"submit\"]').click()\n\n// Attendi 1 secondo\ncy.wait(1000)\n\n// Naviga al percorso specificato\ncy.get('.mat-list-item-content span:contains(\"Facility Grid - Load Test\")').click()\n\n// Clicca sull'immagine per mostrare la lista dei progetti\ncy.get('img[title=\"Show Project List\"]').click()",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 929,
-      "createdAt": "2025-12-11T02:13:59.776Z"
+      "endIndex": 112,
+      "createdAt": "2025-12-11T10:56:22.521Z"
     }
   ]
 }
