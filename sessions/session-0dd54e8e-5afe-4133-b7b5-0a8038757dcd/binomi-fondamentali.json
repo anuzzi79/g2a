@@ -1,24 +1,8 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T13:07:20.419Z",
-  "lastUpdated": "2025-12-11T12:21:31.211Z",
+  "lastUpdated": "2025-12-11T12:56:28.260Z",
   "binomi": [
-    {
-      "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-001-1765455686360",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "1",
-      "fromObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
-      "toObjectId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
-      "fromPoint": {
-        "x": 0.8969393113286226,
-        "y": 1
-      },
-      "toPoint": {
-        "x": 0.01447277678611427,
-        "y": 0
-      },
-      "createdAt": "2025-12-11T12:21:26.360Z"
-    },
     {
       "id": "bf-session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-AUTO-1765455691010-9616",
       "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-javascript';
@@ -3620,6 +3620,25 @@ Richiesta: ${state.prompt}`;
     }
   };
 
+  const handleAddEditor = (insertIndex) => {
+    const newSegment = {
+      id: `editor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      code: '',
+      type: 'normal'
+    };
+
+    setCodeEditors(prev => {
+      const next = [...prev.slice(0, insertIndex), newSegment, ...prev.slice(insertIndex)];
+      return next;
+    });
+
+    setCaretIndicator({ editorId: newSegment.id, line: 1 });
+    setTimeout(() => {
+      const ta = codeEditorRefs.current[newSegment.id]?.querySelector('textarea');
+      ta?.focus();
+    }, 0);
+  };
+
   const handleSegmentChange = (editorId, newValue) => {
     setCodeEditors(prevSegments => {
       const idx = prevSegments.findIndex(seg => seg.id === editorId);
@@ -6391,193 +6410,111 @@ Richiesta: ${state.prompt}`;
                     const exactHeight = lineCount * lineHeight + paddingY * 2;
 
                     return (
-                      <div
-                        key={editor.id}
-                        ref={(el) => {
-                          if (el) {
-                            codeEditorRefs.current[editor.id] = el;
-                          } else {
-                            delete codeEditorRefs.current[editor.id];
-                          }
-                        }}
-                        className={`code-editor-wrapper ${editor.type === 'object' ? 'code-editor-object' : 'code-editor-normal'}`}
-                        onContextMenu={(e) => handleCodeContextMenu(e, editor.id)}
-                        style={{ position: 'relative', overflow: 'visible', paddingLeft: '20px' }}
-                      >
-                        <div className="code-editor-title" style={{ marginBottom: '6px', fontWeight: 600 }}>
-                          Editor Nero {idx + 1}{editor.type === 'object' ? ' (oggetto)' : ''}
-                        </div>
-                        <Editor
-                          value={editor.code}
-                          onValueChange={(code) => handleSegmentChange(editor.id, code)}
-                          highlight={(code) => highlight(code, languages.javascript, 'javascript')}
-                          padding={0}
-                          className="code-editor compact-editor"
-                          placeholder="Scrivi o modifica il codice Cypress qui..."
-                          style={{
-                            height: `${exactHeight}px`,
-                            minHeight: `${exactHeight}px`,
-                            outline: 'none',
-                            lineHeight: `${lineHeight}px`,
-                            overflow: 'hidden'
+                      <Fragment key={editor.id}>
+                        <button
+                          type="button"
+                          className="code-editor-add-slot"
+                          aria-label="Aggiungi un editor"
+                          onClick={() => handleAddEditor(idx)}
+                        >
+                          +
+                        </button>
+
+                        <div
+                          ref={(el) => {
+                            if (el) {
+                              codeEditorRefs.current[editor.id] = el;
+                            } else {
+                              delete codeEditorRefs.current[editor.id];
+                            }
                           }}
-                          onMouseUp={() => handleCodeSelection(editor.id)}
-                          onKeyUp={() => handleCodeSelection(editor.id)}
-                          onFocus={() => {
-                            console.log('[CARET_INDICATOR] onFocus - Editor riceve focus', { editorId: editor.id });
-                            setFocusedEditorId(editor.id);
-                            // Quando si clicca su questo editor, aggiorna la posizione
-                            handleCodeSelection(editor.id);
-                          }}
-                          onBlur={() => {
-                            console.log('[CARET_INDICATOR] onBlur - Editor perde focus', { 
-                              editorId: editor.id,
-                              currentIndicator: caretIndicator 
-                            });
-                            // Quando si perde il focus, mantieni l'indicatore (non rimuoverlo)
-                            // La freccia rimarrà visibile finché non si clicca su un'altra riga
-                            setFocusedEditorId(null);
-                          }}
-                        />
-                        {caretIndicator?.editorId === editor.id && caretIndicator.line && (() => {
-                          console.log('[CARET_INDICATOR] Render freccia - Verifica condizioni', {
-                            editorId: editor.id,
-                            indicatorEditorId: caretIndicator.editorId,
-                            indicatorLine: caretIndicator.line,
-                            match: caretIndicator.editorId === editor.id,
-                            focusedEditorId,
-                            isFocused: focusedEditorId === editor.id
-                          });
-                          
-                          const textarea = codeEditorRefs.current[editor.id]?.querySelector('textarea');
-                          if (!textarea) {
-                            console.log('[CARET_INDICATOR] Textarea non trovato durante render freccia');
-                            return null;
-                          }
-                          
-                          // Se l'editor NON ha il focus, mostra sempre la freccia
-                          const isEditorFocused = focusedEditorId === editor.id;
-                          
-                          if (!isEditorFocused) {
-                            console.log('[CARET_INDICATOR] Editor non ha focus - mostra freccia');
-                            // Editor non ha focus, mostra la freccia
-                          } else {
-                            // Se l'editor ha il focus, verifica se il cursore è ancora su quella riga
-                            const currentStart = textarea.selectionStart || 0;
-                            const currentBeforeCaret = editor.code.substring(0, currentStart);
-                            const currentLine = Math.max(1, currentBeforeCaret.split('\n').length);
-                            const isCaretOnLine = currentLine === caretIndicator.line;
-                            
-                            console.log('[CARET_INDICATOR] Verifica posizione cursore (editor ha focus)', {
-                              editorId: editor.id,
-                              currentStart,
-                              currentLine,
-                              indicatorLine: caretIndicator.line,
-                              isCaretOnLine,
-                              willShowArrow: !isCaretOnLine,
-                              editorCodeLength: editor.code.length,
-                              lineCount
-                            });
-                            
-                            // Se il cursore è ancora sulla stessa riga, non mostrare la freccia
-                            if (isCaretOnLine) {
-                              console.log('[CARET_INDICATOR] Freccia NON mostrata - cursore ancora sulla stessa riga');
+                          className={`code-editor-wrapper ${editor.type === 'object' ? 'code-editor-object' : 'code-editor-normal'}`}
+                          onContextMenu={(e) => handleCodeContextMenu(e, editor.id)}
+                          style={{ position: 'relative', overflow: 'visible', paddingLeft: '20px' }}
+                        >
+                          <Editor
+                            value={editor.code}
+                            onValueChange={(code) => handleSegmentChange(editor.id, code)}
+                            highlight={(code) => highlight(code, languages.javascript, 'javascript')}
+                            padding={0}
+                            className="code-editor compact-editor"
+                            placeholder="Scrivi o modifica il codice Cypress qui..."
+                            style={{
+                              height: `${exactHeight}px`,
+                              minHeight: `${exactHeight}px`,
+                              outline: 'none',
+                              lineHeight: `${lineHeight}px`,
+                              overflow: 'hidden'
+                            }}
+                            onMouseUp={() => handleCodeSelection(editor.id)}
+                            onKeyUp={() => handleCodeSelection(editor.id)}
+                            onFocus={() => {
+                              setFocusedEditorId(editor.id);
+                              handleCodeSelection(editor.id);
+                            }}
+                            onBlur={() => {
+                              setFocusedEditorId(null);
+                            }}
+                          />
+                          {caretIndicator?.editorId === editor.id && caretIndicator.line && (() => {
+                            const textarea = codeEditorRefs.current[editor.id]?.querySelector('textarea');
+                            if (!textarea) {
                               return null;
                             }
-                          }
-                          
-                          const indicatorLine = Math.max(1, Math.min(caretIndicator.line, lineCount));
-                          // Correzione offset: il padding Y è 8px, line-height 18px.
-                          // Il testo inizia a paddingY. La prima riga è a paddingY.
-                          // Il centro della linea N è: paddingY + (N-1)*lineHeight + lineHeight/2.
-                          // Tuttavia, l'editor ha padding: 8px.
-                          // Se il cursore è alla riga 3, indicatorLine=3.
-                          // Top = 8 + (2)*18 + 9 = 8 + 36 + 9 = 53px.
-                          // Se la freccia appare più in alto, forse il padding non è 8px o il line-height non è 18px.
-                          
-                          // Verifichiamo i valori reali usati nel render dell'editor (riga 5981):
-                          // const lineHeight = 18;
-                          // const paddingY = 12; // ATTENZIONE: Qui era 12px nel map, ma 8px nel CSS compact-editor!
-                          
-                          // Nel CSS compact-editor (TestCaseBuilder.css:834): padding: 8px 12px !important;
-                          // Quindi paddingY deve essere 8px per il calcolo.
-                          
-                          // SE la freccia è troppo in alto, significa che indicatorTop è troppo piccolo.
-                          // Forse indicatorLine è sbagliato?
-                          // Se indicatorLine è 3, e appare tra riga 1 e 2, sembra che venga renderizzato come ~1.5.
-                          
-                          // Ricontrolliamo il calcolo di indicatorLine.
-                          // const currentLine = Math.max(1, currentBeforeCaret.split('\n').length);
-                          // Se il cursore è a inizio riga 3 (dopo due \n), split da 3 elementi. Corretto.
-                          
-                          // Proviamo ad aggiungere un offset correttivo empirico se il calcolo teorico fallisce visivamente.
-                          // Ma prima, assicuriamoci che paddingY sia coerente con il CSS.
-                          // Nel map sopra (riga 5982): const paddingY = 12; -> MODIFICATO in 8px nel patch precedente?
-                          // Controlliamo il codice attuale.
-                          
-                          const indicatorTop = 8 + (indicatorLine - 1) * lineHeight + lineHeight / 2;
-                          
-                          // Correzione ulteriore: sembra che visivamente manchi quasi una riga intera.
-                          // Aggiungiamo mezza riga extra per compensare eventuali differenze di rendering font/padding.
-                          // O forse il container ha un padding che non stiamo considerando?
-                          // Il wrapper ha position: relative. L'editor ha padding 8px.
-                          // La freccia è absolute rispetto al wrapper.
-                          // Se il titolo "Editor Nero X" sposta tutto giù?
-                          // Il titolo è DENTRO il wrapper, PRIMA dell'editor.
-                          // <div className="code-editor-title" ...> ... </div>
-                          // <Editor ... />
-                          
-                          // AH! L'Editor è un fratello del titolo. La freccia è absolute nel wrapper.
-                          // `top: 0` nel wrapper è l'angolo in alto a sinistra del WRAPPER.
-                          // Ma l'editor inizia DOPO il titolo!
-                          // Quindi dobbiamo aggiungere l'altezza del titolo all'offset della freccia!
-                          
-                          const titleHeight = 24; // Stima altezza titolo + margin (18px font + 6px margin)
-                          // Correzione offset: centra la freccia (alta 16px) rispetto alla riga di 18px
-                          // Top parte da paddingY (8px) + offset righe
-                          // Offset righe = (linea - 1) * 18px
-                          // Centro riga = Offset righe + 18px/2 = Offset righe + 9px
-                          // Top freccia = paddingY + Centro riga - altezza freccia/2
-                          
-                          // Nuova freccia più grande: border 8px -> altezza 16px
-                          const arrowHeight = 16;
-                          const lineHeightVal = 18;
-                          const centerLine = paddingY + (indicatorLine - 1) * lineHeightVal + lineHeightVal / 2;
-                          const correctedIndicatorTop = centerLine + titleHeight;
-                          
-                          console.log('[CARET_INDICATOR] Freccia RENDERIZZATA', {
-                            editorId: editor.id,
-                            indicatorLine,
-                            correctedIndicatorTop,
-                            paddingY,
-                            lineHeight,
-                            lineCount,
-                            titleHeight,
-                            wrapperRect: codeEditorRefs.current[editor.id]?.getBoundingClientRect()
-                          });
-                          
-                          return (
-                            <div
-                              className="caret-arrow-indicator"
-                              style={{
-                                position: 'absolute',
-                                left: '0px', // Attaccato al bordo sinistro (padding-left del wrapper fa spazio)
-                                top: `${correctedIndicatorTop}px`,
-                                width: 0,
-                                height: 0,
-                                borderTop: '8px solid transparent',
-                                borderBottom: '8px solid transparent',
-                                borderLeft: '10px solid black', // Freccia più grande
-                                transform: 'translateY(-50%)', // Centra verticalmente rispetto a top
-                                pointerEvents: 'none',
-                                zIndex: 99999,
-                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
-                              }}
-                              title={`Ultima posizione cursore: linea ${indicatorLine}`}
-                            />
-                          );
-                        })()}
-                      </div>
+                            
+                            const isEditorFocused = focusedEditorId === editor.id;
+                            
+                            if (isEditorFocused) {
+                              const currentStart = textarea.selectionStart || 0;
+                              const currentBeforeCaret = editor.code.substring(0, currentStart);
+                              const currentLine = Math.max(1, currentBeforeCaret.split('\n').length);
+                              const isCaretOnLine = currentLine === caretIndicator.line;
+                              
+                              if (isCaretOnLine) {
+                                return null;
+                              }
+                            }
+                            
+                            const indicatorLine = Math.max(1, Math.min(caretIndicator.line, lineCount));
+                            const lineHeightVal = 18;
+                            const centerLine = paddingY + (indicatorLine - 1) * lineHeightVal + lineHeightVal / 2;
+                            const titleHeight = 0; // titolo nascosto, nessun offset aggiuntivo
+                            const correctedIndicatorTop = centerLine + titleHeight;
+                            
+                            return (
+                              <div
+                                className="caret-arrow-indicator"
+                                style={{
+                                  position: 'absolute',
+                                  left: '0px',
+                                  top: `${correctedIndicatorTop}px`,
+                                  width: 0,
+                                  height: 0,
+                                  borderTop: '8px solid transparent',
+                                  borderBottom: '8px solid transparent',
+                                  borderLeft: '10px solid black',
+                                  transform: 'translateY(-50%)',
+                                  pointerEvents: 'none',
+                                  zIndex: 99999,
+                                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
+                                }}
+                                title={`Ultima posizione cursore: linea ${indicatorLine}`}
+                              />
+                            );
+                          })()}
+                        </div>
+
+                        {idx === codeEditors.length - 1 && (
+                          <button
+                            type="button"
+                            className="code-editor-add-slot"
+                            aria-label="Aggiungi un editor"
+                            onClick={() => handleAddEditor(codeEditors.length)}
+                          >
+                            +
+                          </button>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </div>

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "createdAt": "2025-12-06T12:55:20.736Z",
-  "lastUpdated": "2025-12-11T12:21:31.201Z",
+  "lastUpdated": "2025-12-11T12:56:28.262Z",
   "objects": [
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-1",
@@ -14,18 +14,6 @@
       "startIndex": 6,
       "endIndex": 61,
       "createdAt": "2025-12-11T12:21:11.134Z"
-    },
-    {
-      "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC1-GIVEN-2",
-      "sessionId": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd",
-      "testCaseId": "1",
-      "boxType": "given",
-      "boxNumber": 2,
-      "text": "dfadsf\nfasfas\nfadsf\nasdfsad",
-      "location": "content",
-      "startIndex": 0,
-      "endIndex": 27,
-      "createdAt": "2025-12-11T12:21:22.040Z"
     },
     {
       "id": "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd-TC2-GIVEN-AUTOFROM-1765455690966-6729",
