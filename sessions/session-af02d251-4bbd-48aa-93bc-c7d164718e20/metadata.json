@@ -1,6 +1,8 @@
 {
   "name": "nova",
   "createdAt": "2025-12-03T19:58:41.031Z",
-  "lastAccessed": "2025-12-06T15:49:26.483Z",
-  "status": "active"
+  "lastAccessed": "2025-12-10T20:04:48.910Z",
+  "status": "active",
+  "csvFileName": "FGC-9144.csv",
+  "csvSavedAt": "2025-12-10T19:31:26.290Z"
 }

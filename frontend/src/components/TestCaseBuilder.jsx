@@ -992,8 +992,8 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
       .slice(0, 5);
   };
 
-  const handleSendPrompt = async (blockType, text, wideReasoning = false) => {
-    if (!text.trim() || !testCase) return;
+  const handleSendPrompt = async (blockType, text, wideReasoning = false, shouldUpdateCode = true) => {
+    if (!text.trim() || !testCase) return null;
 
     const blockText = {
       given: testCase.given,
@@ -1130,6 +1130,8 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
         finalCode = lines.join('\n');
       }
 
+      let cleanCode = '';
+
       // AGGIUNGI LOG E COMMENTO ALLA FASE
       if (finalCode) {
         const phaseLabel = blockType.toUpperCase();
@@ -1138,7 +1140,7 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
         const phaseLog = `cy.log('${phaseEmoji} ${phaseLabel}: ${blockText}');`;
         
         // Rimuovi eventuali wrapper describe/it se presenti nel codice generato
-        let cleanCode = finalCode
+        cleanCode = finalCode
           .replace(/describe\([^)]*\)\s*=>\s*\{?\s*it\([^)]*\)\s*=>\s*\{?\s*/g, '')
           .replace(/\s*\}?\s*\}?\s*$/g, '') // Rimuovi tutte le chiusure finali
           .trim();
@@ -1157,19 +1159,29 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
         }
       }
 
+      // Salva sempre i messaggi della conversazione
       setBlockStates(prev => ({
         ...prev,
         [blockType]: {
           ...prev[blockType],
           messages: [...newMessages, { role: 'assistant', content: result.response }],
-          code: finalCode || prev[blockType].code,
+          // Aggiorna il codice solo se richiesto
+          code: shouldUpdateCode ? (finalCode || prev[blockType].code) : prev[blockType].code,
           loading: false
         }
       }));
 
-      if (finalCode) {
+      if (finalCode && shouldUpdateCode) {
         onLogEvent?.('success', `Codice Cypress generato per ${blockType}`);
       }
+
+      // Restituisci il risultato per gestione locale (es. inserimento al cursore)
+      return {
+        fullCode: finalCode,
+        snippet: cleanCode || finalCode, // snippet pulito senza commenti di fase
+        response: result.response
+      };
+
     } catch (error) {
       onLogEvent?.('error', `Errore chat AI per ${blockType}: ${error.message}`);
       setBlockStates(prev => ({
@@ -1180,6 +1192,7 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
           loading: false
         }
       }));
+      return null;
     }
   };
 
@@ -1242,7 +1255,14 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
       return codeMatch[1].trim();
     }
     if (responseText.includes('cy.')) {
-      const lines = responseText.split('\n').filter(line => line.trim().startsWith('cy.') || line.trim().match(/^\s*(cy\.|it\(|describe\()/i));
+      // Filtra le righe rilevanti ma preserva la struttura (describe, it, parentesi di chiusura)
+      const lines = responseText.split('\n').filter(line => {
+        const t = line.trim();
+        return t.startsWith('cy.') || 
+               t.match(/^\s*(it|describe|context|before|after|beforeEach|afterEach)\(/) ||
+               t.startsWith('}') || 
+               t.startsWith(')');
+      });
       if (lines.length) {
         return lines.join('\n').trim();
       }
@@ -1277,8 +1297,9 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     const reviewPrompt = `Hai di fronte il test Cypress completo che unisce GIVEN, WHEN e THEN. Il tuo compito è:
 1. Verificare che non ci siano parentesi mancanti o duplicate (}, ), etc.).
 2. Assicurarti che il codice sia ordinato in modo organico e che le fasi non si "sovrappongano".
-3. Correggere automaticamente qualsiasi errore di merge (parantesi, ripetizioni, indentazioni), ma senza aggiungere új nuovo comportamento.
-4. Rispondere SOLO con il blocco di codice corretto in formato Cypress (usa markdown con \`\`\`javascript per evidenziare il codice).
+3. Correggere automaticamente qualsiasi errore di merge (parantesi, ripetizioni, indentazioni).
+4. **IMPORTANTE**: Assicurati che TUTTO il codice sia racchiuso in un blocco 'describe' e un blocco 'it' validi. Il codice DEVE essere eseguibile da Cypress.
+5. Rispondere SOLO con il blocco di codice corretto in formato Cypress (usa markdown con \`\`\`javascript per evidenziare il codice).
 
 Codice da rivedere:
 ${mergedCode}
@@ -2256,7 +2277,7 @@ ${mergedCode}
         onToggle={() => toggleBlock('given')}
         state={blockStates.given}
         onPromptChange={(value) => handlePromptChange('given', value)}
-        onSendPrompt={(text, wideReasoning) => handleSendPrompt('given', text, wideReasoning)}
+        onSendPrompt={(text, wideReasoning, updateCode) => handleSendPrompt('given', text, wideReasoning, updateCode)}
         onCodeChange={(value) => handleCodeChange('given', value)}
         onObjectsChange={handleGivenObjectsChange}
         context={effectiveContext}
@@ -2282,7 +2303,7 @@ ${mergedCode}
         onToggle={() => toggleBlock('when')}
         state={blockStates.when}
         onPromptChange={(value) => handlePromptChange('when', value)}
-        onSendPrompt={(text, wideReasoning) => handleSendPrompt('when', text, wideReasoning)}
+        onSendPrompt={(text, wideReasoning, updateCode) => handleSendPrompt('when', text, wideReasoning, updateCode)}
         onCodeChange={(value) => handleCodeChange('when', value)}
         onObjectsChange={handleWhenObjectsChange}
         context={effectiveContext}
@@ -2308,7 +2329,7 @@ ${mergedCode}
         onToggle={() => toggleBlock('then')}
         state={blockStates.then}
         onPromptChange={(value) => handlePromptChange('then', value)}
-        onSendPrompt={(text, wideReasoning) => handleSendPrompt('then', text, wideReasoning)}
+        onSendPrompt={(text, wideReasoning, updateCode) => handleSendPrompt('then', text, wideReasoning, updateCode)}
         onCodeChange={(value) => handleCodeChange('then', value)}
         onObjectsChange={handleThenObjectsChange}
         context={effectiveContext}
@@ -2590,6 +2611,38 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const [draggingConnectionPoint, setDraggingConnectionPoint] = useState(null); // { connectionId, pointType: 'from' | 'to' }
   const [connectionContextMenu, setConnectionContextMenu] = useState(null); // { connectionId, x, y }
   
+  // Stato per gestire l'inserimento ritardato (quando l'utente non ha selezionato una riga prima di chiedere)
+  const [pendingCodeToInsert, setPendingCodeToInsert] = useState(null);
+  const [showPendingPopup, setShowPendingPopup] = useState(false);
+
+  // Effect per gestire l'inserimento automatico del codice in attesa quando l'utente seleziona una riga
+  useEffect(() => {
+    if (pendingCodeToInsert && caretIndicator && caretIndicator.editorId && caretIndicator.line) {
+      const targetEditor = codeEditors.find(ed => ed.id === caretIndicator.editorId);
+      
+      if (targetEditor) {
+        console.log('[AUTO-INSERT] Inserimento codice in attesa alla riga', caretIndicator.line);
+        const editorCode = targetEditor.code || '';
+        const lines = editorCode.split('\n');
+        const targetLine = Math.max(0, Math.min(caretIndicator.line - 1, lines.length));
+        
+        // Inserisci il codice
+        const beforeLines = lines.slice(0, targetLine);
+        const afterLines = lines.slice(targetLine);
+        const newCode = [...beforeLines, pendingCodeToInsert, ...afterLines].join('\n');
+        
+        // Aggiorna l'editor
+        handleSegmentChange(caretIndicator.editorId, newCode);
+        
+        onLogEvent?.('success', `Codice incollato automaticamente alla riga ${caretIndicator.line}`);
+        
+        // Resetta lo stato di attesa
+        setPendingCodeToInsert(null);
+        setShowPendingPopup(false);
+      }
+    }
+  }, [caretIndicator, pendingCodeToInsert, codeEditors]);
+
   // Smart Text - Editing oggetti To
   const [editingToObject, setEditingToObject] = useState(null); // { objectId, originalText, obj } - oggetto To in fase di editing
   const [showPropagationModal, setShowPropagationModal] = useState(null); // { objectId, newText, originalText, ecObjectId } - modale propagazione
@@ -2658,6 +2711,13 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
             });
           });
         }
+      } else {
+        // Se non stiamo editando un oggetto, e il codice cambia esternamente (es. AI popola editor vuoto)
+        // Dobbiamo aggiornare gli editor per riflettere il nuovo stato
+        console.log('[SYNC] Codice aggiornato esternamente (AI o parent), ricostruzione editor');
+        const built = buildCodeEditorsFromCode(newCode, objects);
+        setCodeEditors(built);
+        lastSyncedCodeRef.current = newCode;
       }
     }
     
@@ -3259,12 +3319,18 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   }, [showWideReasoningMenu, contextMenu]);
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      onSendPrompt(state.prompt, false);
+    // Invia con Enter (senza Shift)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Previene l'inserimento di una nuova riga
+      // Invia solo se c'è testo
+      if (state.prompt.trim()) {
+        handleSendNormal();
+      }
     }
+    // Shift+Enter fa normalmente a capo (comportamento default textarea)
   };
 
-  const handleSendNormal = () => {
+  const handleSendNormal = async () => {
     setShowWideReasoningMenu(false);
     
     let textToSend = state.prompt;
@@ -3291,12 +3357,139 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       }
     }
     
-    onSendPrompt(textToSend, false);
+    // Verifica lo stato dell'editor
+    const hasActiveCaret = caretIndicator && caretIndicator.editorId && caretIndicator.line;
+    
+    // Calcola se l'editor è effettivamente vuoto (controllando tutti i segmenti)
+    const visibleCodeLength = codeEditors.reduce((acc, editor) => acc + (editor.code ? editor.code.trim().length : 0), 0);
+    const isEditorEmpty = visibleCodeLength === 0;
+    
+    console.log('[DEBUG-SEND] Analisi contesto:', {
+      phase: type,
+      visibleCodeLength,
+      isEditorEmpty,
+      hasActiveCaret: !!hasActiveCaret,
+      caretIndicator
+    });
+    
+    // Logica di decisione richiesta:
+    // 1. Editor Vuoto -> Generazione globale (riempi tutto), ignorando eventuale caret.
+    // 2. Editor Pieno + Caret -> Inserimento puntuale immediato.
+    // 3. Editor Pieno + No Caret -> Inserimento puntuale ritardato (Popup).
+    
+    const isInsertMode = !isEditorEmpty; // Se non è vuoto, siamo in modalità inserimento (o immediato o ritardato)
+    const shouldUpdateGlobalCode = isEditorEmpty; // Se è vuoto, aggiorna lo stato globale
+    
+    // Se stiamo inserendo (immediato o ritardato), chiedi esplicitamente SOLO il nuovo codice
+    if (isInsertMode) {
+      textToSend = `[MODALITÀ INSERIMENTO PUNTUALE]
+Genera ESCLUSIVAMENTE il codice Cypress per questa richiesta specifica.
+NON includere il codice precedente, non ripetere il contesto, non usare commenti riassuntivi se non strettamente necessari.
+Restituisci SOLO i comandi Cypress da inserire.
+
+Richiesta: ${state.prompt}`;
+    }
+    
+    const result = await onSendPrompt(textToSend, false, shouldUpdateGlobalCode);
+
+    // Caso 1: Editor Vuoto -> Il codice è stato già aggiornato globalmente da onSendPrompt (shouldUpdateGlobalCode=true)
+    if (isEditorEmpty) {
+       console.log('[DEBUG-SEND] Caso 1: Editor vuoto -> Generazione globale eseguita');
+       // Nessuna azione locale necessaria, onSendPrompt ha fatto setBlockStates
+       onLogEvent?.('success', `Codice generato e inserito nell'editor.`);
+    }
+    // Caso 2: Editor Pieno + Caret -> Inserimento immediato
+    else if (hasActiveCaret && result && result.snippet) {
+      const targetEditor = codeEditors.find(ed => ed.id === caretIndicator.editorId);
+      
+      if (targetEditor) {
+        const editorCode = targetEditor.code || '';
+        const lines = editorCode.split('\n');
+        const targetLine = Math.max(0, Math.min(caretIndicator.line - 1, lines.length));
+        
+        // Codice da inserire (usa snippet pulito)
+        const codeToInsert = result.snippet;
+        
+        // Inserisci il codice
+        const beforeLines = lines.slice(0, targetLine);
+        const afterLines = lines.slice(targetLine);
+        
+        const newCode = [...beforeLines, codeToInsert, ...afterLines].join('\n');
+        
+        // Aggiorna l'editor specifico
+        handleSegmentChange(caretIndicator.editorId, newCode);
+        
+        onLogEvent?.('success', `Codice inserito alla riga ${caretIndicator.line}`);
+      }
+    } 
+    // Caso 3: Editor Pieno + No Caret -> Attesa posizionamento (Popup)
+    else if (isInsertMode && result && result.snippet) {
+      setPendingCodeToInsert(result.snippet);
+      setShowPendingPopup(true);
+      onLogEvent?.('info', '👈 CLICCA su una riga dell\'Editor Nero per incollare il codice generato.');
+    }
   };
 
-  const handleSendWideReasoning = () => {
+  const handleSendWideReasoning = async () => {
     setShowWideReasoningMenu(false);
-    onSendPrompt(state.prompt, true);
+    
+    // Verifica lo stato dell'editor
+    const hasActiveCaret = caretIndicator && caretIndicator.editorId && caretIndicator.line;
+    
+    // Calcola se l'editor è effettivamente vuoto
+    const visibleCodeLength = codeEditors.reduce((acc, editor) => acc + (editor.code ? editor.code.trim().length : 0), 0);
+    const isEditorEmpty = visibleCodeLength === 0;
+    
+    // Logica decisionale identica a handleSendNormal
+    const isInsertMode = !isEditorEmpty;
+    const shouldUpdateGlobalCode = isEditorEmpty;
+
+    let textToSend = state.prompt;
+    if (isInsertMode) {
+      textToSend = `[MODALITÀ INSERIMENTO PUNTUALE]
+Genera ESCLUSIVAMENTE il codice Cypress per questa richiesta specifica.
+NON includere il codice precedente, non ripetere il contesto, non usare commenti riassuntivi se non strettamente necessari.
+Restituisci SOLO i comandi Cypress da inserire.
+
+Richiesta: ${state.prompt}`;
+    }
+
+    const result = await onSendPrompt(textToSend, true, shouldUpdateGlobalCode);
+
+    // Caso 1: Editor Vuoto -> Aggiornato globalmente
+    if (isEditorEmpty) {
+       onLogEvent?.('success', `Codice generato e inserito nell'editor.`);
+    }
+    // Caso 2: Caret attivo -> Inserimento immediato
+    else if (hasActiveCaret && result && result.snippet) {
+      const targetEditor = codeEditors.find(ed => ed.id === caretIndicator.editorId);
+      
+      if (targetEditor) {
+        const editorCode = targetEditor.code || '';
+        const lines = editorCode.split('\n');
+        const targetLine = Math.max(0, Math.min(caretIndicator.line - 1, lines.length));
+        
+        // Codice da inserire (usa snippet pulito)
+        const codeToInsert = result.snippet;
+        
+        // Inserisci il codice
+        const beforeLines = lines.slice(0, targetLine);
+        const afterLines = lines.slice(targetLine);
+        
+        const newCode = [...beforeLines, codeToInsert, ...afterLines].join('\n');
+        
+        // Aggiorna l'editor specifico
+        handleSegmentChange(caretIndicator.editorId, newCode);
+        
+        onLogEvent?.('success', `Codice inserito alla riga ${caretIndicator.line}`);
+      }
+    }
+    // Caso 3: Niente caret ma editor pieno -> Attesa posizionamento
+    else if (isInsertMode && result && result.snippet) {
+      setPendingCodeToInsert(result.snippet);
+      setShowPendingPopup(true);
+      onLogEvent?.('info', '👈 CLICCA su una riga dell\'Editor Nero per incollare il codice generato.');
+    }
   };
 
   const handleTextSelection = () => {
@@ -3970,23 +4163,30 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
       ecObjectId = objToDelete.ecObjectId;
     }
     
-    setObjects(prev => {
-      const updated = prev.filter(obj => {
-        // Rimuovi l'oggetto in base all'indice o all'ID
-        if (objectId.includes('header-obj-')) {
-          const idx = parseInt(objectId.replace('header-obj-', ''));
-          const headerObjects = prev.filter(o => o.location === 'header');
-          return obj !== headerObjects[idx];
-        } else if (objectId.includes('content-obj-')) {
-          const idx = parseInt(objectId.replace('content-obj-', ''));
-          const contentObjects = prev.filter(o => o.location === 'content');
-          return obj !== contentObjects[idx];
-        }
-        return true;
-      });
-      onObjectsChange?.(updated);
-      return updated;
+    // Calcola i nuovi oggetti filtrati
+    const newObjects = objects.filter(obj => {
+      // Rimuovi l'oggetto in base all'indice o all'ID
+      if (objectId.includes('header-obj-')) {
+        const idx = parseInt(objectId.replace('header-obj-', ''));
+        const headerObjects = objects.filter(o => o.location === 'header');
+        return obj !== headerObjects[idx];
+      } else if (objectId.includes('content-obj-')) {
+        const idx = parseInt(objectId.replace('content-obj-', ''));
+        const contentObjects = objects.filter(o => o.location === 'content');
+        return obj !== contentObjects[idx];
+      }
+      return true;
     });
+
+    // Aggiorna lo stato degli oggetti
+    setObjects(newObjects);
+    onObjectsChange?.(newObjects);
+    
+    // Aggiorna immediatamente gli editor visuali per riflettere la fusione (rimuovendo i segmenti separati)
+    // Questo è cruciale per l'effetto "fusione" immediato richiesto dall'utente
+    const builtEditors = buildCodeEditorsFromCode(state.code, newObjects);
+    setCodeEditors(builtEditors);
+    console.log('Oggetto eliminato e editor fusi. Nuovi segmenti:', builtEditors.length);
     
     // Rimuovi anche le connessioni associate
     setConnections(prev => prev.filter(conn => 
@@ -5939,7 +6139,7 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                 )}
               </div>
 
-              <div className={`prompt-input-container ${editingToObject ? 'editing-mode' : ''}`}>
+              <div className={`prompt-input-container ${editingToObject ? 'editing-mode' : ''}`} style={{ flexDirection: 'column' }}>
                 {editingToObject && (
                   <div className="editing-mode-badge" style={{
                     position: 'absolute',
@@ -5958,73 +6158,122 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                     <span>✏️ Modifica Oggetto</span>
                   </div>
                 )}
+                
+                {/* Riga 1: Prompt Textarea */}
                 <textarea
                   className={`prompt-input ${editingToObject ? 'editing-active' : ''}`}
                   value={state.prompt}
                   onChange={(e) => onPromptChange(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder={editingToObject ? "Descrivi come modificare l'oggetto selezionato... (l'AI aggiornerà il codice)" : "Scrivi qui il tuo prompt per l'AI... (Ctrl+Enter per inviare)"}
+                  placeholder={editingToObject ? "Descrivi come modificare l'oggetto selezionato... (l'AI aggiornerà il codice)" : "Scrivi qui il tuo prompt per l'AI... (Enter per inviare, Shift+Enter per a capo)"}
                   disabled={state.loading}
                   rows="3"
-                  style={editingToObject ? { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.05)' } : {}}
+                  style={editingToObject ? { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.05)', width: '100%', marginBottom: '10px' } : { width: '100%', marginBottom: '10px' }}
                 />
-                <div className="send-buttons-group">
-                  <button
-                    className="send-button"
-                    onClick={handleSendNormal}
-                    disabled={state.loading || !state.prompt.trim()}
-                  >
-                    {state.loading ? '⏳ Invio...' : '📤 Invia'}
-                  </button>
-                  {onGlobalComplete && state.messages && state.messages.length > 0 && (
-                    <button
-                      className="global-complete-button"
-                      onClick={onGlobalComplete}
-                      disabled={state.loading}
-                      style={{
-                        padding: '15px 20px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: state.loading ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        whiteSpace: 'nowrap',
-                        marginLeft: '8px',
-                        transition: 'background 0.3s'
-                      }}
-                      title="Global Complete: Applica questa conversazione e codice ad altri box GWT simili"
-                      onMouseEnter={(e) => {
-                        if (!state.loading) e.target.style.backgroundColor = '#218838';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!state.loading) e.target.style.backgroundColor = '#28a745';
-                      }}
-                    >
-                      ✨ Global Complete
-                    </button>
-                  )}
-                  <div className="wide-reasoning-dropdown-container" ref={dropdownRef}>
-                    <button
-                      className="wide-reasoning-arrow-button"
-                      onClick={() => setShowWideReasoningMenu(!showWideReasoningMenu)}
-                      disabled={state.loading || !state.prompt.trim()}
-                      title="Opzioni di invio avanzate"
-                    >
-                      ▼
-                    </button>
-                    {showWideReasoningMenu && (
-                      <div className="wide-reasoning-menu">
-                        <button
-                          className="wide-reasoning-menu-item"
-                          onClick={handleSendWideReasoning}
-                          disabled={state.loading}
-                        >
-                          🔍 Wide Reasoning to other Tests
-                        </button>
-                      </div>
+                
+                {/* Riga 2: Bottoni */}
+                <div className="prompt-actions-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  
+                  {/* Sinistra: Global Complete (Ridotto a icona) */}
+                  <div className="left-actions">
+                    {onGlobalComplete && state.messages && state.messages.length > 0 && (
+                      <button
+                        className="global-complete-button-icon"
+                        onClick={onGlobalComplete}
+                        disabled={state.loading}
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          cursor: state.loading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '18px',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                          transition: 'transform 0.2s, background 0.2s'
+                        }}
+                        title="Global Complete: Applica questa conversazione e codice ad altri box GWT simili"
+                        onMouseEnter={(e) => {
+                          if (!state.loading) {
+                            e.target.style.backgroundColor = '#218838';
+                            e.target.style.transform = 'scale(1.1)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!state.loading) {
+                            e.target.style.backgroundColor = '#28a745';
+                            e.target.style.transform = 'scale(1)';
+                          }
+                        }}
+                      >
+                        ✨
+                      </button>
                     )}
+                  </div>
+
+                  {/* Destra: Gruppo Invia Grande + Wide Reasoning */}
+                  <div className="send-buttons-group" style={{ display: 'flex', alignItems: 'stretch' }}>
+                    <button
+                      className="send-button"
+                      onClick={handleSendNormal}
+                      disabled={state.loading || !state.prompt.trim()}
+                      style={{
+                        padding: '10px 24px',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        borderTopRightRadius: '0',
+                        borderBottomRightRadius: '0',
+                        height: '42px', // Altezza fissa per allineamento
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      {state.loading ? '⏳ Invio...' : (
+                        <>
+                          📤 Invia
+                        </>
+                      )}
+                    </button>
+                    
+                    <div className="wide-reasoning-dropdown-container" ref={dropdownRef} style={{ position: 'relative' }}>
+                      <button
+                        className="wide-reasoning-arrow-button"
+                        onClick={() => setShowWideReasoningMenu(!showWideReasoningMenu)}
+                        disabled={state.loading || !state.prompt.trim()}
+                        title="Opzioni di invio avanzate"
+                        style={{
+                          height: '42px',
+                          borderTopLeftRadius: '0',
+                          borderBottomLeftRadius: '0',
+                          borderLeft: '1px solid rgba(255,255,255,0.3)',
+                          padding: '0 12px'
+                        }}
+                      >
+                        ▼
+                      </button>
+                      {showWideReasoningMenu && (
+                        <div className="wide-reasoning-menu" style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          right: '0',
+                          marginBottom: '5px',
+                          minWidth: '200px'
+                        }}>
+                          <button
+                            className="wide-reasoning-menu-item"
+                            onClick={handleSendWideReasoning}
+                            disabled={state.loading}
+                          >
+                            🔍 Wide Reasoning to other Tests
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -6039,6 +6288,44 @@ Per favore, fornisci il codice aggiornato applicando queste modifiche all'oggett
                 className="code-display"
                 style={{ position: 'relative' }}
               >
+                {/* Popup Attesa Inserimento Codice */}
+                {showPendingPopup && (
+                  <div className="pending-insert-overlay" style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)', zIndex: 1000,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(1px)', borderRadius: '4px'
+                  }}>
+                    <div style={{
+                      backgroundColor: '#2c3e50', color: 'white', padding: '16px 24px', borderRadius: '8px',
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '300px',
+                      animation: 'fadeIn 0.3s ease-out'
+                    }}>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>👇</div>
+                      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Codice Pronto</h3>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '14px', lineHeight: '1.4', color: '#ecf0f1' }}>
+                        Il codice è stato generato.
+                        <br/>
+                        <strong>Clicca su una riga per incollarlo.</strong>
+                      </p>
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <button 
+                          onClick={() => { setPendingCodeToInsert(null); setShowPendingPopup(false); }}
+                          style={{
+                            background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', 
+                            color: 'rgba(255,255,255,0.8)', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer',
+                            fontSize: '13px', fontWeight: '500', transition: 'all 0.2s'
+                          }}
+                          onMouseOver={(e) => { e.target.style.background = 'rgba(255,255,255,0.1)'; e.target.style.color = 'white'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = 'rgba(255,255,255,0.8)'; }}
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div
                   ref={codeEditorRef}
                   className="code-editor-stack"

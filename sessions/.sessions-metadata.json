@@ -14,8 +14,10 @@
   "session-af02d251-4bbd-48aa-93bc-c7d164718e20": {
     "name": "nova",
     "createdAt": "2025-12-03T19:58:41.031Z",
-    "lastAccessed": "2025-12-06T15:49:26.483Z",
-    "status": "active"
+    "lastAccessed": "2025-12-10T20:04:48.910Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-10T19:31:26.290Z"
   },
   "session-3588c93a-6147-4411-aa0b-58817d628242": {
     "name": "tony6",
@@ -36,7 +38,7 @@
   "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd": {
     "name": "tony9",
     "createdAt": "2025-12-06T12:52:30.878Z",
-    "lastAccessed": "2025-12-10T00:22:23.234Z",
+    "lastAccessed": "2025-12-11T02:11:55.423Z",
     "status": "active"
   },
   "session-20322d0c-fc01-43b6-8033-86b9f60fa05a": {
