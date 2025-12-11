@@ -925,9 +925,12 @@ export default function App() {
         
         // Consideriamo validi solo i binomi che collegano Header(From) a Content(To)
         if (fromObj && toObj && fromObj.location === 'header' && toObj.location === 'content') {
+          const normFrom = (fromObj.text || '').trim();
+          const normTo = (toObj.text || '').trim();
+          if (!normFrom || !normTo) return;
           patterns.push({
-            fromText: fromObj.text,
-            toText: toObj.text,
+            fromText: normFrom,
+            toText: normTo,
             sourceTestCaseId: binomio.testCaseId,
             fromObjId: fromObj.id
           });
@@ -935,6 +938,14 @@ export default function App() {
       });
       
       logEvent('info', `Trovati ${patterns.length} pattern di binomi validi per il raziocinio.`);
+      if (patterns.length === 0) {
+        logEvent('warning', 'Nessun pattern valido: controlla che i binomi abbiano FROM in header e TO in content, con testi non vuoti.');
+        return;
+      }
+      // Loga i primi 3 pattern per diagnosi
+      patterns.slice(0, 3).forEach((p, idx) => {
+        logEvent('info', `[OBJ-AUTO][PATTERN ${idx + 1}] from="${p.fromText.substring(0, 80)}" -> to="${p.toText.substring(0, 80)}" (TC ${p.sourceTestCaseId})`);
+      });
       
       // 3. Itera sui test case per trovare match e applicare
       let updatedCount = 0;
@@ -950,13 +961,15 @@ export default function App() {
         });
         
         // Trova oggetti FROM (Header) di questo test case
-        const tcHeaderObjects = allObjects.filter(o => 
+        let tcHeaderObjects = allObjects.filter(o => 
           String(o.testCaseId) === String(tc.id) && o.location === 'header'
         );
+        logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Header objects: ${tcHeaderObjects.length}`);
         
         // Trova binomi già esistenti per questo TC per evitare duplicati/sovrascritture
         const tcBinomi = allBinomi.filter(b => String(b.testCaseId) === String(tc.id));
         const connectedFromIds = new Set(tcBinomi.map(b => b.fromObjectId));
+        logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Binomi esistenti: ${tcBinomi.length}, from già connessi: ${connectedFromIds.size}`);
         
         let tcUpdated = false;
         
@@ -969,8 +982,38 @@ export default function App() {
         });
         
         for (const boxType of ['given', 'when', 'then']) {
-          const boxObjects = objectsByBox[boxType];
-          if (!boxObjects || boxObjects.length === 0) continue;
+          let boxObjects = objectsByBox[boxType];
+          
+          // Fallback: se non ci sono oggetti header per questa fase, crea un oggetto header virtuale (non salvato) dal testo Gherkin.
+          // Verrà materializzato solo se troviamo un match.
+          if (!boxObjects || boxObjects.length === 0) {
+            const phaseText = (tc[boxType] || '').trim();
+            if (phaseText) {
+              const autoId = `virtual-${currentSession.id}-TC${tc.id}-${boxType.toUpperCase()}-AUTOFROM-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+              const autoObj = {
+                id: autoId,
+                sessionId: currentSession.id,
+                testCaseId: String(tc.id),
+                boxType: boxType,
+                boxNumber: 900 + Math.floor(Math.random()*99),
+                text: phaseText,
+                location: 'header',
+                startIndex: 0,
+                endIndex: phaseText.length,
+                createdAt: new Date().toISOString(),
+                isVirtual: true
+              };
+              objectsByBox[boxType].push(autoObj);
+              logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Creato oggetto header virtuale per ${boxType.toUpperCase()}: "${phaseText.substring(0,80)}"`);
+            }
+          }
+          
+          boxObjects = objectsByBox[boxType];
+          if (!boxObjects || boxObjects.length === 0) {
+            logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Nessun oggetto header per fase ${boxType.toUpperCase()}, salto`);
+            continue;
+          }
+          logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Fase ${boxType.toUpperCase()} - oggetti header: ${boxObjects.length}`);
 
           // Recupera il codice attuale del box
           let boxCode = tc.blockStates?.[boxType]?.code || '';
@@ -980,36 +1023,99 @@ export default function App() {
           
           for (const obj of boxObjects) {
             // Se l'oggetto è già connesso, salta (non vogliamo doppi binomi dallo stesso from)
-            if (connectedFromIds.has(obj.id)) continue;
+            if (connectedFromIds.has(obj.id)) {
+              logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Obj "${obj.text.substring(0, 80)}" già connesso, salto`);
+              continue;
+            }
             
-            // Cerca il miglior match tra i pattern
+            // Helper similitudine: normalizza, gestisce anche casi di substring (es. manca una lettera)
+            const normalizeMatch = (t) => (t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+            const computeSimilarity = (a, b) => {
+              const na = normalizeMatch(a);
+              const nb = normalizeMatch(b);
+              if (!na || !nb) return 0;
+              if (na === nb) return 1;
+              if (na.includes(nb) || nb.includes(na)) return 0.98; // gestione near-duplicate / substring
+              return calculateTextSimilarity(na, nb);
+            };
+
+            // Cerca il miglior match tra i pattern (testo normalizzato)
             let bestMatch = null;
             let bestSimilarity = 0;
+            const fromTextNorm = normalizeMatch(obj.text);
+            logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Check obj="${fromTextNorm}" (${boxType.toUpperCase()})`);
             
             for (const pattern of patterns) {
               // Opzionale: Evita auto-match nello stesso test case (per evitare loop strani, anche se improbabile)
               // if (String(pattern.sourceTestCaseId) === String(tc.id)) continue;
               
-              const similarity = calculateTextSimilarity(obj.text, pattern.fromText);
-              // Soglia di similarità alta per evitare falsi positivi automatici
-              if (similarity > 0.85 && similarity > bestSimilarity) { 
+              const similarity = computeSimilarity(fromTextNorm, pattern.fromText);
+              // Soglia meno rigida per favorire match reali anche con differenze minime
+              if (similarity > 0.65 && similarity > bestSimilarity) { 
                 bestSimilarity = similarity;
                 bestMatch = pattern;
               }
             }
             
             if (bestMatch) {
+              logEvent('info', `[OBJ-AUTO][TC ${tc.id}] MATCH ✅ sim=${(bestSimilarity*100).toFixed(1)}% -> to="${bestMatch.toText.substring(0,80)}"`);
               // TROVATO MATCH! Applica automazione
               // 1. Crea Oggetto TO
               const newToText = bestMatch.toText;
               
-              // Calcola indici inserimento
+              // Calcola indici inserimento per creare un nuovo editor/segmento separato
+              // (il codice dell'oggetto TO vive in un editor dedicato, non inline)
               const separator = boxCode.trim() ? '\n\n' : '';
-              const insertionIndex = boxCode.length + separator.length;
+              const objectStart = boxCode.length + separator.length;
+              const objectEnd = objectStart + newToText.length;
               
-              // Aggiorna codice locale
-              boxCode += separator + newToText;
+              // Aggiorna codice locale inserendo il testo del TO come blocco separato
+              boxCode = boxCode + separator + newToText;
               
+              // Determina/crea l'oggetto FROM se era virtuale, con start/end allineati al match
+              let fromObjectId = obj.id;
+              let fromObjectText = obj.text;
+              let fromStartIdx = obj.startIndex ?? 0;
+              let fromEndIdx = obj.endIndex ?? obj.text.length;
+
+              if (obj.isVirtual || String(obj.id || '').startsWith('virtual-')) {
+                const phaseText = (tc[boxType] || '');
+                const phaseLower = phaseText.toLowerCase();
+                const targetLower = (bestMatch.fromText || '').toLowerCase();
+                let foundIdx = phaseLower.indexOf(targetLower);
+                if (foundIdx < 0) foundIdx = 0;
+                const matchStart = foundIdx;
+                const matchEnd = Math.min(phaseText.length, foundIdx + (bestMatch.fromText || '').length);
+                const matchText = phaseText.substring(matchStart, matchEnd) || bestMatch.fromText || obj.text;
+
+                const newFromId = `${currentSession.id}-TC${tc.id}-${boxType.toUpperCase()}-AUTOFROM-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+                const newFromObj = {
+                  id: newFromId,
+                  sessionId: currentSession.id,
+                  testCaseId: String(tc.id),
+                  boxType: boxType,
+                  boxNumber: obj.boxNumber || (900 + Math.floor(Math.random()*99)),
+                  text: matchText,
+                  location: 'header',
+                  startIndex: matchStart,
+                  endIndex: matchEnd,
+                  createdAt: new Date().toISOString()
+                };
+                try {
+                  await api.saveECObject(currentSession.id, newFromObj);
+                  allObjects.push(newFromObj);
+                  tcHeaderObjects.push(newFromObj);
+                  objectsByBox[boxType].push(newFromObj);
+                  fromObjectId = newFromId;
+                  fromObjectText = matchText;
+                  fromStartIdx = matchStart;
+                  fromEndIdx = matchEnd;
+                  logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Materializzato FROM auto: "${matchText.substring(0,80)}" @${matchStart}-${matchEnd}`);
+                } catch (err) {
+                  logEvent('error', `[OBJ-AUTO][TC ${tc.id}] Errore salvataggio FROM auto: ${err.message}`);
+                }
+              }
+
               // ID univoco per il nuovo oggetto TO
               const toObjectId = `${currentSession.id}-TC${tc.id}-${boxType.toUpperCase()}-AUTO-${Date.now()}-${Math.floor(Math.random()*10000)}`;
               
@@ -1021,8 +1127,8 @@ export default function App() {
                 boxNumber: 900 + Math.floor(Math.random()*99), // Numero alto per differenziare
                 text: newToText,
                 location: 'content',
-                startIndex: insertionIndex,
-                endIndex: insertionIndex + newToText.length,
+                startIndex: objectStart,
+                endIndex: objectEnd,
                 createdAt: new Date().toISOString()
               };
               
@@ -1035,7 +1141,7 @@ export default function App() {
                 id: binomioId,
                 sessionId: currentSession.id,
                 testCaseId: String(tc.id),
-                fromObjectId: obj.id, // Collega al FROM corrente
+                fromObjectId: fromObjectId, // Collega al FROM (materializzato se era virtuale)
                 toObjectId: toObjectId, // Collega al nuovo TO
                 fromPoint: { x: 0.5, y: 1 },
                 toPoint: { x: 0.5, y: 0 },
@@ -1045,7 +1151,10 @@ export default function App() {
               // Salva Binomio
               await api.saveBinomio(currentSession.id, newBinomio);
               
-              logEvent('success', `📏 [AUTO-MATCH] TC#${tc.id}: Collegato "${obj.text.substring(0, 20)}..." a nuovo oggetto TO (sim: ${(bestSimilarity*100).toFixed(0)}%)`);
+              // Se l'oggetto FROM era auto-creato, aggiungilo ai binomi connessi per evitarne il riuso
+              connectedFromIds.add(fromObjectId);
+              
+              logEvent('success', `📏 [AUTO-MATCH] TC#${tc.id}: Collegato "${obj.text.substring(0, 50)}..." a nuovo TO (sim: ${(bestSimilarity*100).toFixed(1)}%)`);
               
               boxUpdated = true;
               tcUpdated = true;
