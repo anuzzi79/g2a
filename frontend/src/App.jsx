@@ -947,6 +947,10 @@ export default function App() {
         logEvent('info', `[OBJ-AUTO][PATTERN ${idx + 1}] from="${p.fromText.substring(0, 80)}" -> to="${p.toText.substring(0, 80)}" (TC ${p.sourceTestCaseId})`);
       });
       
+      // Estrai un set unico di testi FROM noti (i nostri "Segugi" per la caccia ai pattern)
+      const knownFromTexts = new Set(patterns.map(p => p.fromText.trim()).filter(t => t.length > 0));
+      logEvent('info', `[OBJ-AUTO] Estratti ${knownFromTexts.size} testi FROM unici per pattern discovery`);
+      
       // 3. Itera sui test case per trovare match e applicare
       let updatedCount = 0;
       const completedFields = {}; 
@@ -982,12 +986,75 @@ export default function App() {
         });
         
         for (const boxType of ['given', 'when', 'then']) {
-          let boxObjects = objectsByBox[boxType];
+          // Inizializza boxObjects dalla lista esistente (potrebbe essere vuota)
+          let boxObjects = objectsByBox[boxType] || [];
           
-          // Fallback: se non ci sono oggetti header per questa fase, crea un oggetto header virtuale (non salvato) dal testo Gherkin.
+          // Recupera il testo del box per la scansione pattern-driven
+          const phaseText = (tc[boxType] || '').trim();
+          
+          // PATTERN-DRIVEN OBJECT DISCOVERY: Scansiona il testo cercando pattern noti
+          if (phaseText && knownFromTexts.size > 0) {
+            const discoveredObjects = [];
+            
+            // Per ogni testo FROM noto, cerca occorrenze nel testo del box
+            for (const knownFromText of knownFromTexts) {
+              // Usa findPartialMatch per trovare occorrenze (gestisce anche variazioni)
+              const matchResult = findPartialMatch(phaseText, knownFromText);
+              
+              if (matchResult && matchResult.similarity > 0.95) {
+                // Trovata un'occorrenza! Verifica se è già coperta da un oggetto esistente
+                const matchStart = matchResult.startIndex;
+                const matchEnd = matchResult.endIndex;
+                const matchText = matchResult.extractedText;
+                
+                // Verifica se questa posizione è già coperta da un oggetto esistente
+                // Controllo rigoroso: nessuna intersezione permessa con oggetti esistenti
+                const isCovered = boxObjects.some(existingObj => {
+                  const existingStart = existingObj.startIndex ?? 0;
+                  const existingEnd = existingObj.endIndex ?? (existingStart + (existingObj.text || '').length);
+                  
+                  // Controlla sovrapposizione parziale o totale: se i due intervalli si toccano
+                  // matchStart < existingEnd && matchEnd > existingStart
+                  return matchStart < existingEnd && matchEnd > existingStart;
+                });
+                
+                // Se non è coperto, crea un oggetto virtuale
+                if (!isCovered) {
+                  const virtualId = `virtual-${currentSession.id}-TC${tc.id}-${boxType.toUpperCase()}-PATTERN-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+                  const virtualObj = {
+                    id: virtualId,
+                    sessionId: currentSession.id,
+                    testCaseId: String(tc.id),
+                    boxType: boxType,
+                    boxNumber: 800 + discoveredObjects.length, // Numero diverso per distinguerli
+                    text: matchText,
+                    location: 'header',
+                    startIndex: matchStart,
+                    endIndex: matchEnd,
+                    createdAt: new Date().toISOString(),
+                    isVirtual: true,
+                    discoveredFromPattern: knownFromText // Traccia da quale pattern è stato scoperto
+                  };
+                  
+                  discoveredObjects.push(virtualObj);
+                  logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Scoperto pattern "${knownFromText.substring(0, 50)}..." @${matchStart}-${matchEnd} in ${boxType.toUpperCase()}`);
+                } else {
+                  logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Pattern "${knownFromText.substring(0, 50)}..." già coperto da oggetto esistente, salto`);
+                }
+              }
+            }
+            
+            // Aggiungi gli oggetti scoperti alla lista
+            if (discoveredObjects.length > 0) {
+              boxObjects = boxObjects.concat(discoveredObjects);
+              objectsByBox[boxType] = boxObjects;
+              logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Scoperti ${discoveredObjects.length} nuovi oggetti header tramite pattern discovery in ${boxType.toUpperCase()}`);
+            }
+          }
+          
+          // Fallback legacy: se non ci sono oggetti header per questa fase, crea un oggetto header virtuale (non salvato) dal testo Gherkin.
           // Verrà materializzato solo se troviamo un match.
           if (!boxObjects || boxObjects.length === 0) {
-            const phaseText = (tc[boxType] || '').trim();
             if (phaseText) {
               const autoId = `virtual-${currentSession.id}-TC${tc.id}-${boxType.toUpperCase()}-AUTOFROM-${Date.now()}-${Math.floor(Math.random()*10000)}`;
               const autoObj = {
@@ -1004,6 +1071,7 @@ export default function App() {
                 isVirtual: true
               };
               objectsByBox[boxType].push(autoObj);
+              boxObjects = objectsByBox[boxType];
               logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Creato oggetto header virtuale per ${boxType.toUpperCase()}: "${phaseText.substring(0,80)}"`);
             }
           }
@@ -1017,11 +1085,25 @@ export default function App() {
 
           // Recupera il codice attuale del box
           let boxCode = tc.blockStates?.[boxType]?.code || '';
-          // Se il box è vuoto, bene. Se ha codice, appenderemo.
+          
+          // Trova gli oggetti content esistenti per questo box (per calcolare posizioni di inserimento)
+          const existingContentObjects = allObjects
+            .filter(o => String(o.testCaseId) === String(tc.id) && o.location === 'content' && o.boxType === boxType)
+            .sort((a, b) => a.startIndex - b.startIndex);
+          
+          // Ordina gli header per posizione (startIndex o boxNumber come fallback)
+          const sortedHeaders = [...boxObjects].sort((a, b) => {
+            const aIdx = a.startIndex ?? (a.boxNumber ?? 0);
+            const bIdx = b.startIndex ?? (b.boxNumber ?? 0);
+            return aIdx - bIdx;
+          });
+          
+          logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Header ordinati: ${sortedHeaders.length}, Content esistenti: ${existingContentObjects.length}`);
           
           let boxUpdated = false;
           
-          for (const obj of boxObjects) {
+          // Processa gli header nell'ordine corretto
+          for (const obj of sortedHeaders) {
             // Se l'oggetto è già connesso, salta (non vogliamo doppi binomi dallo stesso from)
             if (connectedFromIds.has(obj.id)) {
               logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Obj "${obj.text.substring(0, 80)}" già connesso, salto`);
@@ -1063,14 +1145,109 @@ export default function App() {
               // 1. Crea Oggetto TO
               const newToText = bestMatch.toText;
               
-              // Calcola indici inserimento per creare un nuovo editor/segmento separato
-              // (il codice dell'oggetto TO vive in un editor dedicato, non inline)
-              const separator = boxCode.trim() ? '\n\n' : '';
-              const objectStart = boxCode.length + separator.length;
+              // Calcola la posizione di inserimento basata sull'ordine degli header
+              let insertPosition = boxCode.length; // Default: in fondo
+              
+              // Trova la posizione dell'header corrente nell'ordine
+              const currentHeaderIndex = sortedHeaders.findIndex(h => h.id === obj.id);
+              
+              if (currentHeaderIndex >= 0) {
+                // Cerca il TO dell'header precedente (se esiste) per inserire dopo di esso
+                let foundInsertPoint = false;
+                
+                // Cerca header precedenti nell'ordine
+                for (let prevIdx = currentHeaderIndex - 1; prevIdx >= 0; prevIdx--) {
+                  const prevHeader = sortedHeaders[prevIdx];
+                  // Trova il binomio che collega questo header precedente a un TO
+                  const prevBinomio = tcBinomi.find(b => b.fromObjectId === prevHeader.id);
+                  if (prevBinomio) {
+                    // Trova l'oggetto TO corrispondente
+                    const prevToObj = existingContentObjects.find(o => o.id === prevBinomio.toObjectId);
+                    if (prevToObj) {
+                      // Inserisci dopo questo TO (alla fine del suo endIndex)
+                      insertPosition = prevToObj.endIndex;
+                      foundInsertPoint = true;
+                      logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Inserimento dopo TO dell'header precedente @${insertPosition}`);
+                      break;
+                    }
+                  }
+                }
+                
+                // Se non abbiamo trovato un punto di inserimento, cerca l'header successivo
+                if (!foundInsertPoint) {
+                  for (let nextIdx = currentHeaderIndex + 1; nextIdx < sortedHeaders.length; nextIdx++) {
+                    const nextHeader = sortedHeaders[nextIdx];
+                    const nextBinomio = tcBinomi.find(b => b.fromObjectId === nextHeader.id);
+                    if (nextBinomio) {
+                      const nextToObj = existingContentObjects.find(o => o.id === nextBinomio.toObjectId);
+                      if (nextToObj) {
+                        // Inserisci prima di questo TO (al suo startIndex)
+                        insertPosition = nextToObj.startIndex;
+                        foundInsertPoint = true;
+                        logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Inserimento prima del TO dell'header successivo @${insertPosition}`);
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // Se ancora non abbiamo trovato un punto, inseriamo in fondo
+                if (!foundInsertPoint) {
+                  insertPosition = boxCode.length;
+                  logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Inserimento in fondo @${insertPosition}`);
+                }
+              }
+              
+              // Calcola il separatore (newline doppio se c'è codice prima o dopo)
+              const beforeText = boxCode.substring(0, insertPosition);
+              const afterText = boxCode.substring(insertPosition);
+              const needsSeparatorBefore = beforeText.trim().length > 0;
+              const needsSeparatorAfter = afterText.trim().length > 0;
+              const separator = (needsSeparatorBefore || needsSeparatorAfter) ? '\n\n' : '';
+              
+              // Calcola gli indici finali considerando il separatore
+              // Il separatore va sempre prima del nuovo TO se c'è codice prima, o dopo se c'è solo codice dopo
+              const separatorBefore = needsSeparatorBefore ? separator : '';
+              const separatorAfter = needsSeparatorAfter && !needsSeparatorBefore ? separator : '';
+              const actualInsertPos = insertPosition + separatorBefore.length;
+              const objectStart = actualInsertPos;
               const objectEnd = objectStart + newToText.length;
               
-              // Aggiorna codice locale inserendo il testo del TO come blocco separato
-              boxCode = boxCode + separator + newToText;
+              // Inserisci il nuovo TO nella posizione corretta
+              boxCode = beforeText + separatorBefore + newToText + separatorAfter + afterText;
+              
+              // Aggiorna gli indici degli oggetti content successivi all'inserimento e salvali nel DB
+              const insertedLength = newToText.length + separatorBefore.length + separatorAfter.length;
+              const objectsToUpdate = [];
+              for (const contentObj of existingContentObjects) {
+                if (contentObj.startIndex >= insertPosition) {
+                  const updatedObj = {
+                    ...contentObj,
+                    startIndex: contentObj.startIndex + insertedLength,
+                    endIndex: contentObj.endIndex + insertedLength
+                  };
+                  objectsToUpdate.push(updatedObj);
+                  // Aggiorna anche nella lista locale
+                  contentObj.startIndex = updatedObj.startIndex;
+                  contentObj.endIndex = updatedObj.endIndex;
+                }
+              }
+              
+              // Salva gli aggiornamenti degli indici nel database
+              for (const objToUpdate of objectsToUpdate) {
+                try {
+                  await api.saveECObject(currentSession.id, objToUpdate);
+                  // Aggiorna anche in allObjects
+                  const idx = allObjects.findIndex(o => o.id === objToUpdate.id);
+                  if (idx >= 0) {
+                    allObjects[idx] = objToUpdate;
+                  }
+                } catch (err) {
+                  logEvent('error', `[OBJ-AUTO][TC ${tc.id}] Errore aggiornamento indici oggetto ${objToUpdate.id}: ${err.message}`);
+                }
+              }
+              
+              logEvent('info', `[OBJ-AUTO][TC ${tc.id}] TO inserito @${objectStart}-${objectEnd}, ${objectsToUpdate.length} oggetti aggiornati, codice totale: ${boxCode.length} caratteri`);
               
               // Determina/crea l'oggetto FROM se era virtuale, con start/end allineati al match
               let fromObjectId = obj.id;
@@ -1135,6 +1312,12 @@ export default function App() {
               // Salva oggetto TO
               await api.saveECObject(currentSession.id, newToObject);
               
+              // Aggiungi l'oggetto TO alle collezioni in memoria per il riuso
+              allObjects.push(newToObject);
+              existingContentObjects.push(newToObject);
+              // Mantieni ordinato per startIndex
+              existingContentObjects.sort((a, b) => a.startIndex - b.startIndex);
+              
               // 2. Crea Binomio
               const binomioId = `bf-${currentSession.id}-TC${tc.id}-AUTO-${Date.now()}-${Math.floor(Math.random()*10000)}`;
               const newBinomio = {
@@ -1150,6 +1333,10 @@ export default function App() {
               
               // Salva Binomio
               await api.saveBinomio(currentSession.id, newBinomio);
+              
+              // Aggiungi il binomio alle collezioni in memoria per il riuso
+              allBinomi.push(newBinomio);
+              tcBinomi.push(newBinomio);
               
               // Se l'oggetto FROM era auto-creato, aggiungilo ai binomi connessi per evitarne il riuso
               connectedFromIds.add(fromObjectId);
