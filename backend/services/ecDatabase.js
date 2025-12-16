@@ -124,7 +124,12 @@ export async function loadBinomi(sessionId) {
     const filePath = getBinomiPath(sessionId);
     const data = await fs.readFile(filePath, 'utf8');
     const parsed = JSON.parse(data);
-    return parsed.binomi || [];
+    const binomi = parsed.binomi || [];
+    // Retrocompatibilità: se un binomio non ha status, consideralo 'active'
+    return binomi.map(b => ({
+      ...b,
+      status: b.status || 'active'
+    }));
   } catch (error) {
     if (error.code === 'ENOENT') {
       return [];
@@ -166,10 +171,16 @@ export async function saveBinomio(sessionId, binomio) {
   
   // Aggiorna o aggiungi binomio
   const existingIndex = binomi.findIndex(b => b.id === binomio.id);
+  // Retrocompatibilità: se status non è specificato, default 'active'
+  const binomioToSave = {
+    ...binomio,
+    status: binomio.status || 'active'
+  };
+  
   if (existingIndex >= 0) {
-    binomi[existingIndex] = { ...binomi[existingIndex], ...binomio };
+    binomi[existingIndex] = { ...binomi[existingIndex], ...binomioToSave };
   } else {
-    binomi.push(binomio);
+    binomi.push(binomioToSave);
   }
   
   // Salva

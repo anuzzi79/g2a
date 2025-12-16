@@ -8,8 +8,13 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterTestCase, setFilterTestCase] = useState('');
+  const [filterStatus, setFilterStatus] = useState(''); // 'all' | 'active' | 'disabled'
   const [sortColumn, setSortColumn] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [showModal, setShowModal] = useState(false);
+  const [selectedBinomio, setSelectedBinomio] = useState(null);
+  const [modalAction, setModalAction] = useState(null); // 'disable' | 'enable'
+  const [modalReason, setModalReason] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,6 +48,21 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
     return objects.find(obj => obj.id === objectId);
   };
 
+  // Helper per appendere testo al Documento di Contesto
+  const appendToContextDocument = async (textToAppend) => {
+    try {
+      const dcResult = await api.getContextDocument(sessionId);
+      const currentText = dcResult.document?.text || '';
+      const separator = currentText.trim() ? '\n\n' : '';
+      const timestamp = new Date().toISOString();
+      const newText = currentText + separator + `[${timestamp}] BINOMIO_STATUS_CHANGE\n${textToAppend}`;
+      await api.saveContextDocument(sessionId, newText);
+    } catch (error) {
+      console.error('Errore append al DC:', error);
+      onLogEvent?.('warning', `Impossibile aggiornare Documento di Contesto: ${error.message}`);
+    }
+  };
+
   // Filtra e ordina binomi
   const filteredAndSortedBinomi = useMemo(() => {
     let filtered = binomi;
@@ -60,6 +80,13 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
     // Filtro per test case
     if (filterTestCase) {
       filtered = filtered.filter(b => b.testCaseId === filterTestCase);
+    }
+
+    // Filtro per status
+    if (filterStatus === 'active') {
+      filtered = filtered.filter(b => (b.status || 'active') === 'active');
+    } else if (filterStatus === 'disabled') {
+      filtered = filtered.filter(b => b.status === 'disabled');
     }
 
     // Ordinamento
@@ -83,7 +110,7 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
     });
 
     return filtered;
-  }, [binomi, searchText, filterTestCase, sortColumn, sortDirection]);
+  }, [binomi, searchText, filterTestCase, filterStatus, sortColumn, sortDirection]);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -97,6 +124,61 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
   const getUniqueTestCases = () => {
     const testCases = new Set(binomi.map(b => b.testCaseId).filter(Boolean));
     return Array.from(testCases).sort();
+  };
+
+  const handleStatusChange = (binomio, action) => {
+    setSelectedBinomio(binomio);
+    setModalAction(action);
+    setModalReason('');
+    setShowModal(true);
+  };
+
+  const handleModalConfirm = async () => {
+    if (!modalReason.trim()) {
+      alert('Inserisci una motivazione');
+      return;
+    }
+
+    if (!selectedBinomio || !modalAction) return;
+
+    try {
+      const newStatus = modalAction === 'disable' ? 'disabled' : 'active';
+      await api.updateBinomioStatus(sessionId, selectedBinomio.id, newStatus, modalReason.trim());
+      
+      // Appendi al DC
+      const fromObj = findObject(selectedBinomio.fromObjectId);
+      const toObj = findObject(selectedBinomio.toObjectId);
+      const fromText = fromObj?.text || selectedBinomio.fromObjectId;
+      const toText = toObj?.text || selectedBinomio.toObjectId;
+      
+      const dcText = `Binomio: ${selectedBinomio.id}\nDa: ${selectedBinomio.status || 'active'}\nA: ${newStatus}\nMotivo: ${modalReason.trim()}\nOggetto From: ${fromText}\nOggetto To: ${toText}`;
+      await appendToContextDocument(dcText);
+      
+      // Ricarica i dati
+      const [binomiResult, objectsResult] = await Promise.all([
+        api.getBinomi(sessionId),
+        api.getECObjects(sessionId)
+      ]);
+      setBinomi(binomiResult.binomi || []);
+      setObjects(objectsResult.objects || []);
+      
+      setShowModal(false);
+      setSelectedBinomio(null);
+      setModalAction(null);
+      setModalReason('');
+      
+      onLogEvent?.('success', `Binomio ${newStatus === 'disabled' ? 'disattivato' : 'riattivato'} con successo`);
+    } catch (error) {
+      console.error('Errore aggiornamento status binomio:', error);
+      onLogEvent?.('error', `Errore aggiornamento status: ${error.message}`);
+    }
+  };
+
+  const handleModalCancel = () => {
+    setShowModal(false);
+    setSelectedBinomio(null);
+    setModalAction(null);
+    setModalReason('');
   };
 
   const handleDeleteAllBinomi = async () => {
@@ -198,6 +280,19 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
             ))}
           </select>
         </div>
+
+        <div className="filter-group">
+          <label>Status:</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="filter-select"
+          >
+            <option value="">Tutti</option>
+            <option value="active">Attivi</option>
+            <option value="disabled">Disattivati</option>
+          </select>
+        </div>
       </div>
 
       <div className="binomi-stats">
@@ -221,12 +316,16 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
               <th onClick={() => handleSort('createdAt')} className="sortable">
                 Data Creazione {sortColumn === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
+              <th onClick={() => handleSort('status')} className="sortable">
+                Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedBinomi.length === 0 ? (
               <tr>
-                <td colSpan="7" className="no-data">
+                <td colSpan="9" className="no-data">
                   Nessun binomio trovato
                 </td>
               </tr>
@@ -234,9 +333,11 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
               filteredAndSortedBinomi.map((b) => {
                 const fromObj = findObject(b.fromObjectId);
                 const toObj = findObject(b.toObjectId);
+                const status = b.status || 'active';
+                const isDisabled = status === 'disabled';
                 
                 return (
-                  <tr key={b.id}>
+                  <tr key={b.id} className={isDisabled ? 'binomio-disabled' : ''}>
                     <td className="id-cell">{b.id}</td>
                     <td>TC {b.testCaseId}</td>
                     <td className="object-cell">
@@ -266,6 +367,30 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
                         ? new Date(b.createdAt).toLocaleString('it-IT')
                         : '-'}
                     </td>
+                    <td className="status-cell">
+                      <span className={`status-badge status-${status}`}>
+                        {status === 'disabled' ? 'Disattivato' : 'Attivo'}
+                      </span>
+                    </td>
+                    <td className="actions-cell">
+                      {isDisabled ? (
+                        <button
+                          onClick={() => handleStatusChange(b, 'enable')}
+                          className="action-button enable-button"
+                          title="Riattiva binomio"
+                        >
+                          ✓ Riattiva
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStatusChange(b, 'disable')}
+                          className="action-button disable-button"
+                          title="Disattiva binomio"
+                        >
+                          ✗ Disattiva
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })
@@ -273,6 +398,38 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
           </tbody>
         </table>
       </div>
+
+      {/* Modal per motivazione */}
+      {showModal && (
+        <div className="modal-overlay" onClick={handleModalCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>
+              {modalAction === 'disable' ? 'Disattiva Binomio' : 'Riattiva Binomio'}
+            </h3>
+            <p>
+              Binomio: <strong>{selectedBinomio?.id}</strong>
+            </p>
+            <label>
+              Motivazione (obbligatoria):
+              <textarea
+                value={modalReason}
+                onChange={(e) => setModalReason(e.target.value)}
+                placeholder="Inserisci la motivazione per questa azione..."
+                rows={4}
+                className="modal-textarea"
+              />
+            </label>
+            <div className="modal-actions">
+              <button onClick={handleModalCancel} className="modal-button cancel-button">
+                Annulla
+              </button>
+              <button onClick={handleModalConfirm} className="modal-button confirm-button">
+                Conferma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

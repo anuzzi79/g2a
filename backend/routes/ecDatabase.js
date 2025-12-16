@@ -146,6 +146,64 @@ binomiRouter.post('/:sessionId', async (req, res) => {
 });
 
 /**
+ * PUT /api/binomi/:sessionId/:binomioId
+ * Aggiorna lo status di un binomio (active/disabled)
+ */
+binomiRouter.put('/:sessionId/:binomioId', async (req, res) => {
+  try {
+    const { sessionId, binomioId } = req.params;
+    const { status, reason } = req.body;
+    
+    if (!status || (status !== 'active' && status !== 'disabled')) {
+      return res.status(400).json({ 
+        error: 'Il campo "status" è richiesto e deve essere "active" o "disabled"' 
+      });
+    }
+    
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'Il campo "reason" è richiesto e deve essere una stringa non vuota' 
+      });
+    }
+    
+    // Carica binomi esistenti
+    const binomi = await loadBinomi(sessionId);
+    const binomioIndex = binomi.findIndex(b => b.id === binomioId);
+    
+    if (binomioIndex === -1) {
+      return res.status(404).json({ error: 'Binomio non trovato' });
+    }
+    
+    const binomio = binomi[binomioIndex];
+    const now = new Date().toISOString();
+    
+    // Aggiorna status e campi correlati
+    if (status === 'disabled') {
+      binomio.status = 'disabled';
+      binomio.disabledAt = now;
+      binomio.disabledReason = reason.trim();
+      // Rimuovi campi di riattivazione se esistono
+      delete binomio.enabledAt;
+      delete binomio.enabledReason;
+    } else {
+      binomio.status = 'active';
+      binomio.enabledAt = now;
+      binomio.enabledReason = reason.trim();
+      // Rimuovi campi di disattivazione se esistono
+      delete binomio.disabledAt;
+      delete binomio.disabledReason;
+    }
+    
+    // Salva il binomio aggiornato
+    const saved = await saveBinomio(sessionId, binomio);
+    res.json({ binomio: saved });
+  } catch (error) {
+    console.error('Errore aggiornamento status binomio:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * DELETE /api/binomi/:sessionId/:binomioId
  * Elimina un binomio
  */

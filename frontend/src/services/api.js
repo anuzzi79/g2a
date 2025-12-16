@@ -375,6 +375,19 @@ export const api = {
     return response.json();
   },
 
+  async updateBinomioStatus(sessionId, binomioId, status, reason) {
+    const response = await fetch(`${API_BASE}/binomi/${sessionId}/${binomioId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reason })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
   /**
    * Gestione CSV delle sessioni
    */
@@ -393,6 +406,31 @@ export const api = {
 
   async getSessionCSV(sessionId) {
     const response = await fetch(`${API_BASE}/sessions/${sessionId}/csv`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Gestione Documento di Contesto
+   */
+  async getContextDocument(sessionId) {
+    const response = await fetch(`${API_BASE}/context-document/${sessionId}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async saveContextDocument(sessionId, text) {
+    const response = await fetch(`${API_BASE}/context-document/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || `HTTP error! status: ${response.status}`);

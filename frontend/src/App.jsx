@@ -6,6 +6,7 @@ import { DiagnosticsButton } from './components/DiagnosticsButton';
 import { SessionManager } from './components/SessionManager';
 import { ECObjectsView } from './components/ECObjectsView';
 import { BinomiView } from './components/BinomiView';
+import { ContextDocumentView } from './components/ContextDocumentView';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useConsoleLogger } from './hooks/useConsoleLogger';
 import { api } from './services/api';
@@ -18,7 +19,7 @@ export default function App() {
   const [context, setContext] = useState(null);
   const [testCases, setTestCases] = useState([]);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
-  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder' | 'ec-objects' | 'binomi'
+  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder' | 'ec-objects' | 'binomi' | 'context-doc'
   const [copyMessage, setCopyMessage] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // Per forzare re-render della lista
   const [loadingSession, setLoadingSession] = useState(false);
@@ -911,15 +912,18 @@ export default function App() {
       const allObjects = ecObjectsResult.objects || [];
       const allBinomi = binomiResult.binomi || [];
       
-      if (allBinomi.length === 0) {
-        logEvent('warning', 'Nessun binomio trovato. Crea prima dei collegamenti manuali come esempi.');
+      // Filtra solo binomi attivi (ignora disattivati)
+      const activeBinomi = allBinomi.filter(b => (b.status || 'active') !== 'disabled');
+      
+      if (activeBinomi.length === 0) {
+        logEvent('warning', 'Nessun binomio attivo trovato. Crea prima dei collegamenti manuali come esempi o riattiva binomi disattivati.');
         return;
       }
       
       // 2. Identifica i pattern (Binomi esistenti completi FROM->TO)
       const patterns = [];
       
-      allBinomi.forEach(binomio => {
+      activeBinomi.forEach(binomio => {
         const fromObj = allObjects.find(o => o.id === binomio.fromObjectId);
         const toObj = allObjects.find(o => o.id === binomio.toObjectId);
         
@@ -970,8 +974,8 @@ export default function App() {
         );
         logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Header objects: ${tcHeaderObjects.length}`);
         
-        // Trova binomi già esistenti per questo TC per evitare duplicati/sovrascritture
-        const tcBinomi = allBinomi.filter(b => String(b.testCaseId) === String(tc.id));
+        // Trova binomi già esistenti per questo TC per evitare duplicati/sovrascritture (solo attivi)
+        const tcBinomi = activeBinomi.filter(b => String(b.testCaseId) === String(tc.id));
         const connectedFromIds = new Set(tcBinomi.map(b => b.fromObjectId));
         logEvent('info', `[OBJ-AUTO][TC ${tc.id}] Binomi esistenti: ${tcBinomi.length}, from già connessi: ${connectedFromIds.size}`);
         
@@ -2054,6 +2058,30 @@ export default function App() {
                     >
                       📏
                     </button>
+                    <button 
+                      onClick={() => setStep('context-doc')} 
+                      className="view-button"
+                      style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        padding: '0',
+                        backgroundColor: '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        transition: 'all 0.3s ease'
+                      }}
+                      title="Documento di Contesto"
+                    >
+                      📄
+                    </button>
                   </>
                 )}
                 <button 
@@ -2362,6 +2390,14 @@ export default function App() {
                 console.error('Errore verifica metadati dopo rimozione binomio:', error);
               }
             }}
+          />
+        )}
+
+        {step === 'context-doc' && currentSession && (
+          <ContextDocumentView
+            sessionId={currentSession.id}
+            onBack={() => setStep('testcases')}
+            onLogEvent={logEvent}
           />
         )}
       </main>
