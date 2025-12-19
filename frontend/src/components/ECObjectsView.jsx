@@ -65,6 +65,32 @@ export function ECObjectsView({ sessionId, onBack, onLogEvent }) {
 
     // Ordinamento
     filtered.sort((a, b) => {
+      // Ordinamento speciale per testCaseId
+      if (sortColumn === 'testCaseId') {
+        // Estrai il numero dal testCaseId (può essere già un numero o una stringa)
+        const aNum = parseInt(a.testCaseId) || 0;
+        const bNum = parseInt(b.testCaseId) || 0;
+        
+        // Prima ordina per numero di Test Case
+        if (aNum !== bNum) {
+          if (sortDirection === 'asc') {
+            return aNum - bNum;
+          } else {
+            return bNum - aNum;
+          }
+        }
+        
+        // Se stesso Test Case, ordina per boxType: given < when < then
+        const boxTypeOrder = { 'given': 1, 'when': 2, 'then': 3 };
+        const aBoxOrder = boxTypeOrder[a.boxType] || 999;
+        const bBoxOrder = boxTypeOrder[b.boxType] || 999;
+        
+        // L'ordinamento boxType è sempre ascendente (Given -> When -> Then)
+        // indipendentemente dalla direzione del sort principale
+        return aBoxOrder - bBoxOrder;
+      }
+      
+      // Ordinamento normale per altre colonne
       let aVal = a[sortColumn];
       let bVal = b[sortColumn];
       
