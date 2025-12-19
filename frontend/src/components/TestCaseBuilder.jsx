@@ -13,7 +13,7 @@ import '@tensorflow/tfjs';
 /**
  * Componente per costruire un test case con AI
  */
-export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdateTestCase, currentSession }) {
+export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdateTestCase, currentSession, refreshKey }) {
   const [allObjects, setAllObjects] = useState([]); // Raccoglie tutti gli oggetti da tutti i blocchi GWT
   const [loadedECObjects, setLoadedECObjects] = useState([]); // Oggetti EC caricati dal database
   const [loadedBinomi, setLoadedBinomi] = useState([]); // Binomi caricati dal database
@@ -123,10 +123,10 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     }
   }, [currentSession?.id, testCase?.id, onLogEvent]);
 
-  // Carica oggetti EC e binomi dal database al mount
+  // Carica oggetti EC e binomi dal database al mount e quando cambia refreshKey
   useEffect(() => {
     loadECData();
-  }, [loadECData]);
+  }, [loadECData, refreshKey]);
   
   // Ricarica oggetti EC quando si ritorna da ECObjectsView
   useEffect(() => {
@@ -2619,6 +2619,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
   const [connectionHoverTarget, setConnectionHoverTarget] = useState(null); // ID oggetto sotto il mouse durante la connessione
   const [draggingConnectionPoint, setDraggingConnectionPoint] = useState(null); // { connectionId, pointType: 'from' | 'to' }
   const [connectionContextMenu, setConnectionContextMenu] = useState(null); // { connectionId, x, y }
+  const [deleteBinomioModal, setDeleteBinomioModal] = useState(null); // { connectionId } per modale conferma cancellazione
   
   // Stato per gestire l'inserimento ritardato (quando l'utente non ha selezionato una riga prima di chiedere)
   const [pendingCodeToInsert, setPendingCodeToInsert] = useState(null);
@@ -4192,6 +4193,14 @@ Richiesta: ${state.prompt}`;
       y: e.clientY - layerRect.top
     });
   };
+
+  // Handler per doppio click su freccia binomio - apre modale conferma cancellazione
+  const handleConnectionDoubleClick = (e, connectionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔍 Doppio click su binomio:', connectionId);
+    setDeleteBinomioModal({ connectionId });
+  };
   
   const handleDeleteObject = async (objectId) => {
     // Trova l'oggetto da eliminare per ottenere l'ID EC
@@ -4851,6 +4860,23 @@ Richiesta: ${state.prompt}`;
   const [availableBinomiForMatch, setAvailableBinomiForMatch] = useState([]);
   const [allECObjectsForMatch, setAllECObjectsForMatch] = useState([]);
   const [sortOrder, setSortOrder] = useState(null); // null | 'asc' | 'desc'
+  const [selectedBinomioForForceMatch, setSelectedBinomioForForceMatch] = useState(null);
+  const [forceMatchRule, setForceMatchRule] = useState('');
+
+  // Helper per appendere testo al Documento di Contesto
+  const appendToContextDocument = async (textToAppend) => {
+    try {
+      const dcResult = await api.getContextDocument(sessionId);
+      const currentText = dcResult.document?.text || '';
+      const separator = currentText.trim() ? '\n\n' : '';
+      const timestamp = new Date().toISOString();
+      const newText = currentText + separator + `[${timestamp}] FORCE MATCH\n${textToAppend}`;
+      await api.saveContextDocument(sessionId, newText);
+    } catch (error) {
+      console.error('Errore append al DC:', error);
+      onLogEvent?.('warning', `Impossibile aggiornare Documento di Contesto: ${error.message}`);
+    }
+  };
 
   // Handler per aprire il menu "Forza Match"
   const handleOpenForceMatch = async (objectId) => {
@@ -4858,6 +4884,8 @@ Richiesta: ${state.prompt}`;
     setForceMatchTargetObject(objectId);
     setShowForceMatchModal(true);
     setSortOrder(null); // Reset ordinamento quando si apre la modale
+    setSelectedBinomioForForceMatch(null);
+    setForceMatchRule('');
     
     try {
       const [binomiRes, objectsRes] = await Promise.all([
@@ -4898,11 +4926,23 @@ Richiesta: ${state.prompt}`;
     return sorted;
   };
 
-  // Handler per applicare il match forzato
-  const handleApplyForceMatch = async (selectedBinomio) => {
+  // Handler per selezionare binomio e passare al step regola
+  const handleSelectBinomioForForceMatch = (binomio) => {
+    setSelectedBinomioForForceMatch(binomio);
+    setForceMatchRule('');
+  };
+
+  // Handler per applicare il match forzato (con regola)
+  const handleApplyForceMatch = async () => {
+    if (!forceMatchRule.trim()) {
+      alert('Inserisci una regola per questo Force Match');
+      return;
+    }
+
+    if (!forceMatchTargetObject || !selectedBinomioForForceMatch) return;
+
     setShowForceMatchModal(false);
-    
-    if (!forceMatchTargetObject || !selectedBinomio) return;
+    const selectedBinomio = selectedBinomioForForceMatch;
 
     try {
       // 1. Identifica l'oggetto From target
@@ -5008,7 +5048,7 @@ Richiesta: ${state.prompt}`;
       updatedObjects.sort((a, b) => a.startIndex - b.startIndex);
       setObjects(updatedObjects);
 
-      // 7. Crea Binomio
+      // 7. Crea Binomio con forceMeta
       const existingBinomiTC = availableBinomiForMatch.filter(b => b.testCaseId === String(testCaseId));
       let currentMax = 0;
       existingBinomiTC.forEach(b => {
@@ -5021,14 +5061,40 @@ Richiesta: ${state.prompt}`;
       const binomioId = generateBinomioId(sessionId, testCaseId, currentMax);
       
       if (binomioId) {
+        // Trova oggetti per il riepilogo nel DC
+        const sourceFromObj = allECObjectsForMatch.find(o => o.id === selectedBinomio.fromObjectId);
+        const sourceToObj = allECObjectsForMatch.find(o => o.id === selectedBinomio.toObjectId);
+        const targetFromText = actualTargetObj.text || actualTargetObj.ecObjectId || 'N/A';
+        const targetToText = newCodeBlock.substring(0, 100) + (newCodeBlock.length > 100 ? '...' : '');
+        
         const binomio = {
-          id: binomioId, sessionId: sessionId, testCaseId: String(testCaseId),
-          fromObjectId: actualTargetObj.ecObjectId || actualTargetObj.id, toObjectId: toObjectId,
-          fromPoint: { x: 0.5, y: 1 }, toPoint: { x: 0.5, y: 0 }, createdAt: new Date().toISOString()
+          id: binomioId, 
+          sessionId: sessionId, 
+          testCaseId: String(testCaseId),
+          fromObjectId: actualTargetObj.ecObjectId || actualTargetObj.id, 
+          toObjectId: toObjectId,
+          fromPoint: { x: 0.5, y: 1 }, 
+          toPoint: { x: 0.5, y: 0 }, 
+          createdAt: new Date().toISOString(),
+          forceMeta: {
+            ruleText: forceMatchRule.trim(),
+            sourceBinomioId: selectedBinomio.id,
+            createdFromObjectId: actualTargetObj.ecObjectId || actualTargetObj.id,
+            createdAt: new Date().toISOString()
+          }
         };
         
         await api.saveBinomio(sessionId, binomio);
         if (onBinomioSaved) onBinomioSaved(binomio);
+        
+        // Appendi al Documento di Contesto
+        const dcEntry = `Binomio: ${binomioId}\nFrom: ${targetFromText}\nTo: ${targetToText}\nRegola: ${forceMatchRule.trim()}\nSorgente: ${selectedBinomio.id}`;
+        await appendToContextDocument(dcEntry);
+        
+        // Reset stato modale
+        setSelectedBinomioForForceMatch(null);
+        setForceMatchRule('');
+        
         alert("Match forzato applicato con successo!");
       }
 
@@ -5423,18 +5489,19 @@ Richiesta: ${state.prompt}`;
 
               return (
                 <g key={conn.id}>
-                  {/* Linea di connessione - clickabile con tasto destro */}
+                  {/* Linea di connessione - clickabile con tasto destro e doppio click */}
                   <line
                     x1={fromPoint.x}
                     y1={fromPoint.y}
                     x2={toPoint.x}
                     y2={toPoint.y}
                     stroke="#ff9800"
-                    strokeWidth="8"
+                    strokeWidth="4"
                     strokeDasharray="5,5"
                     markerEnd="url(#arrowhead)"
                     style={{ cursor: 'pointer', pointerEvents: 'auto' }}
                     onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
+                    onDoubleClick={(e) => handleConnectionDoubleClick(e, conn.id)}
                   />
                   {/* Linea visiva sottile */}
                   <line
@@ -5443,7 +5510,7 @@ Richiesta: ${state.prompt}`;
                     x2={toPoint.x}
                     y2={toPoint.y}
                     stroke="#ff9800"
-                    strokeWidth="3"
+                    strokeWidth="1.5"
                     strokeDasharray="5,5"
                     markerEnd="url(#arrowhead)"
                     style={{ pointerEvents: 'none' }}
@@ -5464,6 +5531,7 @@ Richiesta: ${state.prompt}`;
                       }
                     }}
                     onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
+                    onDoubleClick={(e) => handleConnectionDoubleClick(e, conn.id)}
                   />
                   {/* Punto di connessione TO */}
                   <circle
@@ -5481,6 +5549,7 @@ Richiesta: ${state.prompt}`;
                       }
                     }}
                     onContextMenu={(e) => handleConnectionContextMenu(e, conn.id)}
+                    onDoubleClick={(e) => handleConnectionDoubleClick(e, conn.id)}
                   />
                 </g>
               );
@@ -5516,7 +5585,7 @@ Richiesta: ${state.prompt}`;
                     x2={connectingMousePos.x}
                     y2={connectingMousePos.y}
                     stroke="#ff9800"
-                    strokeWidth="3"
+                    strokeWidth="1.5"
                     strokeDasharray="5,5"
                     markerEnd="url(#arrowhead-temp)"
                   />
@@ -5532,31 +5601,31 @@ Richiesta: ${state.prompt}`;
               );
             })()}
             
-            {/* Frecce per la fine della linea - ridotte di almeno la metà */}
+            {/* Frecce per la fine della linea - ridotte di metà */}
             <defs>
               <marker
                 id="arrowhead"
-                markerWidth="5"
-                markerHeight="5"
-                refX="4.5"
-                refY="1.5"
+                markerWidth="2.5"
+                markerHeight="2.5"
+                refX="2.25"
+                refY="0.75"
                 orient="auto"
               >
                 <polygon
-                  points="0 0, 5 1.5, 0 3"
+                  points="0 0, 2.5 0.75, 0 1.5"
                   fill="#ff9800"
                 />
               </marker>
               <marker
                 id="arrowhead-temp"
-                markerWidth="5"
-                markerHeight="5"
-                refX="4.5"
-                refY="1.5"
+                markerWidth="2.5"
+                markerHeight="2.5"
+                refX="2.25"
+                refY="0.75"
                 orient="auto"
               >
                 <polygon
-                  points="0 0, 5 1.5, 0 3"
+                  points="0 0, 2.5 0.75, 0 1.5"
                   fill="#ff9800"
                 />
               </marker>
@@ -6045,72 +6114,177 @@ Richiesta: ${state.prompt}`;
             maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0 }}>🔗 Seleziona Binomio per Forza Match</h3>
-              <button
-                onClick={handleToggleSort}
-                style={{
-                  padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px',
-                  backgroundColor: sortOrder ? '#3498db' : '#ecf0f1', color: sortOrder ? 'white' : '#2c3e50',
-                  cursor: 'pointer', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px'
-                }}
-                title={sortOrder === 'asc' ? 'Ordinato crescente' : sortOrder === 'desc' ? 'Ordinato decrescente' : 'Clicca per ordinare'}
-              >
-                {sortOrder === 'asc' ? '↑' : sortOrder === 'desc' ? '↓' : '⇅'} Ordina per Test Case
-              </button>
-            </div>
-            <p style={{ marginTop: '0', color: '#666' }}>Scegli un binomio esistente da applicare a questo oggetto.</p>
-            
-            <div className="binomi-list" style={{ marginTop: '15px' }}>
-              {availableBinomiForMatch.length === 0 ? (
-                <p>Nessun binomio disponibile.</p>
-              ) : (
-                getSortedBinomi().map(binomio => {
-                  const fromObj = allECObjectsForMatch.find(o => o.id === binomio.fromObjectId);
-                  const toObj = allECObjectsForMatch.find(o => o.id === binomio.toObjectId);
-                  
-                  if (!fromObj || !toObj) return null;
+            {!selectedBinomioForForceMatch ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0 }}>🔗 Seleziona Binomio per Forza Match</h3>
+                  <button
+                    onClick={() => setShowForceMatchModal(false)}
+                    style={{
+                      padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px',
+                      backgroundColor: '#e74c3c', color: 'white', cursor: 'pointer', fontSize: '0.9em'
+                    }}
+                  >
+                    ✕ Chiudi
+                  </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <p style={{ marginTop: '0', color: '#666' }}>Scegli un binomio esistente da applicare a questo oggetto.</p>
+                  <button
+                    onClick={handleToggleSort}
+                    style={{
+                      padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px',
+                      backgroundColor: sortOrder ? '#3498db' : '#ecf0f1', color: sortOrder ? 'white' : '#2c3e50',
+                      cursor: 'pointer', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px'
+                    }}
+                    title={sortOrder === 'asc' ? 'Ordinato crescente' : sortOrder === 'desc' ? 'Ordinato decrescente' : 'Clicca per ordinare'}
+                  >
+                    {sortOrder === 'asc' ? '↑' : sortOrder === 'desc' ? '↓' : '⇅'} Ordina per Test Case
+                  </button>
+                </div>
+                
+                <div className="binomi-list" style={{ marginTop: '15px' }}>
+                  {availableBinomiForMatch.length === 0 ? (
+                    <p>Nessun binomio disponibile.</p>
+                  ) : (
+                    getSortedBinomi().map(binomio => {
+                      const fromObj = allECObjectsForMatch.find(o => o.id === binomio.fromObjectId);
+                      const toObj = allECObjectsForMatch.find(o => o.id === binomio.toObjectId);
+                      
+                      if (!fromObj || !toObj) return null;
+                      
+                      return (
+                        <div 
+                          key={binomio.id} 
+                          onClick={() => handleSelectBinomioForForceMatch(binomio)}
+                          style={{
+                            padding: '10px', border: '1px solid #ddd', borderRadius: '4px',
+                            marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s',
+                            display: 'flex', flexDirection: 'column', gap: '5px'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                            <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>FROM: {fromObj.text}</div>
+                            <div style={{ 
+                              fontSize: '0.85em', color: '#7f8c8d', 
+                              backgroundColor: '#ecf0f1', padding: '2px 8px', borderRadius: '3px',
+                              fontWeight: '500'
+                            }}>
+                              Test Case #{binomio.testCaseId}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            TO: {toObj.text.substring(0, 100)}...
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0 }}>📝 Inserisci Regola per Force Match</h3>
+                  <button
+                    onClick={() => {
+                      setSelectedBinomioForForceMatch(null);
+                      setForceMatchRule('');
+                    }}
+                    style={{
+                      padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px',
+                      backgroundColor: '#95a5a6', color: 'white', cursor: 'pointer', fontSize: '0.9em'
+                    }}
+                  >
+                    ← Indietro
+                  </button>
+                </div>
+                
+                {(() => {
+                  const fromObj = allECObjectsForMatch.find(o => o.id === selectedBinomioForForceMatch.fromObjectId);
+                  const toObj = allECObjectsForMatch.find(o => o.id === selectedBinomioForForceMatch.toObjectId);
                   
                   return (
-                    <div 
-                      key={binomio.id} 
-                      onClick={() => handleApplyForceMatch(binomio)}
-                      style={{
-                        padding: '10px', border: '1px solid #ddd', borderRadius: '4px',
-                        marginBottom: '8px', cursor: 'pointer', transition: 'background 0.2s',
-                        display: 'flex', flexDirection: 'column', gap: '5px'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                        <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>FROM: {fromObj.text}</div>
-                        <div style={{ 
-                          fontSize: '0.85em', color: '#7f8c8d', 
-                          backgroundColor: '#ecf0f1', padding: '2px 8px', borderRadius: '3px',
-                          fontWeight: '500'
-                        }}>
-                          Test Case #{binomio.testCaseId}
+                    <div style={{ marginBottom: '20px' }}>
+                      <p style={{ marginTop: '0', color: '#666', marginBottom: '15px' }}>
+                        Descrivi la regola che giustifica questo match:
+                      </p>
+                      
+                      <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+                        <div style={{ marginBottom: '8px' }}>
+                          <strong>Binomio sorgente:</strong>
+                        </div>
+                        <div style={{ fontSize: '0.9em', color: '#555', marginBottom: '5px' }}>
+                          <strong>From:</strong> {fromObj?.text || 'N/A'}
+                        </div>
+                        <div style={{ fontSize: '0.9em', color: '#555' }}>
+                          <strong>To:</strong> {toObj?.text?.substring(0, 150) || 'N/A'}...
                         </div>
                       </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.9em', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        TO: {toObj.text.substring(0, 100)}...
+                      
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#555' }}>
+                        Regola (obbligatoria):
+                      </label>
+                      <textarea
+                        value={forceMatchRule}
+                        onChange={(e) => setForceMatchRule(e.target.value)}
+                        placeholder="Es: Questo match è valido perché entrambi gli oggetti gestiscono il login dell'utente..."
+                        rows={5}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          minHeight: '100px'
+                        }}
+                      />
+                      
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                        <button
+                          onClick={() => {
+                            setShowForceMatchModal(false);
+                            setSelectedBinomioForForceMatch(null);
+                            setForceMatchRule('');
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            backgroundColor: '#6c757d',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                        >
+                          Annulla
+                        </button>
+                        <button
+                          onClick={handleApplyForceMatch}
+                          disabled={!forceMatchRule.trim()}
+                          style={{
+                            padding: '8px 16px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            backgroundColor: forceMatchRule.trim() ? '#28a745' : '#95a5a6',
+                            color: 'white',
+                            cursor: forceMatchRule.trim() ? 'pointer' : 'not-allowed',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Applica Force Match
+                        </button>
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-            
-            <button 
-              onClick={() => setShowForceMatchModal(false)}
-              style={{
-                marginTop: '15px', padding: '8px 16px', border: 'none',
-                borderRadius: '4px', backgroundColor: '#e74c3c', color: 'white', cursor: 'pointer'
-              }}
-            >
-              Annulla
-            </button>
+                })()}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -6133,6 +6307,79 @@ Richiesta: ${state.prompt}`;
           >
             🗑️ Cancella binomio
           </button>
+        </div>
+      )}
+
+      {/* Modale conferma cancellazione binomio (doppio click su freccia) */}
+      {deleteBinomioModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10002
+          }}
+          onClick={() => setDeleteBinomioModal(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '400px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, color: '#d32f2f', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🗑️</span>
+              <span>Cancella Binomio</span>
+            </h3>
+            <p style={{ margin: '16px 0', color: '#555' }}>
+              Sei sicuro di voler cancellare questo binomio?
+              <br />
+              <small style={{ color: '#999' }}>La freccia verrà rimossa definitivamente.</small>
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                onClick={() => setDeleteBinomioModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={async () => {
+                  await handleDeleteConnection(deleteBinomioModal.connectionId);
+                  setDeleteBinomioModal(null);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  backgroundColor: '#d32f2f',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                🗑️ Cancella il binomio
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

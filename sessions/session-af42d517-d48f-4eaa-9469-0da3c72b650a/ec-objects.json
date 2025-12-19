@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-17T14:42:14.894Z",
+  "lastUpdated": "2025-12-17T14:42:28.185Z",
+  "objects": [
+    {
+      "id": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC1-GIVEN-1",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "I have requested a PDF report from the Checklists",
+      "location": "header",
+      "startIndex": 6,
+      "endIndex": 55,
+      "createdAt": "2025-12-17T14:42:14.891Z"
+    },
+    {
+      "id": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC1-GIVEN-2",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 2,
+      "text": "entra no fg\nentra na lista de chklist\nacha o botao de imprimir pdf\nimpirms p",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 76,
+      "createdAt": "2025-12-17T14:42:16.932Z"
+    },
+    {
+      "id": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC2-GIVEN-AUTOFROM-1765982548158-2883",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 800,
+      "text": "I have requested a PDF report from the Checklists",
+      "location": "header",
+      "startIndex": 6,
+      "endIndex": 55,
+      "createdAt": "2025-12-17T14:42:28.158Z"
+    },
+    {
+      "id": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC2-GIVEN-AUTO-1765982548167-5259",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 992,
+      "text": "entra no fg\nentra na lista de chklist\nacha o botao de imprimir pdf\nimpirms p",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 76,
+      "createdAt": "2025-12-17T14:42:28.167Z"
+    }
+  ]
+}

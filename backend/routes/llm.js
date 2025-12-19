@@ -1,6 +1,6 @@
 // backend/routes/llm.js
 import express from 'express';
-import { parseGherkinSentence, suggestAutomation, chatWithAI } from '../services/llmAgent.js';
+import { parseGherkinSentence, suggestAutomation, chatWithAI, segmentSemanticChunks } from '../services/llmAgent.js';
 
 const router = express.Router();
 
@@ -102,6 +102,37 @@ router.post('/chat', async (req, res) => {
     res.status(500).json({ 
       error: 'Errore chat: ' + error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/llm/segment-chunks
+ * Segmenta un enunciato GWT in chunk semantici puri
+ */
+router.post('/segment-chunks', async (req, res) => {
+  try {
+    const { text, phase } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'text richiesto' });
+    }
+
+    console.log(`[Segment Chunks] Richiesta segmentazione per fase ${phase || 'given'}, testo length: ${text.length}`);
+
+    const chunks = await segmentSemanticChunks(text, phase || 'given');
+
+    console.log(`[Segment Chunks] ${chunks.length} chunks identificati`);
+
+    res.json({
+      success: true,
+      chunks,
+      count: chunks.length
+    });
+  } catch (error) {
+    console.error('Errore segmentazione chunks:', error);
+    res.status(500).json({ 
+      error: 'Errore segmentazione: ' + error.message 
     });
   }
 });

@@ -436,6 +436,76 @@ export const api = {
       throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
     return response.json();
+  },
+
+  /**
+   * Business Spec
+   */
+  async getBusinessSpec(sessionId) {
+    const response = await fetch(`${API_BASE}/business-spec/${sessionId}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async saveBusinessSpec(sessionId, text) {
+    const response = await fetch(`${API_BASE}/business-spec/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * LLM Match
+   */
+  async runLLMMatch(sessionId) {
+    const response = await fetch(`${API_BASE}/llm-match/${sessionId}/run`, {
+      method: 'POST'
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async confirmLLMSuggestions(sessionId, acceptedIds) {
+    const response = await fetch(`${API_BASE}/llm-match/${sessionId}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acceptedIds })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Segmenta un enunciato GWT in chunk semantici puri
+   */
+  async segmentSemanticChunks(text, phase) {
+    const response = await fetch(`${API_BASE}/llm/segment-chunks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, phase })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
   }
 };
 

@@ -10,6 +10,8 @@ import cypressRoutes from './routes/cypress.js';
 import sessionsRoutes from './routes/sessions.js';
 import ecDatabaseRoutes, { binomiRouter } from './routes/ecDatabase.js';
 import contextDocumentRoutes from './routes/contextDocument.js';
+import businessSpecRoutes from './routes/businessSpec.js';
+import llmMatchRoutes from './routes/llmMatch.js';
 
 // Carica variabili d'ambiente
 dotenv.config();
@@ -36,6 +38,10 @@ app.use('/api/binomi', binomiRouter);
 console.log('✅ Route /api/binomi registrata');
 app.use('/api/context-document', contextDocumentRoutes);
 console.log('✅ Route /api/context-document registrata');
+app.use('/api/business-spec', businessSpecRoutes);
+console.log('✅ Route /api/business-spec registrata');
+app.use('/api/llm-match', llmMatchRoutes);
+console.log('✅ Route /api/llm-match registrata');
 
 // Health check
 app.get('/api/health', (req, res) => {

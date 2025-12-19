@@ -319,13 +319,14 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
               <th onClick={() => handleSort('status')} className="sortable">
                 Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
+              <th>Regola Force Match</th>
               <th>Azioni</th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedBinomi.length === 0 ? (
               <tr>
-                <td colSpan="9" className="no-data">
+                <td colSpan="10" className="no-data">
                   Nessun binomio trovato
                 </td>
               </tr>
@@ -335,6 +336,7 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
                 const toObj = findObject(b.toObjectId);
                 const status = b.status || 'active';
                 const isDisabled = status === 'disabled';
+                const hasForceMeta = b.forceMeta && b.forceMeta.ruleText;
                 
                 return (
                   <tr key={b.id} className={isDisabled ? 'binomio-disabled' : ''}>
@@ -371,6 +373,33 @@ export function BinomiView({ sessionId, onBack, onLogEvent, onBinomioDeleted }) 
                       <span className={`status-badge status-${status}`}>
                         {status === 'disabled' ? 'Disattivato' : 'Attivo'}
                       </span>
+                    </td>
+                    <td className="rule-cell">
+                      {hasForceMeta ? (
+                        <div style={{ maxWidth: '200px' }}>
+                          <div 
+                            style={{ 
+                              fontSize: '12px', 
+                              color: '#555',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              cursor: 'help'
+                            }}
+                            title={b.forceMeta.ruleText}
+                          >
+                            {b.forceMeta.ruleText.substring(0, 80)}
+                            {b.forceMeta.ruleText.length > 80 ? '...' : ''}
+                          </div>
+                          {b.forceMeta.sourceBinomioId && (
+                            <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
+                              Da: {b.forceMeta.sourceBinomioId.substring(0, 30)}...
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '12px' }}>-</span>
+                      )}
                     </td>
                     <td className="actions-cell">
                       {isDisabled ? (

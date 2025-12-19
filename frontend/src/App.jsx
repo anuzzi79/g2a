@@ -7,6 +7,8 @@ import { SessionManager } from './components/SessionManager';
 import { ECObjectsView } from './components/ECObjectsView';
 import { BinomiView } from './components/BinomiView';
 import { ContextDocumentView } from './components/ContextDocumentView';
+import { BusinessSpecView } from './components/BusinessSpecView';
+import { LLMMatchReviewModal } from './components/LLMMatchReviewModal';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useConsoleLogger } from './hooks/useConsoleLogger';
 import { api } from './services/api';
@@ -19,7 +21,7 @@ export default function App() {
   const [context, setContext] = useState(null);
   const [testCases, setTestCases] = useState([]);
   const [selectedTestCase, setSelectedTestCase] = useState(null);
-  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder' | 'ec-objects' | 'binomi' | 'context-doc'
+  const [step, setStep] = useState('sessions'); // 'sessions' | 'setup' | 'testcases' | 'builder' | 'ec-objects' | 'binomi' | 'context-doc' | 'business-spec'
   const [copyMessage, setCopyMessage] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // Per forzare re-render della lista
   const [loadingSession, setLoadingSession] = useState(false);
@@ -27,6 +29,35 @@ export default function App() {
   const [globalAutocompleteProgress, setGlobalAutocompleteProgress] = useState(null);
   const [isObjectAutocompleteRunning, setIsObjectAutocompleteRunning] = useState(false);
   const [savedSessionName, setSavedSessionName] = useState(null);
+  const [showLLMReviewModal, setShowLLMReviewModal] = useState(false);
+  const [llmSuggestions, setLlmSuggestions] = useState(null);
+  const [llmStats, setLlmStats] = useState(null);
+  const [runningLLMMatch, setRunningLLMMatch] = useState(false);
+  const [llmBinomi, setLlmBinomi] = useState([]);
+  const [allECObjects, setAllECObjects] = useState([]);
+  const [allBinomi, setAllBinomi] = useState([]);
+  const [isAtomicSegmentationRunning, setIsAtomicSegmentationRunning] = useState(false);
+  const [atomicSegmentationProgress, setAtomicSegmentationProgress] = useState(null);
+
+  // Ricarica oggetti EC e binomi quando cambia refreshKey
+  useEffect(() => {
+    const reloadSessionData = async () => {
+      if (!currentSession?.id) return;
+      
+      try {
+        const [ecObjectsResult, binomiResult] = await Promise.all([
+          api.getECObjects(currentSession.id),
+          api.getBinomi(currentSession.id)
+        ]);
+        setAllECObjects(ecObjectsResult.objects || []);
+        setAllBinomi(binomiResult.binomi || []);
+      } catch (error) {
+        console.error('Errore ricaricamento oggetti EC/binomi:', error);
+      }
+    };
+    
+    reloadSessionData();
+  }, [refreshKey, currentSession?.id]);
 
   // Carica sessione corrente all'avvio
   useEffect(() => {
@@ -127,6 +158,19 @@ export default function App() {
             logEvent('info', `${parsed.length} test cases caricati dalla sessione (cache locale)`);
           }
         }
+      }
+
+      // Carica oggetti EC e binomi per calcolare le percentuali di copertura
+      try {
+        const [ecObjectsResult, binomiResult] = await Promise.all([
+          api.getECObjects(session.id),
+          api.getBinomi(session.id)
+        ]);
+        setAllECObjects(ecObjectsResult.objects || []);
+        setAllBinomi(binomiResult.binomi || []);
+      } catch (error) {
+        console.error('Errore caricamento oggetti EC/binomi:', error);
+        // Non bloccare il caricamento per questo errore
       }
     } catch (error) {
       console.error('Errore caricamento dati sessione:', error);
@@ -1405,6 +1449,372 @@ export default function App() {
     }
   };
 
+  // Componente disco percentuale per visualizzare la copertura
+  const CoverageIndicator = ({ percentage }) => {
+    const size = 28;
+    const strokeWidth = 3.5;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percentage / 100) * circumference;
+    
+    const getColor = () => {
+      if (percentage >= 80) return '#4caf50'; // Verde
+      if (percentage >= 50) return '#ff9800'; // Arancione
+      return '#f44336'; // Rosso
+    };
+    
+    const getMessage = () => {
+      if (percentage === 100) return 'Copertura completa';
+      if (percentage >= 80) return 'Buona copertura';
+      if (percentage >= 50) return 'Copertura media';
+      if (percentage > 0) return 'Copertura bassa';
+      return 'Nessuna copertura';
+    };
+    
+    return (
+      <svg 
+        width={size} 
+        height={size} 
+        style={{ 
+          display: 'inline-block', 
+          verticalAlign: 'middle', 
+          marginLeft: '8px',
+          cursor: 'help'
+        }}
+        title={`${getMessage()}: ${percentage}% del testo è coperto da binomi`}
+      >
+        {/* Cerchio di sfondo grigio */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#e0e0e0"
+          strokeWidth={strokeWidth}
+        />
+        {/* Cerchio colorato per la percentuale */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={getColor()}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+        />
+        {/* Testo percentuale al centro (solo se > 0) */}
+        {percentage > 0 && (
+          <text
+            x={size / 2}
+            y={size / 2}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="9"
+            fontWeight="bold"
+            fill={getColor()}
+          >
+            {percentage}
+          </text>
+        )}
+      </svg>
+    );
+  };
+
+  // Funzione per calcolare la percentuale di copertura di un enunciato tramite binomi
+  const calculateCoveragePercentage = (text, testCaseId, phase) => {
+    if (!text || !currentSession?.id) return 0;
+    
+    // Rimuovi parole chiave Gherkin dal conteggio
+    const cleanText = text
+      .replace(/^(Given|When|Then|And|Or|But)\s+/i, '')
+      .replace(/\s+(and|or|but)\s+/gi, ' ')
+      .replace(/[,;:]/g, '')
+      .trim();
+    
+    if (!cleanText) return 0;
+    
+    // Lunghezza totale del testo pulito (base per il calcolo)
+    const totalLength = cleanText.length;
+    if (totalLength === 0) return 0;
+    
+    // Trova tutti gli oggetti EC di tipo FROM (header) per questo test case e fase
+    const phaseObjects = allECObjects.filter(obj => 
+      obj.testCaseId === String(testCaseId) && 
+      obj.boxType === phase && 
+      obj.location === 'header'
+    );
+    
+    if (phaseObjects.length === 0) return 0;
+    
+    // Trova i binomi collegati a questi oggetti FROM
+    const connectedObjects = phaseObjects.filter(obj => {
+      // Cerca se esiste un binomio per questo oggetto FROM
+      return allBinomi.some(b => 
+        (b.fromObjectId === obj.id || b.fromObjectId === obj.ecObjectId) &&
+        b.testCaseId === String(testCaseId) &&
+        (b.status === undefined || b.status === 'active')
+      );
+    });
+    
+    if (connectedObjects.length === 0) return 0;
+    
+    // Calcola la lunghezza totale coperta (somma dei testi degli oggetti collegati)
+    let coveredLength = 0;
+    connectedObjects.forEach(obj => {
+      if (obj.text) {
+        // Rimuovi anche dalle parti coperte le parole chiave
+        const cleanObjText = obj.text
+          .replace(/^(Given|When|Then|And|Or|But)\s+/i, '')
+          .replace(/\s+(and|or|but)\s+/gi, ' ')
+          .replace(/[,;:]/g, '')
+          .trim();
+        coveredLength += cleanObjText.length;
+      }
+    });
+    
+    // Calcola percentuale (limitata a 100%)
+    const percentage = Math.min(100, Math.round((coveredLength / totalLength) * 100));
+    return percentage;
+  };
+
+  // Handler per Segmentazione Atomica di tutti i test cases
+  const handleAtomicSegmentation = async () => {
+    if (!currentSession?.id || testCases.length === 0) {
+      alert('Nessun test case disponibile per la segmentazione');
+      return;
+    }
+    
+    const confirm = window.confirm(
+      `Vuoi applicare la segmentazione semantica automatica a tutti i ${testCases.length} test cases?\n\n` +
+      `Questo creerà automaticamente gli oggetti EC (FROM) per ogni chunk semantico identificato in tutti gli enunciati Given/When/Then.`
+    );
+    
+    if (!confirm) return;
+    
+    try {
+      setIsAtomicSegmentationRunning(true);
+      logEvent('info', `⚛️ Avvio Segmentazione Atomica per ${testCases.length} test cases...`);
+      
+      let totalChunksCreated = 0;
+      let totalObjectsCreated = 0;
+      let errorsCount = 0;
+      
+      // Genera ID univoco per gli oggetti EC
+      const generateECObjectId = (boxType, boxNumber) => {
+        const boxTypeUpper = boxType.toUpperCase();
+        return `${currentSession.id}-TC${boxTypeUpper}-${boxNumber}-${Date.now()}`;
+      };
+      
+      // Conta oggetti esistenti per ottenere il prossimo numero
+      const getNextBoxNumber = async (boxType) => {
+        const existingObjects = allECObjects.filter(
+          obj => obj.boxType === boxType && obj.sessionId === currentSession.id
+        );
+        return existingObjects.length + 1;
+      };
+      
+      // Per ogni test case
+      for (let i = 0; i < testCases.length; i++) {
+        const tc = testCases[i];
+        setAtomicSegmentationProgress({
+          current: i + 1,
+          total: testCases.length,
+          testCaseId: tc.id,
+          message: `Elaborando Test Case #${tc.id}...`
+        });
+        
+        // Per ogni fase (given, when, then)
+        for (const phase of ['given', 'when', 'then']) {
+          const text = tc[phase];
+          if (!text || text.trim().length === 0) continue;
+          
+          try {
+            logEvent('info', `⚛️ Segmentazione ${phase.toUpperCase()} per TC#${tc.id}...`);
+            
+            // Chiama API di segmentazione
+            const result = await api.segmentSemanticChunks(text, phase);
+            
+            if (result.success && result.chunks && result.chunks.length > 0) {
+              totalChunksCreated += result.chunks.length;
+              
+              logEvent('info', `📝 Testo originale: "${text}"`);
+              logEvent('info', `🔍 Chunks ricevuti: ${result.chunks.length}`);
+              
+              // Crea oggetti EC per ogni chunk
+              let searchOffset = 0; // Per gestire chunk duplicati nel testo e skip operatori
+              for (const chunk of result.chunks) {
+                const boxNumber = await getNextBoxNumber(phase);
+                const ecObjectId = generateECObjectId(phase, boxNumber + totalObjectsCreated);
+                
+                // Cerca il chunk nel testo originale a partire da searchOffset
+                // Questo funziona perché i chunk non contengono operatori Gherkin
+                const startIndex = text.indexOf(chunk.text, searchOffset);
+                
+                if (startIndex === -1) {
+                  // Chunk non trovato, probabilmente un problema con la segmentazione
+                  logEvent('warning', `⚠️ Chunk non trovato nel testo: "${chunk.text}"`);
+                  // Usa posizione approssimata
+                  const endIndex = searchOffset + chunk.text.length;
+                  
+                  const ecObject = {
+                    id: ecObjectId,
+                    sessionId: currentSession.id,
+                    testCaseId: String(tc.id),
+                    boxType: phase,
+                    boxNumber: boxNumber + totalObjectsCreated,
+                    text: chunk.text,
+                    location: 'header', // FROM object
+                    startIndex: searchOffset,
+                    endIndex: endIndex,
+                    createdAt: new Date().toISOString(),
+                    meta: {
+                      autoSegmented: true,
+                      semanticType: chunk.semanticType,
+                      sourceText: text,
+                      sourcePhase: phase,
+                      positionNotFound: true
+                    }
+                  };
+                  
+                  await api.saveECObject(currentSession.id, ecObject);
+                  totalObjectsCreated++;
+                  searchOffset = endIndex;
+                  continue;
+                }
+                
+                const endIndex = startIndex + chunk.text.length;
+                
+                // Aggiorna l'offset per la prossima ricerca (dopo questo chunk)
+                searchOffset = endIndex;
+                
+                const ecObject = {
+                  id: ecObjectId,
+                  sessionId: currentSession.id,
+                  testCaseId: String(tc.id),
+                  boxType: phase,
+                  boxNumber: boxNumber + totalObjectsCreated,
+                  text: chunk.text,
+                  location: 'header', // FROM object
+                  startIndex: startIndex,
+                  endIndex: endIndex,
+                  createdAt: new Date().toISOString(),
+                  meta: {
+                    autoSegmented: true,
+                    semanticType: chunk.semanticType,
+                    sourceText: text,
+                    sourcePhase: phase
+                  }
+                };
+                
+                await api.saveECObject(currentSession.id, ecObject);
+                totalObjectsCreated++;
+                
+                logEvent('success', `✓ Oggetto creato: "${chunk.text.substring(0, 40)}..." @ [${startIndex}:${endIndex}]`);
+              }
+            }
+          } catch (error) {
+            console.error(`Errore segmentazione ${phase} per TC#${tc.id}:`, error);
+            logEvent('error', `Errore ${phase} TC#${tc.id}: ${error.message}`);
+            errorsCount++;
+          }
+        }
+        
+        // Piccola pausa per non sovraccaricare l'API
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Ricarica gli oggetti EC
+      const ecObjectsResult = await api.getECObjects(currentSession.id);
+      setAllECObjects(ecObjectsResult.objects || []);
+      
+      // Incrementa refreshKey per forzare re-render
+      setRefreshKey(prev => prev + 1);
+      
+      const summary = `✅ Segmentazione Atomica Completata!\n\n` +
+        `• Test Cases elaborati: ${testCases.length}\n` +
+        `• Chunk semantici identificati: ${totalChunksCreated}\n` +
+        `• Oggetti EC creati: ${totalObjectsCreated}\n` +
+        (errorsCount > 0 ? `• Errori: ${errorsCount}\n` : '') +
+        `\nGli oggetti FROM sono ora disponibili e pronti per essere collegati!`;
+      
+      logEvent('success', summary);
+      alert(summary);
+      
+    } catch (error) {
+      console.error('Errore Segmentazione Atomica:', error);
+      logEvent('error', `Errore Segmentazione Atomica: ${error.message}`);
+      alert(`Errore durante la segmentazione atomica: ${error.message}`);
+    } finally {
+      setIsAtomicSegmentationRunning(false);
+      setAtomicSegmentationProgress(null);
+    }
+  };
+
+  // Handler per Run LLM Assisted Match
+  const handleRunLLMMatch = async () => {
+    if (!currentSession?.id) return;
+
+    try {
+      setRunningLLMMatch(true);
+      logEvent('info', '🤖 Avvio Run LLM Assisted Match...');
+
+      const result = await api.runLLMMatch(currentSession.id);
+
+      if (!result.suggestions || result.suggestions.length === 0) {
+        logEvent('warning', 'Nessuna suggestion trovata dall\'LLM. Potrebbero non esserci oggetti FROM non collegati o pattern disponibili.');
+        alert('Nessuna suggestion trovata. Verifica che ci siano oggetti FROM non collegati e binomi pattern disponibili.');
+        return;
+      }
+
+      // Carica oggetti e binomi per il modale
+      const [ecObjectsResult, binomiResult] = await Promise.all([
+        api.getECObjects(currentSession.id),
+        api.getBinomi(currentSession.id)
+      ]);
+
+      setLlmSuggestions(result.suggestions);
+      setLlmStats(result.stats);
+      setLlmBinomi(binomiResult.binomi || []);
+      setShowLLMReviewModal(true);
+      logEvent('success', `LLM ha trovato ${result.suggestions.length} suggestions`);
+    } catch (error) {
+      console.error('Errore Run LLM Match:', error);
+      logEvent('error', `Errore Run LLM Match: ${error.message}`);
+      alert(`Errore durante l'esecuzione del Run LLM Match: ${error.message}`);
+    } finally {
+      setRunningLLMMatch(false);
+    }
+  };
+
+  // Handler per conferma suggestions LLM
+  const handleConfirmLLMSuggestions = async (acceptedIds) => {
+    if (!currentSession?.id || !acceptedIds || acceptedIds.length === 0) return;
+
+    try {
+      logEvent('info', `Conferma ${acceptedIds.length} suggestions LLM...`);
+      const result = await api.confirmLLMSuggestions(currentSession.id, acceptedIds);
+      
+      logEvent('success', `Creati ${result.createdBinomi?.length || 0} nuovi binomi da LLM Match`);
+      setShowLLMReviewModal(false);
+      setLlmSuggestions(null);
+      setLlmStats(null);
+      setLlmBinomi([]);
+      
+      // Ricarica i test cases per mostrare i nuovi binomi
+      setRefreshKey(prev => prev + 1);
+      
+      alert(`Creati ${result.createdBinomi?.length || 0} nuovi binomi. Il Documento di Contesto è stato amalgamato automaticamente.`);
+    } catch (error) {
+      console.error('Errore conferma LLM Suggestions:', error);
+      logEvent('error', `Errore conferma suggestions: ${error.message}`);
+      alert(`Errore durante la conferma: ${error.message}`);
+    }
+  };
+
 // Funzione per calcolare similarità testuale tra due testi
   const calculateTextSimilarity = (text1, text2) => {
     if (!text1 || !text2) return 0;
@@ -2003,13 +2413,61 @@ export default function App() {
                     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     transition: 'all 0.3s ease'
                   }}
-                  onClick={handleObjectAutocomplete}
                   title="Object Autocomplete: Raziocinio per Oggetti"
                 >
                   {isObjectAutocompleteRunning ? '⏳' : '🔶'}
                 </button>
+                <button
+                  className="atomic-segmentation-button"
+                  onClick={handleAtomicSegmentation}
+                  disabled={isAtomicSegmentationRunning || !currentSession?.id || testCases.length === 0}
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    backgroundColor: isAtomicSegmentationRunning ? '#95a5a6' : '#9c27b0',
+                    color: 'white',
+                    border: 'none',
+                    cursor: (isAtomicSegmentationRunning || !currentSession?.id || testCases.length === 0) ? 'not-allowed' : 'pointer',
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    transition: 'all 0.3s ease',
+                    opacity: (!currentSession?.id || testCases.length === 0) ? 0.5 : 1
+                  }}
+                  title="⚛️ Segmentazione Atomica: Chunckizza automaticamente tutti gli enunciati GWT in oggetti EC semantici"
+                >
+                  {isAtomicSegmentationRunning ? '⏳' : '⚛️'}
+                </button>
                 {currentSession?.id && (
                   <>
+                    <button
+                      onClick={handleRunLLMMatch}
+                      disabled={runningLLMMatch}
+                      style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        padding: '0',
+                        backgroundColor: runningLLMMatch ? '#95a5a6' : '#8b4513',
+                        color: 'white',
+                        border: 'none',
+                        cursor: runningLLMMatch ? 'not-allowed' : 'pointer',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        transition: 'all 0.3s ease'
+                      }}
+                      title="Run LLM Assisted Match"
+                    >
+                      {runningLLMMatch ? '⏳' : '🤖'}
+                    </button>
                     <button 
                       onClick={() => setStep('ec-objects')} 
                       className="view-button"
@@ -2082,6 +2540,30 @@ export default function App() {
                     >
                       📄
                     </button>
+                    <button
+                      onClick={() => setStep('business-spec')}
+                      className="view-button"
+                      style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        padding: '0',
+                        backgroundColor: '#e67e22',
+                        color: 'white',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        transition: 'all 0.3s ease'
+                      }}
+                      title="Business Specifications"
+                    >
+                      📋
+                    </button>
                   </>
                 )}
                 <button 
@@ -2151,6 +2633,29 @@ export default function App() {
                   {globalAutocompleteProgress.total > 0 && (
                     <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
                       Progresso: {globalAutocompleteProgress.current} / {globalAutocompleteProgress.total}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Mostra progresso Segmentazione Atomica se attiva */}
+            {atomicSegmentationProgress && (
+              <div style={{ 
+                margin: '15px 0', 
+                padding: '12px 15px', 
+                backgroundColor: '#f3e5f5', 
+                border: '1px solid #9c27b0', 
+                borderRadius: '5px',
+                fontSize: '14px'
+                }}>
+                <strong>⏳ ⚛️ Segmentazione Atomica in corso...</strong>
+                <div style={{ marginTop: '8px' }}>
+                  {atomicSegmentationProgress.message}
+                  {atomicSegmentationProgress.total > 0 && (
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      Progresso: {atomicSegmentationProgress.current} / {atomicSegmentationProgress.total}
+                      {atomicSegmentationProgress.testCaseId && ` (Test Case #${atomicSegmentationProgress.testCaseId})`}
                     </div>
                   )}
                 </div>
@@ -2310,9 +2815,18 @@ export default function App() {
                       </div>
                     )}
                     
-                    <p><strong>Given:</strong> {tc.given}</p>
-                    <p><strong>When:</strong> {tc.when}</p>
-                    <p><strong>Then:</strong> {tc.then}</p>
+                    <p>
+                      <strong>Given:</strong> {tc.given}
+                      <CoverageIndicator percentage={calculateCoveragePercentage(tc.given, tc.id, 'given')} />
+                    </p>
+                    <p>
+                      <strong>When:</strong> {tc.when}
+                      <CoverageIndicator percentage={calculateCoveragePercentage(tc.when, tc.id, 'when')} />
+                    </p>
+                    <p>
+                      <strong>Then:</strong> {tc.then}
+                      <CoverageIndicator percentage={calculateCoveragePercentage(tc.then, tc.id, 'then')} />
+                    </p>
                     <button className="open-button">Apri Builder →</button>
                   </div>
                 );
@@ -2326,6 +2840,7 @@ export default function App() {
             testCase={selectedTestCase}
             context={context}
             currentSession={currentSession}
+            refreshKey={refreshKey}
             onUpdateTestCase={handleUpdateTestCase}
             onBack={() => {
               setStep('testcases');
@@ -2398,6 +2913,42 @@ export default function App() {
             sessionId={currentSession.id}
             onBack={() => setStep('testcases')}
             onLogEvent={logEvent}
+          />
+        )}
+
+        {step === 'business-spec' && currentSession && (
+          <BusinessSpecView
+            sessionId={currentSession.id}
+            onBack={() => setStep('testcases')}
+            onLogEvent={logEvent}
+          />
+        )}
+
+        {showLLMReviewModal && currentSession && (
+          <LLMMatchReviewModal
+            suggestions={llmSuggestions || []}
+            stats={llmStats}
+            ecObjects={testCases.flatMap(tc => {
+              const objects = [];
+              if (tc.given) objects.push(...(tc.given.objects || []));
+              if (tc.when) objects.push(...(tc.when.objects || []));
+              if (tc.then) objects.push(...(tc.then.objects || []));
+              return objects;
+            })}
+            binomi={llmBinomi}
+            onAccept={handleConfirmLLMSuggestions}
+            onReject={() => {
+              setShowLLMReviewModal(false);
+              setLlmSuggestions(null);
+              setLlmStats(null);
+              setLlmBinomi([]);
+            }}
+            onClose={() => {
+              setShowLLMReviewModal(false);
+              setLlmSuggestions(null);
+              setLlmStats(null);
+              setLlmBinomi([]);
+            }}
           />
         )}
       </main>

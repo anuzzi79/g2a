@@ -333,6 +333,16 @@
   background-color: #5568d3;
 }
 
+.rule-cell {
+  max-width: 250px;
+  font-size: 12px;
+}
+
+.rule-cell > div {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 
 
 

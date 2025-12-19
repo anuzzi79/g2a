@@ -1,0 +1,145 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-17T14:31:36.542Z",
+  "lastUpdated": "2025-12-17T14:34:21.594Z",
+  "binomi": [
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-001-1765981896537",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "1",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-GIVEN-1",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-GIVEN-2",
+      "fromPoint": {
+        "x": 0.9512054410187587,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.016933220260772174,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:36.537Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC2-AUTO-1765981906364-854",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "2",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC2-GIVEN-AUTOFROM-1765981906332-6811",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC2-GIVEN-AUTO-1765981906343-1562",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:46.364Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC3-AUTO-1765981906406-1645",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "3",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC3-GIVEN-AUTOFROM-1765981906375-5809",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC3-GIVEN-AUTO-1765981906387-4811",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:46.406Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC4-AUTO-1765981906461-3846",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "4",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC4-GIVEN-AUTOFROM-1765981906414-4200",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC4-GIVEN-AUTO-1765981906427-9941",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:46.461Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC15-AUTO-1765981906511-7687",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "15",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC15-GIVEN-AUTOFROM-1765981906485-8741",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC15-GIVEN-AUTO-1765981906495-1518",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:46.511Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC16-AUTO-1765981906545-4919",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "16",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC16-GIVEN-AUTOFROM-1765981906519-9319",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC16-GIVEN-AUTO-1765981906528-3626",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:31:46.545Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-002-1765981945507",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "1",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-WHEN-1",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC1-WHEN-2",
+      "fromPoint": {
+        "x": 1,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0,
+        "y": 0.06790865384615384
+      },
+      "createdAt": "2025-12-17T14:32:25.507Z",
+      "status": "active"
+    },
+    {
+      "id": "bf-session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC6-AUTO-1765981950152-6138",
+      "sessionId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd",
+      "testCaseId": "6",
+      "fromObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC6-GIVEN-AUTOFROM-1765981950124-6824",
+      "toObjectId": "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd-TC6-GIVEN-AUTO-1765981950134-6428",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:32:30.152Z",
+      "status": "disabled",
+      "disabledAt": "2025-12-17T14:34:21.593Z",
+      "disabledReason": "Diativa esse binomio por que esrta template, e não acitve então ta errado..essse codiog so funciona quando é active o tabs em que se encontra o path"
+    }
+  ]
+}

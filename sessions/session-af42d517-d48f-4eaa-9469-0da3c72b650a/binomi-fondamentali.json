@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-17T14:42:23.051Z",
+  "lastUpdated": "2025-12-17T15:03:53.246Z",
+  "binomi": [
+    {
+      "id": "bf-session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC1-001-1765982543045",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "1",
+      "fromObjectId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC1-GIVEN-1",
+      "toObjectId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC1-GIVEN-2",
+      "fromPoint": {
+        "x": 0.9453786989962195,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.005175983436853002,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:42:23.045Z",
+      "status": "active",
+      "disabledAt": "2025-12-17T15:03:37.188Z",
+      "disabledReason": "elimei por que assim assado",
+      "enabledAt": "2025-12-17T15:03:53.246Z",
+      "enabledReason": "attivei de ovo porque asimsasismado"
+    },
+    {
+      "id": "bf-session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC2-AUTO-1765982548189-5180",
+      "sessionId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a",
+      "testCaseId": "2",
+      "fromObjectId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC2-GIVEN-AUTOFROM-1765982548158-2883",
+      "toObjectId": "session-af42d517-d48f-4eaa-9469-0da3c72b650a-TC2-GIVEN-AUTO-1765982548167-5259",
+      "fromPoint": {
+        "x": 0.5,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.5,
+        "y": 0
+      },
+      "createdAt": "2025-12-17T14:42:28.189Z",
+      "status": "active"
+    }
+  ]
+}

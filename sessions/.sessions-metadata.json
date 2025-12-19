@@ -14,7 +14,7 @@
   "session-af02d251-4bbd-48aa-93bc-c7d164718e20": {
     "name": "nova",
     "createdAt": "2025-12-03T19:58:41.031Z",
-    "lastAccessed": "2025-12-10T20:04:48.910Z",
+    "lastAccessed": "2025-12-19T02:05:01.602Z",
     "status": "active",
     "csvFileName": "FGC-9144.csv",
     "csvSavedAt": "2025-12-10T19:31:26.290Z"
@@ -38,7 +38,7 @@
   "session-0dd54e8e-5afe-4133-b7b5-0a8038757dcd": {
     "name": "tony9",
     "createdAt": "2025-12-06T12:52:30.878Z",
-    "lastAccessed": "2025-12-16T12:23:16.339Z",
+    "lastAccessed": "2025-12-19T02:05:13.997Z",
     "status": "active"
   },
   "session-20322d0c-fc01-43b6-8033-86b9f60fa05a": {
@@ -46,5 +46,59 @@
     "createdAt": "2025-12-03T20:08:25.903Z",
     "lastAccessed": "2025-12-11T10:04:12.303Z",
     "status": "active"
+  },
+  "session-4d7bcaa0-07e0-4746-a11c-ffd4b4e7a9fd": {
+    "name": "Tony 10",
+    "createdAt": "2025-12-17T14:30:18.801Z",
+    "lastAccessed": "2025-12-17T14:40:29.502Z",
+    "status": "active",
+    "csvFileName": "FGC-9969.csv",
+    "csvSavedAt": "2025-12-17T14:30:35.389Z"
+  },
+  "session-af42d517-d48f-4eaa-9469-0da3c72b650a": {
+    "name": "sessao Rodant",
+    "createdAt": "2025-12-17T14:40:41.123Z",
+    "lastAccessed": "2025-12-17T14:40:41.173Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-17T14:40:50.538Z"
+  },
+  "session-8788ed01-5991-481e-8b9f-022b7a967ed8": {
+    "name": "tony30",
+    "createdAt": "2025-12-19T02:05:37.558Z",
+    "lastAccessed": "2025-12-19T03:57:35.595Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-19T02:05:47.631Z"
+  },
+  "session-203fd32d-c0cc-47f8-9bbe-1c563dd5c6d0": {
+    "name": "tony 31",
+    "createdAt": "2025-12-19T04:05:57.753Z",
+    "lastAccessed": "2025-12-19T04:40:23.960Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-19T04:06:09.597Z"
+  },
+  "session-db10caf2-0c37-4106-84af-c08995767efd": {
+    "name": "tony32",
+    "createdAt": "2025-12-19T04:40:38.997Z",
+    "lastAccessed": "2025-12-19T04:40:42.298Z",
+    "status": "active"
+  },
+  "session-5874e9dd-b170-4d8c-aa7c-e40d31639fc4": {
+    "name": "tony33",
+    "createdAt": "2025-12-19T04:43:21.944Z",
+    "lastAccessed": "2025-12-19T04:48:31.316Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-19T04:43:29.220Z"
+  },
+  "session-0e6abb71-d21b-4ec7-9e79-bced2c779972": {
+    "name": "tony34",
+    "createdAt": "2025-12-19T04:48:49.884Z",
+    "lastAccessed": "2025-12-19T04:48:50.101Z",
+    "status": "active",
+    "csvFileName": "FGC-9144.csv",
+    "csvSavedAt": "2025-12-19T04:48:57.376Z"
   }
 }
