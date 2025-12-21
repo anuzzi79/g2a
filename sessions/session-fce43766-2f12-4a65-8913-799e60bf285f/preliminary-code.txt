@@ -1,11 +1,13 @@
-import { EquipmentPage } from "../../../pages/equipment_pages";
+import { EquipmentPage } from "../ui/pages/equipment_pages";
+import { EquipmentTypePage } from "../ui/pages/eq_type_pages";
+import { ChecklistPages } from "../ui/pages/checklist_pages";
 import { faker } from "@faker-js/faker";
 
 const equipmentPage = new EquipmentPage();
+const equipmentTypePage = new EquipmentTypePage();
+const checklistPages = new ChecklistPages();
 
-const imageTitle = "Teste.png";
-
-describe("List of tests to validate equipments detail image", () => {
+describe("Links of Equipments", () => {
   beforeEach(() => {
     cy.loginViaAPI();
     cy.enterProject("equipment");
