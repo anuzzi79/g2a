@@ -12,6 +12,9 @@ import ecDatabaseRoutes, { binomiRouter } from './routes/ecDatabase.js';
 import contextDocumentRoutes from './routes/contextDocument.js';
 import businessSpecRoutes from './routes/businessSpec.js';
 import llmMatchRoutes from './routes/llmMatch.js';
+import cypressConfigRoutes from './routes/cypressConfig.js';
+import testGeneratorRoutes from './routes/testGenerator.js';
+import codeValidatorRoutes from './routes/codeValidator.js';
 
 // Carica variabili d'ambiente
 dotenv.config();
@@ -42,6 +45,12 @@ app.use('/api/business-spec', businessSpecRoutes);
 console.log('✅ Route /api/business-spec registrata');
 app.use('/api/llm-match', llmMatchRoutes);
 console.log('✅ Route /api/llm-match registrata');
+app.use('/api/cypress-config', cypressConfigRoutes);
+console.log('✅ Route /api/cypress-config registrata');
+app.use('/api/test-generator', testGeneratorRoutes);
+console.log('✅ Route /api/test-generator registrata');
+app.use('/api/code-validator', codeValidatorRoutes);
+console.log('✅ Route /api/code-validator registrata');
 
 // Health check
 app.get('/api/health', (req, res) => {

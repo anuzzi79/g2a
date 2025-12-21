@@ -1,4 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/themes/prism-tomorrow.css';
 import { CSVUploader } from './components/CSVUploader';
 import { ContextBuilder } from './components/ContextBuilder';
 import { TestCaseBuilder } from './components/TestCaseBuilder';
@@ -9,6 +13,8 @@ import { BinomiView } from './components/BinomiView';
 import { ContextDocumentView } from './components/ContextDocumentView';
 import { BusinessSpecView } from './components/BusinessSpecView';
 import { LLMMatchReviewModal } from './components/LLMMatchReviewModal';
+import { GherkinTextWithHighlights } from './components/GherkinTextWithHighlights';
+import CypressConfigPage from './components/CypressConfigPage';
 import { useEventLogger } from './hooks/useEventLogger';
 import { useConsoleLogger } from './hooks/useConsoleLogger';
 import { api } from './services/api';
@@ -38,6 +44,10 @@ export default function App() {
   const [allBinomi, setAllBinomi] = useState([]);
   const [isAtomicSegmentationRunning, setIsAtomicSegmentationRunning] = useState(false);
   const [atomicSegmentationProgress, setAtomicSegmentationProgress] = useState(null);
+  const [cypressFileName, setCypressFileName] = useState('');
+  const [cypressOutputDir, setCypressOutputDir] = useState('test_cases');
+  const [generatingCypressFile, setGeneratingCypressFile] = useState(false);
+  const [preliminaryCode, setPreliminaryCode] = useState('');
 
   // Ricarica oggetti EC e binomi quando cambia refreshKey
   useEffect(() => {
@@ -158,6 +168,18 @@ export default function App() {
             logEvent('info', `${parsed.length} test cases caricati dalla sessione (cache locale)`);
           }
         }
+      }
+
+      // Carica codice preliminare
+      try {
+        const prelimResult = await api.getPreliminaryCode(session.id);
+        if (prelimResult.success && prelimResult.code) {
+          setPreliminaryCode(prelimResult.code);
+          logEvent('info', 'Codice preliminare caricato');
+        }
+      } catch (prelimError) {
+        console.error('Errore caricamento codice preliminare:', prelimError);
+        // Non bloccare il caricamento per questo errore
       }
 
       // Carica oggetti EC e binomi per calcolare le percentuali di copertura
@@ -2016,6 +2038,146 @@ export default function App() {
     }
   };
 
+  // Funzione per salvare il codice preliminare con validazione
+  const handleSavePreliminaryCode = async (code) => {
+    if (!currentSession?.id) {
+      logEvent('error', 'Nessuna sessione attiva');
+      return;
+    }
+
+    try {
+      logEvent('info', '🔍 Validazione codice preliminare...');
+      
+      // Valida e correggi il codice (modalità parziale per non chiudere describe aperti)
+      const validationResponse = await fetch('http://localhost:3001/api/code-validator/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code, 
+          isPartial: true // Importante: indica che è codice preliminare, quindi blocchi aperti sono OK
+        })
+      });
+      
+      const validation = await validationResponse.json();
+      
+      if (!validation.success) {
+        logEvent('error', `Errore validazione: ${validation.error}`);
+        return;
+      }
+
+      // Mostra errori e warning se presenti
+      if (validation.errors && validation.errors.length > 0) {
+        logEvent('warning', `⚠️ Errori rilevati:\n${validation.errors.join('\n')}`);
+      }
+      
+      if (validation.warnings && validation.warnings.length > 0) {
+        logEvent('info', `💡 Correzioni applicate:\n${validation.warnings.join('\n')}`);
+      }
+
+      // Usa il codice corretto se ci sono stati cambiamenti
+      const codeToSave = validation.hasChanges ? validation.fixedCode : code;
+      
+      // Aggiorna lo stato con il codice corretto
+      if (validation.hasChanges) {
+        setPreliminaryCode(codeToSave);
+        logEvent('success', '✨ Codice corretto automaticamente');
+      }
+
+      // Salva
+      await api.savePreliminaryCode(currentSession.id, codeToSave);
+      logEvent('success', '✅ Codice preliminare salvato');
+      
+    } catch (error) {
+      console.error('Errore salvataggio codice preliminare:', error);
+      logEvent('error', `Errore salvataggio codice preliminare: ${error.message}`);
+    }
+  };
+
+  // Funzione per generare il file Cypress completo
+  const handleGenerateCypressFile = async () => {
+    console.log('🔍 DEBUG handleGenerateCypressFile chiamata');
+    console.log('- currentSession:', currentSession?.id);
+    console.log('- cypressFileName:', cypressFileName);
+    console.log('- cypressOutputDir:', cypressOutputDir);
+    console.log('- testCases.length:', testCases.length);
+    
+    if (!currentSession || !cypressFileName || !cypressOutputDir || testCases.length === 0) {
+      const missing = [];
+      if (!currentSession) missing.push('sessione');
+      if (!cypressFileName) missing.push('nome file');
+      if (!cypressOutputDir) missing.push('directory');
+      if (testCases.length === 0) missing.push('test cases');
+      
+      logEvent('error', `⚠️ Parametri mancanti: ${missing.join(', ')}`);
+      alert(`⚠️ Impossibile generare il file. Mancano:\n\n${missing.join('\n')}`);
+      return;
+    }
+
+    setGeneratingCypressFile(true);
+    
+    try {
+      // 1. AUTO-SALVATAGGIO: Salva sempre il codice preliminare corrente prima di generare
+      if (preliminaryCode && preliminaryCode.trim()) {
+        logEvent('info', '💾 Auto-salvataggio codice preliminare...');
+        try {
+          await api.savePreliminaryCode(currentSession.id, preliminaryCode);
+        } catch (saveError) {
+          console.error('Errore auto-salvataggio:', saveError);
+          // Continuiamo comunque, magari il backend lo riceve nel body
+        }
+      }
+
+      logEvent('info', `🚀 Avvio generazione file Cypress: ${cypressFileName}`);
+      
+      console.log('📤 Invio richiesta a backend:', {
+        suiteName: currentSession.name || 'Test Suite',
+        testCases: testCases.length,
+        fileName: cypressFileName,
+        outputDir: cypressOutputDir,
+        preliminaryCode: preliminaryCode ? 'presente' : 'vuoto'
+      });
+      
+      const response = await fetch('http://localhost:3001/api/test-generator/generate-suite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: currentSession.id,
+          suiteName: currentSession.name || 'Test Suite',
+          testCases: testCases,
+          fileName: cypressFileName,
+          outputDir: cypressOutputDir,
+          preliminaryCode: preliminaryCode
+        })
+      });
+
+      console.log('📥 Risposta backend ricevuta:', response.status, response.statusText);
+      
+      const result = await response.json();
+      console.log('📋 Risultato parsed:', result);
+
+      if (result.success) {
+        logEvent('success', `✅ File Cypress generato con successo!`);
+        alert(
+          `✅ File Cypress generato con successo!\n\n` +
+          `📁 Percorso: ${result.filePath}\n` +
+          `📊 Test cases: ${result.testCasesCount}\n\n` +
+          `Per eseguirlo:\n` +
+          `cd ${result.projectRoot}\n` +
+          `npx cypress run --spec "${result.relativePath}"`
+        );
+      } else {
+        logEvent('error', `❌ Errore generazione file: ${result.error}`);
+        alert(`❌ Errore durante la generazione del file:\n\n${result.error}`);
+      }
+    } catch (error) {
+      console.error('Errore generazione file Cypress:', error);
+      logEvent('error', `❌ Errore generazione file Cypress: ${error.message}`);
+      alert(`❌ Errore durante la generazione del file:\n\n${error.message}`);
+    } finally {
+      setGeneratingCypressFile(false);
+    }
+  };
+
   // Funzione principale Object Autocomplete
   // ========== END GLOBAL AUTOCOMPLETE FUNCTIONS ==========
 
@@ -2317,6 +2479,13 @@ export default function App() {
             )}
           </div>
           <div className="header-actions">
+            <button 
+              className="config-button"
+              onClick={() => setStep('cypress-config')}
+              title="Configurazione Sorgenti Cypress"
+            >
+              ⚙️ Config Cypress
+            </button>
             {currentSession && step !== 'sessions' && (
               <button 
                 className="sessions-button"
@@ -2333,6 +2502,10 @@ export default function App() {
       </header>
 
       <main className="app-main">
+        {step === 'cypress-config' && (
+          <CypressConfigPage />
+        )}
+
         {step === 'sessions' && (
           <SessionManager
             currentSession={currentSession}
@@ -2662,6 +2835,182 @@ export default function App() {
               </div>
             )}
             
+            {/* Sezione File Cypress di destinazione */}
+            <div className="cypress-file-generation-section" style={{
+              margin: '20px 0',
+              padding: '20px',
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #667eea',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginTop: 0, color: '#667eea' }}>📄 Genera File Cypress</h3>
+              <p style={{ color: '#666', marginBottom: '15px' }}>
+                Genera un unico file Cypress con tutti i test cases di questa sessione
+              </p>
+              
+              {/* Campo Codice Preliminare */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}>
+                  <label style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                    Codice Preliminare (imports, describe, beforeEach)
+                  </label>
+                  <button
+                    onClick={() => handleSavePreliminaryCode(preliminaryCode)}
+                    style={{
+                      padding: '4px 12px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    💾 Salva
+                  </button>
+                </div>
+                <div style={{
+                  backgroundColor: '#1e1e1e',
+                  borderRadius: '4px',
+                  padding: '10px',
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  minHeight: '150px',
+                  maxHeight: '300px',
+                  overflow: 'auto'
+                }}>
+                  <Editor
+                    value={preliminaryCode}
+                    onValueChange={code => setPreliminaryCode(code)}
+                    highlight={code => highlight(code, languages.javascript, 'javascript')}
+                    padding={10}
+                    style={{
+                      fontFamily: '"Fira code", "Fira Mono", monospace',
+                      fontSize: 13,
+                      minHeight: '130px'
+                    }}
+                    placeholder="// Inserisci qui il codice preliminare (imports, describe, beforeEach)&#10;// Esempio:&#10;// import { EquipmentPage } from '../pages/equipment_pages';&#10;// import { faker } from '@faker-js/faker';&#10;//&#10;// const equipmentPage = new EquipmentPage();&#10;// const imageTitle = 'Teste.png';"
+                  />
+                </div>
+                <p style={{ 
+                  fontSize: '11px', 
+                  color: '#666', 
+                  marginTop: '5px',
+                  fontStyle: 'italic'
+                }}>
+                  💡 Questo codice verrà inserito all'inizio del file Cypress, prima di tutti gli "it"
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1', minWidth: '250px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Nome File
+                  </label>
+                  <input
+                    type="text"
+                    value={cypressFileName}
+                    onChange={(e) => setCypressFileName(e.target.value)}
+                    placeholder="es. FGC-9144.cy.js"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+                
+                <div style={{ flex: '1', minWidth: '250px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Directory (relativa al progetto Cypress)
+                  </label>
+                  <input
+                    type="text"
+                    value={cypressOutputDir}
+                    onChange={(e) => setCypressOutputDir(e.target.value)}
+                    placeholder="es. test_cases"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {cypressFileName && cypressOutputDir && (
+                <div style={{
+                  padding: '10px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '4px',
+                  marginBottom: '15px',
+                  fontSize: '13px'
+                }}>
+                  <strong>ℹ️ Il file verrà salvato in:</strong>
+                  <br />
+                  <code style={{ 
+                    backgroundColor: '#fff',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontSize: '12px'
+                  }}>
+                    {`<project-root>/${cypressOutputDir}/${cypressFileName}`}
+                  </code>
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  console.log('🖱️ CLICK sul bottone Genera File Cypress');
+                  console.log('Bottone disabled?', !cypressFileName || !cypressOutputDir || testCases.length === 0 || generatingCypressFile);
+                  handleGenerateCypressFile();
+                }}
+                disabled={!cypressFileName || !cypressOutputDir || testCases.length === 0 || generatingCypressFile}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: (!cypressFileName || !cypressOutputDir || testCases.length === 0 || generatingCypressFile) ? '#95a5a6' : '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: (!cypressFileName || !cypressOutputDir || testCases.length === 0 || generatingCypressFile) ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {generatingCypressFile ? '⏳ Generazione...' : '🚀 Genera File Cypress'}
+              </button>
+              
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  fontSize: '11px', 
+                  color: '#666',
+                  padding: '8px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '4px'
+                }}>
+                  <strong>🔍 Debug:</strong>
+                  <br/>• Sessione: {currentSession?.id ? '✅' : '❌'}
+                  <br/>• Nome file: {cypressFileName ? `✅ "${cypressFileName}"` : '❌ vuoto'}
+                  <br/>• Directory: {cypressOutputDir ? `✅ "${cypressOutputDir}"` : '❌ vuoto'}
+                  <br/>• Test cases: {testCases.length > 0 ? `✅ ${testCases.length}` : '❌ 0'}
+                  <br/>• Bottone: {(!cypressFileName || !cypressOutputDir || testCases.length === 0 || generatingCypressFile) ? '🔒 DISABILITATO' : '✅ ABILITATO'}
+                </div>
+              )}
+            </div>
+            
             <h2>Test Cases Caricati ({testCases.length})</h2>
             <div className="test-cases-list" key={refreshKey}>
               {testCases.map((tc, idx) => {
@@ -2816,15 +3165,33 @@ export default function App() {
                     )}
                     
                     <p>
-                      <strong>Given:</strong> {tc.given}
+                      <strong>Given:</strong>{' '}
+                      <GherkinTextWithHighlights 
+                        text={tc.given}
+                        testCaseId={tc.id}
+                        boxType="given"
+                        ecObjects={allECObjects}
+                      />
                       <CoverageIndicator percentage={calculateCoveragePercentage(tc.given, tc.id, 'given')} />
                     </p>
                     <p>
-                      <strong>When:</strong> {tc.when}
+                      <strong>When:</strong>{' '}
+                      <GherkinTextWithHighlights 
+                        text={tc.when}
+                        testCaseId={tc.id}
+                        boxType="when"
+                        ecObjects={allECObjects}
+                      />
                       <CoverageIndicator percentage={calculateCoveragePercentage(tc.when, tc.id, 'when')} />
                     </p>
                     <p>
-                      <strong>Then:</strong> {tc.then}
+                      <strong>Then:</strong>{' '}
+                      <GherkinTextWithHighlights 
+                        text={tc.then}
+                        testCaseId={tc.id}
+                        boxType="then"
+                        ecObjects={allECObjects}
+                      />
                       <CoverageIndicator percentage={calculateCoveragePercentage(tc.then, tc.id, 'then')} />
                     </p>
                     <button className="open-button">Apri Builder →</button>
@@ -2841,6 +3208,8 @@ export default function App() {
             context={context}
             currentSession={currentSession}
             refreshKey={refreshKey}
+            preliminaryCode={preliminaryCode}
+            onPreliminaryCodeChange={setPreliminaryCode}
             onUpdateTestCase={handleUpdateTestCase}
             onBack={() => {
               setStep('testcases');

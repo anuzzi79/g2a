@@ -1,0 +1,20 @@
+Data,Action,Expected Result
+"Given the user has access to a project in FG WEB
+And the user has access to the ""Company Library"" menu","When the user adds a document
+And sets the category to ""Inspection/Audit""
+And saves it",Then the document should appear in the list with the corresponding category
+"Given the user has access to a project in FG WEB
+And the user has access to the ""Company Library"" menu","When the user edits the added document
+And sets a category different from ""Inspection/Audit""
+And saves it",Then the document should appear in the list with the corresponding category
+"Given the user has access to a project in FG WEB
+And the user has access to the ""Company Library"" menu","When the user adds a document
+And sets a category different from ""Inspection/Audit""
+And saves it",Then the document should appear in the list with the corresponding category
+"Given the user has access to a project in FG WEB
+And the user has access to the ""Company Library"" menu","When the user edits the added document
+And sets the category to ""Inspection/Audit""
+And saves it",Then the document should appear in the list with the corresponding category
+"Given the user has access to a project in FG WEB
+And the user has access to the ""Company Library"" menu","When the user adds a document
+And repeats the steps above with different categories ",Then the list should display the categories as expected.

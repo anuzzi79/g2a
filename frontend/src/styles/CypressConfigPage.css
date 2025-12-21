@@ -1,0 +1,339 @@
+.cypress-config-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.config-header {
+  margin-bottom: 2rem;
+}
+
+.config-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.config-header p {
+  margin: 0.5rem 0 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+/* Message Banner */
+.message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.message-success {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.message-error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.message-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+}
+
+/* Config Section */
+.config-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.config-section h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+/* Config Slot */
+.config-slot {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+  transition: border-color 0.3s;
+}
+
+.config-slot:hover {
+  border-color: #007bff;
+}
+
+.slot-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.status-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  min-width: 2rem;
+}
+
+.status-icon.configured {
+  animation: checkmark 0.3s ease-in;
+}
+
+@keyframes checkmark {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.slot-header label {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.required {
+  color: #dc3545;
+  margin-left: 0.25rem;
+}
+
+.example {
+  color: #6c757d;
+  font-weight: normal;
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
+.slot-input {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.slot-input input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.slot-input button {
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+  white-space: nowrap;
+}
+
+.slot-input button:hover {
+  background: #0056b3;
+}
+
+/* Config Actions */
+.config-actions {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.save-button {
+  padding: 1rem 3rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.save-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Visualization Section */
+.visualization-section {
+  border-top: 3px solid #007bff;
+}
+
+.config-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.config-card {
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s;
+}
+
+.config-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.config-card.protected {
+  border-color: #ffc107;
+  background: #fff9e6;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.card-icon {
+  font-size: 2rem;
+  margin-right: 1rem;
+}
+
+.card-title h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.card-status {
+  font-size: 0.875rem;
+  color: #28a745;
+  font-weight: 500;
+}
+
+.card-body {
+  margin-bottom: 1rem;
+}
+
+.card-path {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin: 0.5rem 0;
+  word-break: break-all;
+}
+
+.card-info {
+  font-size: 0.9rem;
+  color: #495057;
+  margin: 0.5rem 0;
+}
+
+.tasks-preview,
+.commands-preview {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.card-actions button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.card-actions button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.card-actions button:disabled,
+.card-actions button.disabled-button {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Page Objects List */
+.page-objects-list {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.page-object-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.po-file {
+  color: #007bff;
+  font-weight: 500;
+}
+
+.po-class {
+  color: #6c757d;
+}
+
+.more-items {
+  padding: 0.5rem;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cypress-config-page {
+    padding: 1rem;
+  }
+
+  .config-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .slot-input {
+    flex-direction: column;
+  }
+
+  .slot-input button {
+    width: 100%;
+  }
+}
+

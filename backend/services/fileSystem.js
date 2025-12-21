@@ -20,26 +20,18 @@ export async function selectDirectoryDialog(description = 'Seleziona Directory')
     // Usa FolderBrowserDialog con UseDescriptionForTitle per ottenere dialog più moderno
     // Su Windows 10/11 questo mostra un dialog migliorato rispetto al vecchio
     const psScript = `
-$ErrorActionPreference = "Stop"
-try {
-  Add-Type -AssemblyName System.Windows.Forms
-  
-  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-  $dialog.Description = "${description.replace(/"/g, '`"').replace(/\$/g, '`$')}"
-  $dialog.ShowNewFolderButton = $false
-  $dialog.UseDescriptionForTitle = $true
-  $dialog.RootFolder = [System.Environment+SpecialFolder]::MyComputer
-  
-  # Su Windows 10/11, questo dovrebbe mostrare un dialog più moderno
-  if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $dialog.SelectedPath
-  }
-  
-  $dialog.Dispose()
-} catch {
-  Write-Error $_.Exception.Message
-  exit 1
+Add-Type -AssemblyName System.Windows.Forms
+
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = "${description.replace(/"/g, '""')}"
+$dialog.ShowNewFolderButton = $false
+$dialog.RootFolder = [System.Environment+SpecialFolder]::MyComputer
+
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  Write-Output $dialog.SelectedPath
 }
+$dialog.Dispose()
     `;
 
     // Salva script in un file temporaneo
@@ -48,15 +40,14 @@ try {
 
     try {
       // Esegui PowerShell
-      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempFile}"`;
+      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempFile}"`;
       
       const { stdout, stderr } = await execAsync(
         psCommand,
         { 
           timeout: 120000,
-          windowsHide: false,
-          maxBuffer: 1024 * 1024,
-          shell: false
+          windowsHide: true,
+          maxBuffer: 1024 * 1024
         }
       );
 
@@ -95,38 +86,30 @@ try {
 async function selectDirectoryDialogFallback(description = 'Seleziona Directory') {
   try {
     const psScript = `
-$ErrorActionPreference = "Stop"
-try {
-  Add-Type -AssemblyName System.Windows.Forms
-  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-  $dialog.Description = "${description.replace(/"/g, '`"').replace(/\$/g, '`$')}"
-  $dialog.ShowNewFolderButton = $false
-  $dialog.UseDescriptionForTitle = $true
-  $dialog.RootFolder = [System.Environment+SpecialFolder]::MyComputer
-  
-  if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $dialog.SelectedPath
-  }
-  
-  $dialog.Dispose()
-} catch {
-  Write-Error $_.Exception.Message
-  exit 1
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = "${description.replace(/"/g, '""')}"
+$dialog.ShowNewFolderButton = $false
+$dialog.RootFolder = [System.Environment+SpecialFolder]::MyComputer
+
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  Write-Output $dialog.SelectedPath
 }
+$dialog.Dispose()
     `;
 
     const tempFile = path.join(os.tmpdir(), `g2a-dialog-fallback-${Date.now()}.ps1`);
     await fs.writeFile(tempFile, psScript, 'utf8');
 
     try {
-      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempFile}"`;
+      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempFile}"`;
       const { stdout, stderr } = await execAsync(
         psCommand,
         { 
           timeout: 120000,
-          windowsHide: false,
-          maxBuffer: 1024 * 1024,
-          shell: false
+          windowsHide: true,
+          maxBuffer: 1024 * 1024
         }
       );
 
@@ -188,15 +171,14 @@ try {
 
     try {
       // Esegui PowerShell
-      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${tempFile}"`;
+      const psCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempFile}"`;
       
       const { stdout, stderr } = await execAsync(
         psCommand,
         { 
           timeout: 120000,
-          windowsHide: false,
-          maxBuffer: 1024 * 1024,
-          shell: false
+          windowsHide: true,
+          maxBuffer: 1024 * 1024
         }
       );
 

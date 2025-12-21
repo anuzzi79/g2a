@@ -1,0 +1,6 @@
+# Ignora tutte le configurazioni salvate
+cypress-sources.json
+
+# Permetti questo .gitignore
+!.gitignore
+

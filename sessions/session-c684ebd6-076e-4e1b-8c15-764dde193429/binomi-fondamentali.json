@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-19T14:25:37.875Z",
+  "lastUpdated": "2025-12-19T18:18:38.330Z",
+  "binomi": [
+    {
+      "id": "bf-session-c684ebd6-076e-4e1b-8c15-764dde193429-TC4-001-1766154337866",
+      "sessionId": "session-c684ebd6-076e-4e1b-8c15-764dde193429",
+      "testCaseId": "4",
+      "fromObjectId": "session-c684ebd6-076e-4e1b-8c15-764dde193429-TCWHEN-23-1766120515396",
+      "toObjectId": "session-c684ebd6-076e-4e1b-8c15-764dde193429-TC4-WHEN-3",
+      "fromPoint": {
+        "x": 0.7918758024979573,
+        "y": 1
+      },
+      "toPoint": {
+        "x": 0.24775784753363228,
+        "y": 0
+      },
+      "createdAt": "2025-12-19T14:25:37.866Z",
+      "status": "active"
+    }
+  ]
+}

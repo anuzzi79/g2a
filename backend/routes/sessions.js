@@ -451,5 +451,113 @@ router.get('/:id/csv', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/sessions/:id/preliminary-code
+ * Salva il codice preliminare (imports, describe, beforeEach) per la sessione
+ */
+router.post('/:id/preliminary-code', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { code } = req.body;
+
+    // Nota: code può essere stringa vuota, ma non undefined/null se vogliamo salvarlo come vuoto
+    if (code === undefined || code === null) {
+      return res.status(400).json({ error: 'Codice preliminare richiesto' });
+    }
+
+    const basePath = getSessionsBasePath();
+    const sessionPath = path.join(basePath, id);
+
+    // Verifica che la sessione esista
+    try {
+      await fs.access(sessionPath);
+    } catch {
+      return res.status(404).json({ error: 'Sessione non trovata' });
+    }
+
+    // Salva il codice preliminare in un file dedicato
+    const preliminaryCodeFile = path.join(sessionPath, 'preliminary-code.txt');
+    await fs.writeFile(preliminaryCodeFile, code, 'utf8');
+
+    // Aggiorna metadata.json con timestamp
+    const metadataPath = path.join(sessionPath, 'metadata.json');
+    let metadata = {};
+    try {
+      const data = await fs.readFile(metadataPath, 'utf8');
+      metadata = JSON.parse(data);
+    } catch {
+      // Crea nuovo metadata se non esiste
+    }
+
+    metadata.preliminaryCodeSavedAt = new Date().toISOString();
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+
+    res.json({ 
+      success: true, 
+      message: 'Codice preliminare salvato con successo',
+      savedAt: metadata.preliminaryCodeSavedAt
+    });
+  } catch (error) {
+    console.error('Errore salvataggio codice preliminare:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/sessions/:id/preliminary-code
+ * Carica il codice preliminare dalla sessione
+ */
+router.get('/:id/preliminary-code', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const basePath = getSessionsBasePath();
+    const sessionPath = path.join(basePath, id);
+
+    // Verifica che la sessione esista
+    try {
+      await fs.access(sessionPath);
+    } catch {
+      return res.status(404).json({ error: 'Sessione non trovata' });
+    }
+
+    // Leggi il file del codice preliminare
+    const preliminaryCodeFile = path.join(sessionPath, 'preliminary-code.txt');
+    
+    try {
+      const code = await fs.readFile(preliminaryCodeFile, 'utf8');
+      
+      // Leggi anche il metadata per il timestamp
+      const metadataPath = path.join(sessionPath, 'metadata.json');
+      let metadata = {};
+      try {
+        const data = await fs.readFile(metadataPath, 'utf8');
+        metadata = JSON.parse(data);
+      } catch {
+        // Metadata non esiste
+      }
+      
+      res.json({
+        success: true,
+        code,
+        savedAt: metadata.preliminaryCodeSavedAt
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        // Ritorna stringa vuota se il file non esiste ancora
+        return res.json({ 
+          success: true, 
+          code: '', 
+          savedAt: null 
+        });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Errore caricamento codice preliminare:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
 

@@ -13,7 +13,7 @@ import '@tensorflow/tfjs';
 /**
  * Componente per costruire un test case con AI
  */
-export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdateTestCase, currentSession, refreshKey }) {
+export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdateTestCase, currentSession, refreshKey, preliminaryCode, onPreliminaryCodeChange }) {
   const [allObjects, setAllObjects] = useState([]); // Raccoglie tutti gli oggetti da tutti i blocchi GWT
   const [loadedECObjects, setLoadedECObjects] = useState([]); // Oggetti EC caricati dal database
   const [loadedBinomi, setLoadedBinomi] = useState([]); // Binomi caricati dal database
@@ -234,7 +234,6 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
 
   const [showRunner, setShowRunner] = useState(false);
   const [runnerCode, setRunnerCode] = useState('');
-  const [targetFilePath, setTargetFilePath] = useState('');
   const [isLoadingState, setIsLoadingState] = useState(false);
   const [hasLoadedState, setHasLoadedState] = useState(false);
   const testFileStorageKey = useMemo(
@@ -451,6 +450,8 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     return fileName ? `${defaultDir}\\${fileName}` : defaultDir;
   };
 
+  // NOTA: useEffect per targetFilePath commentato - funzionalità rimossa
+  /*
   useEffect(() => {
     if (!testCase) {
       setTargetFilePath('');
@@ -490,42 +491,45 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
       setTargetFilePath(initialPath);
     }
   }, [testCase, testFileStorageKey, currentSession]);
+  */
 
-  const persistTargetFilePath = (value) => {
-    setTargetFilePath(value);
-    if (testCase?.id && onUpdateTestCase) {
-      onUpdateTestCase(testCase.id, { automation: value });
-    }
-    if (testFileStorageKey) {
-      try {
-        if (value) {
-          localStorage.setItem(testFileStorageKey, value);
-        } else {
-          localStorage.removeItem(testFileStorageKey);
-        }
-      } catch (error) {
-        console.error('Errore salvataggio percorso test file:', error);
-      }
-    }
-  };
+  // NOTA: persistTargetFilePath commentato - funzionalità rimossa
+  // const persistTargetFilePath = (value) => {
+  //   setTargetFilePath(value);
+  //   if (testCase?.id && onUpdateTestCase) {
+  //     onUpdateTestCase(testCase.id, { automation: value });
+  //   }
+  //   if (testFileStorageKey) {
+  //     try {
+  //       if (value) {
+  //         localStorage.setItem(testFileStorageKey, value);
+  //       } else {
+  //         localStorage.removeItem(testFileStorageKey);
+  //       }
+  //     } catch (error) {
+  //       console.error('Errore salvataggio percorso test file:', error);
+  //     }
+  //   }
+  // };
 
-  const handleBrowseTestFile = async () => {
-    try {
-      onLogEvent?.('info', 'Seleziona il file Cypress da sovrascrivere');
-      const result = await api.selectFile(
-        'Seleziona file Cypress di destinazione',
-        'Cypress Spec|*.cy.js;*.cy.ts;*.js;*.ts;*.tsx|Tutti i file|*.*'
-      );
-      if (result?.path) {
-        persistTargetFilePath(result.path);
-        onLogEvent?.('success', `File Cypress selezionato: ${result.path}`);
-      } else if (result?.error) {
-        onLogEvent?.('error', `Errore selezione file: ${result.error}`);
-      }
-    } catch (error) {
-      onLogEvent?.('error', `Errore selezione file: ${error.message}`);
-    }
-  };
+  // NOTA: La funzionalità di file Cypress è stata spostata nella lista test cases
+  // const handleBrowseTestFile = async () => {
+  //   try {
+  //     onLogEvent?.('info', 'Seleziona il file Cypress da sovrascrivere');
+  //     const result = await api.selectFile(
+  //       'Seleziona file Cypress di destinazione',
+  //       'Cypress Spec|*.cy.js;*.cy.ts;*.js;*.ts;*.tsx|Tutti i file|*.*'
+  //     );
+  //     if (result?.path) {
+  //       persistTargetFilePath(result.path);
+  //       onLogEvent?.('success', `File Cypress selezionato: ${result.path}`);
+  //     } else if (result?.error) {
+  //       onLogEvent?.('error', `Errore selezione file: ${result.error}`);
+  //     }
+  //   } catch (error) {
+  //     onLogEvent?.('error', `Errore selezione file: ${error.message}`);
+  //   }
+  // };
 
   /**
    * Combina il codice di tutte e tre le fasi in un unico test Cypress
@@ -1237,9 +1241,10 @@ export function TestCaseBuilder({ testCase, context, onBack, onLogEvent, onUpdat
     };
   }, [testCase?.id, testStateStorageKey, hasLoadedState, isLoadingState, saveStateToLocalStorage]);
 
-  const handleTargetFileInput = (e) => {
-    persistTargetFilePath(e.target.value);
-  };
+  // NOTA: handleTargetFileInput commentato - funzionalità spostata nella lista test cases
+  // const handleTargetFileInput = (e) => {
+  //   persistTargetFilePath(e.target.value);
+  // };
 
   if (!testCase) {
     return <div>Nessun test case selezionato</div>;
@@ -1331,6 +1336,11 @@ ${mergedCode}
   };
 
   const handleOpenRunner = async () => {
+    // NOTA: Funzionalità temporaneamente disabilitata - usare la generazione file dalla lista test cases
+    onLogEvent?.('warning', 'Usa la funzione "Genera File Cypress" dalla lista test cases per creare il file completo.');
+    return;
+    
+    /* CODICE LEGACY COMMENTATO
     if (!targetFilePath?.trim()) {
       onLogEvent?.('error', 'Specifica un file Cypress di destinazione prima di eseguire il test completo.');
       return;
@@ -1343,6 +1353,7 @@ ${mergedCode}
     } else {
       onLogEvent?.('warning', 'Nessun codice disponibile. Genera codice per almeno una fase prima di testare.');
     }
+    */
   };
 
   const handleSaveFile = async () => {
@@ -1361,10 +1372,10 @@ ${mergedCode}
     } else {
       defaultPath = `C:\\Users\\Antonio Nuzzi\\g2a\\test\\test_case${testCase.id}.cy.js`;
     }
-    const filePathToUse = targetFilePath || defaultPath;
+    const filePathToUse = defaultPath; // targetFilePath rimosso
     
     if (!filePathToUse.trim()) {
-      onLogEvent?.('error', 'Specifica un file Cypress di destinazione prima di salvare.');
+      onLogEvent?.('error', 'Impossibile determinare il percorso del file.');
       return;
     }
 
@@ -1374,10 +1385,10 @@ ${mergedCode}
       
       if (result.success) {
         onLogEvent?.('success', `File salvato con successo: ${result.filePath}`);
-        // Aggiorna il percorso se non era già impostato
-        if (!targetFilePath) {
-          persistTargetFilePath(result.filePath);
-        }
+        // // Aggiorna il percorso se non era già impostato - COMMENTATO
+        // if (!targetFilePath) {
+        //   persistTargetFilePath(result.filePath);
+        // }
         // Segna che è stato fatto Save aggiornando lo stato salvato
         if (testStateStorageKey) {
           try {
@@ -2230,39 +2241,14 @@ ${mergedCode}
             <button
               className="builder-header-button test-complete-button"
               onClick={handleOpenRunner}
-              disabled={!targetFilePath?.trim()}
-              title={
-                targetFilePath?.trim()
-                  ? 'Esegui il test completo e sovrascrivi il file selezionato'
-                  : 'Specifica prima un file Cypress di destinazione'
-              }
+              disabled={true}
+              title="Funzionalità spostata: usa 'Genera File Cypress' dalla lista test cases"
+              style={{ opacity: 0.5, cursor: 'not-allowed' }}
             >
-              🧪 Testa Test Completo
+              🧪 Testa Test Completo (Spostato)
             </button>
           )}
         </div>
-      </div>
-
-      <div className="test-file-path-section">
-        <label>File Cypress di destinazione</label>
-        <div className="test-file-input-group">
-          <input
-            type="text"
-            value={targetFilePath}
-            onChange={handleTargetFileInput}
-            placeholder="C:\path\to\project\cypress\e2e\example.cy.js"
-          />
-          <button
-            type="button"
-            onClick={handleBrowseTestFile}
-            className="browse-button"
-          >
-            📂 Sfoglia
-          </button>
-        </div>
-        <p className="test-file-hint">
-          Il file verrà sovrascritto ogni volta che esegui "Testa Test Completo".
-        </p>
       </div>
 
       {!context && (
@@ -2277,6 +2263,58 @@ ${mergedCode}
           <strong>💡 Nota:</strong> Stai lavorando senza contesto preliminare. Puoi comunque procedere con la costruzione del test case utilizzando il Wide Reasoning per trovare codice simile in altri test esistenti.
         </div>
       )}
+
+      {/* Visualizzazione/Modifica Codice Preliminare */}
+      <div style={{
+        margin: '15px 0',
+        padding: '15px',
+        backgroundColor: '#f8f9fa',
+        border: '2px solid #667eea',
+        borderRadius: '8px'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '10px'
+        }}>
+          <h3 style={{ margin: 0, color: '#667eea', fontSize: '16px' }}>
+            📝 Codice Preliminare (Dichiarazioni Iniziali)
+          </h3>
+        </div>
+        <div style={{
+          backgroundColor: '#1e1e1e',
+          borderRadius: '4px',
+          padding: '10px',
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          minHeight: '150px',
+          maxHeight: '300px',
+          overflow: 'auto'
+        }}>
+          <Editor
+            value={preliminaryCode || ''}
+            onValueChange={onPreliminaryCodeChange}
+            highlight={code => highlight(code, languages.javascript, 'javascript')}
+            padding={10}
+            style={{
+              fontFamily: '"Fira code", "Fira Mono", monospace',
+              fontSize: 13,
+              minHeight: '130px'
+            }}
+            placeholder="// Inserisci qui il codice preliminare (imports, describe, beforeEach)&#10;// Esempio:&#10;// import { EquipmentPage } from '../pages/equipment_pages';&#10;// import { faker } from '@faker-js/faker';&#10;//&#10;// const equipmentPage = new EquipmentPage();&#10;// const imageTitle = 'Teste.png';"
+          />
+        </div>
+        <p style={{ 
+          fontSize: '11px', 
+          color: '#666', 
+          marginTop: '8px',
+          marginBottom: 0,
+          fontStyle: 'italic'
+        }}>
+          💡 Questo codice verrà inserito all'inizio del file Cypress, prima di tutti gli "it". Le modifiche si sincronizzano automaticamente.
+        </p>
+      </div>
 
       <GherkinBlock
         type="given"
@@ -2359,7 +2397,7 @@ ${mergedCode}
       {showRunner && (
         <CypressRunner
           code={runnerCode}
-          outputFilePath={targetFilePath}
+          outputFilePath={''} // targetFilePath rimosso - funzionalità non più usata
           onClose={() => {
             setShowRunner(false);
             setRunnerCode('');
@@ -2537,28 +2575,18 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     });
     
     if (relevantBinomi.length > 0) {
-      // Converti binomi in connessioni locali
+      // Converti binomi in connessioni usando ID reali degli oggetti EC
       const localConnections = relevantBinomi.map(binomio => {
-        // Trova gli ID locali degli oggetti
+        // Verifica che gli oggetti esistano
         const fromObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.fromObjectId);
         const toObj = objects.find(obj => (obj.ecObjectId || obj.id) === binomio.toObjectId);
         
         if (fromObj && toObj) {
-          const headerObjects = objects.filter(o => o.location === 'header');
-          const contentObjects = objects.filter(o => o.location === 'content');
-          
-          const fromLocalId = fromObj.location === 'header'
-            ? `header-obj-${headerObjects.indexOf(fromObj)}`
-            : `content-obj-${contentObjects.indexOf(fromObj)}`;
-          
-          const toLocalId = toObj.location === 'header'
-            ? `header-obj-${headerObjects.indexOf(toObj)}`
-            : `content-obj-${contentObjects.indexOf(toObj)}`;
-          
+          // Usa direttamente gli ecObjectId (o id come fallback) invece di ID posizionali
           return {
             id: binomio.id,
-            from: fromLocalId,
-            to: toLocalId,
+            from: binomio.fromObjectId,  // Usa l'ID reale dell'oggetto EC
+            to: binomio.toObjectId,      // Usa l'ID reale dell'oggetto EC
             fromPoint: binomio.fromPoint || { x: 0.5, y: 1.0 },
             toPoint: binomio.toPoint || { x: 0.5, y: 1.0 }
           };
@@ -3094,21 +3122,25 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
       const allPositions = [...headerObjectPositions, ...contentObjectPositions];
       let hoveredId = null;
       for (const pos of allPositions) {
-        // CORREZIONE: Per gli oggetti contenuto, aggiungi l'offset dell'header alle coordinate Y
-        // per il rilevamento dell'hover, poiché mouseY è relativo all'intero layer
-        let posTop = pos.top;
-        if (pos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
-          posTop += gherkinBlockHeaderRef.current.offsetHeight;
-        }
+        // Controlla ogni rettangolo dell'oggetto (supporto multi-linea)
+        for (const rect of pos.rects) {
+          // CORREZIONE: Per gli oggetti contenuto, aggiungi l'offset dell'header alle coordinate Y
+          // per il rilevamento dell'hover, poiché mouseY è relativo all'intero layer
+          let rectTop = rect.top;
+          if (pos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+            rectTop += gherkinBlockHeaderRef.current.offsetHeight;
+          }
 
-        if (
-          mouseX >= pos.left && mouseX <= pos.left + pos.width &&
-          mouseY >= posTop && mouseY <= posTop + pos.height &&
-          pos.id !== connectingFrom
-        ) {
-          hoveredId = pos.id;
-          break;
+          if (
+            mouseX >= rect.left && mouseX <= rect.left + rect.width &&
+            mouseY >= rectTop && mouseY <= rectTop + rect.height &&
+            pos.objectId !== connectingFrom
+          ) {
+            hoveredId = pos.objectId;
+            break;
+          }
         }
+        if (hoveredId) break;
       }
       setConnectionHoverTarget(hoveredId);
     };
@@ -3137,17 +3169,42 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
 
   // Funzione per calcolare il punto più vicino sul perimetro del rettangolo
   const getPointOnPerimeter = useCallback((mouseX, mouseY, objPos) => {
-    // Calcola il punto più vicino sul perimetro del rettangolo
-    const rectLeft = objPos.left;
-    let rectTop = objPos.top;
+    // Supporto multi-linea: trova il rettangolo più vicino al mouse
+    let closestRect = objPos.rects[0];
+    let minDistanceToRect = Infinity;
     
-    // CORREZIONE: Se è un oggetto contenuto, aggiungi l'offset dell'header
+    for (const rect of objPos.rects) {
+      let rectTop = rect.top;
+      // CORREZIONE: Se è un oggetto contenuto, aggiungi l'offset dell'header
+      if (objPos.id && objPos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+        rectTop += gherkinBlockHeaderRef.current.offsetHeight;
+      }
+      
+      const rectLeft = rect.left;
+      const rectRight = rectLeft + rect.width;
+      const rectBottom = rectTop + rect.height;
+      
+      // Calcola distanza dal centro del mouse a questo rettangolo
+      const centerX = (rectLeft + rectRight) / 2;
+      const centerY = (rectTop + rectBottom) / 2;
+      const distance = Math.sqrt(Math.pow(mouseX - centerX, 2) + Math.pow(mouseY - centerY, 2));
+      
+      if (distance < minDistanceToRect) {
+        minDistanceToRect = distance;
+        closestRect = rect;
+      }
+    }
+    
+    // Usa il rettangolo più vicino per calcolare il punto sul perimetro
+    const rectLeft = closestRect.left;
+    let rectTop = closestRect.top;
+    
     if (objPos.id && objPos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
       rectTop += gherkinBlockHeaderRef.current.offsetHeight;
     }
     
-    const rectRight = rectLeft + objPos.width;
-    const rectBottom = rectTop + objPos.height;
+    const rectRight = rectLeft + closestRect.width;
+    const rectBottom = rectTop + closestRect.height;
     
     // Clamp il punto all'interno del rettangolo
     const clampedX = Math.max(rectLeft, Math.min(rectRight, mouseX));
@@ -3165,28 +3222,24 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
     let perimeterX, perimeterY;
     
     if (minDist === distToLeft) {
-      // Bordo sinistro
       perimeterX = rectLeft;
       perimeterY = clampedY;
     } else if (minDist === distToRight) {
-      // Bordo destro
       perimeterX = rectRight;
       perimeterY = clampedY;
     } else if (minDist === distToTop) {
-      // Bordo superiore
       perimeterX = clampedX;
       perimeterY = rectTop;
     } else {
-      // Bordo inferiore
       perimeterX = clampedX;
       perimeterY = rectBottom;
     }
     
-    // Converti in coordinate relative (0-1)
-    const relX = (perimeterX - rectLeft) / objPos.width;
-    const relY = (perimeterY - rectTop) / objPos.height;
+    // Converti in coordinate relative (0-1) rispetto al rettangolo più vicino
+    const relX = (perimeterX - rectLeft) / closestRect.width;
+    const relY = (perimeterY - rectTop) / closestRect.height;
     
-    return { x: relX, y: relY };
+    return { x: relX, y: relY, rectIndex: objPos.rects.indexOf(closestRect) };
   }, []);
 
   // Gestione drag dei punti di connessione
@@ -3206,7 +3259,7 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
         
         const objId = draggingConnectionPoint.pointType === 'from' ? conn.from : conn.to;
         const allPositions = [...headerObjectPositions, ...contentObjectPositions];
-        const objPos = allPositions.find(p => p.id === objId);
+        const objPos = allPositions.find(p => p.objectId === objId);
         
         if (!objPos) return conn;
 
@@ -3318,13 +3371,39 @@ function GherkinBlock({ type, label, text, isExpanded, onToggle, state, onPrompt
             
             const objId = draggingConnectionPoint.pointType === 'from' ? conn.from : conn.to;
             const allPositions = [...headerObjectPositions, ...contentObjectPositions];
-            const objPos = allPositions.find(p => p.id === objId);
+            const objPos = allPositions.find(p => p.objectId === objId);
             
             if (!objPos) return conn;
 
-            // Calcola punto relativo (0-1) rispetto all'oggetto
-            const relX = Math.max(0, Math.min(1, (mouseX - objPos.left) / objPos.width));
-            const relY = Math.max(0, Math.min(1, (mouseY - objPos.top) / objPos.height));
+            // Trova il rettangolo più vicino per oggetti multi-linea
+            let closestRect = objPos.rects[0];
+            let rectTop = closestRect.top;
+            if (objPos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+              rectTop += gherkinBlockHeaderRef.current.offsetHeight;
+            }
+            
+            for (const rect of objPos.rects) {
+              let testRectTop = rect.top;
+              if (objPos.id.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+                testRectTop += gherkinBlockHeaderRef.current.offsetHeight;
+              }
+              const centerX = rect.left + rect.width / 2;
+              const centerY = testRectTop + rect.height / 2;
+              const distance = Math.sqrt(Math.pow(mouseX - centerX, 2) + Math.pow(mouseY - centerY, 2));
+              
+              const closestCenterX = closestRect.left + closestRect.width / 2;
+              const closestCenterY = rectTop + closestRect.height / 2;
+              const closestDistance = Math.sqrt(Math.pow(mouseX - closestCenterX, 2) + Math.pow(mouseY - closestCenterY, 2));
+              
+              if (distance < closestDistance) {
+                closestRect = rect;
+                rectTop = testRectTop;
+              }
+            }
+
+            // Calcola punto relativo (0-1) rispetto al rettangolo più vicino
+            const relX = Math.max(0, Math.min(1, (mouseX - closestRect.left) / closestRect.width));
+            const relY = Math.max(0, Math.min(1, (mouseY - rectTop) / closestRect.height));
 
             if (draggingConnectionPoint.pointType === 'from') {
               return { ...conn, fromPoint: { x: relX, y: relY } };
@@ -4220,7 +4299,13 @@ Richiesta: ${state.prompt}`;
     
     // Calcola i nuovi oggetti filtrati
     const newObjects = objects.filter(obj => {
-      // Rimuovi l'oggetto in base all'indice o all'ID
+      // Rimuovi l'oggetto in base all'ecObjectId, id, o indice posizionale (per compatibilità)
+      // Prima prova con ID reale
+      if (obj.ecObjectId === objectId || obj.id === objectId) {
+        return false;
+      }
+      
+      // Fallback: usa ID posizionale (per compatibilità con vecchi riferimenti)
       if (objectId.includes('header-obj-')) {
         const idx = parseInt(objectId.replace('header-obj-', ''));
         const headerObjects = objects.filter(o => o.location === 'header');
@@ -4668,7 +4753,7 @@ Richiesta: ${state.prompt}`;
     const mouseY = event.clientY - layerRect.top;
 
     const allPositions = [...headerObjectPositions, ...contentObjectPositions];
-    const objPos = allPositions.find(p => p.id === fromObjectId);
+    const objPos = allPositions.find(p => p.objectId === fromObjectId);
     if (!objPos) return;
 
     const perimeterPoint = getPointOnPerimeter(mouseX, mouseY, objPos);
@@ -4684,22 +4769,15 @@ Richiesta: ${state.prompt}`;
   const handleObjectClickForConnection = async (targetObjectId, e) => {
     if (connectingFrom && connectingFrom !== targetObjectId) {
       // Completa la connessione rilasciando su un oggetto
-      const headerObjects = objects.filter(o => o.location === 'header');
-      const contentObjects = objects.filter(o => o.location === 'content');
       
-      const fromObj = objects.find((obj) => {
-        const objId = obj.location === 'header' 
-          ? `header-obj-${headerObjects.indexOf(obj)}`
-          : `content-obj-${contentObjects.indexOf(obj)}`;
-        return objId === connectingFrom;
-      });
+      // Cerca gli oggetti usando ecObjectId o id (supporto per ID reali del database)
+      const fromObj = objects.find((obj) => 
+        obj.ecObjectId === connectingFrom || obj.id === connectingFrom
+      );
       
-      const toObj = objects.find((obj) => {
-        const objId = obj.location === 'header' 
-          ? `header-obj-${headerObjects.indexOf(obj)}`
-          : `content-obj-${contentObjects.indexOf(obj)}`;
-        return objId === targetObjectId;
-      });
+      const toObj = objects.find((obj) => 
+        obj.ecObjectId === targetObjectId || obj.id === targetObjectId
+      );
 
       console.log('handleObjectClickForConnection:', { 
         connectingFrom, 
@@ -4718,7 +4796,7 @@ Richiesta: ${state.prompt}`;
         
         // Calcola punto di connessione TO basato su dove si è rilasciato
         const allPositions = [...headerObjectPositions, ...contentObjectPositions];
-        const toPos = allPositions.find(p => p.id === targetObjectId);
+        const toPos = allPositions.find(p => p.objectId === targetObjectId);
         
         let toPoint = toObj.location === 'header'
           ? { x: 0.5, y: 1.0 } // Default: bordo inferiore (centro)
@@ -5106,17 +5184,24 @@ Richiesta: ${state.prompt}`;
 
   const getConnectionPointPosition = useCallback((objectId, point) => {
     const allPositions = [...headerObjectPositions, ...contentObjectPositions];
-    const objPos = allPositions.find(pos => pos.id === objectId);
+    const objPos = allPositions.find(pos => pos.objectId === objectId);
     if (!objPos) return { x: 0, y: 0 };
 
-    // point è relativo (0-1) rispetto alle dimensioni dell'oggetto
-    const x = objPos.left + (point.x * objPos.width);
-    let y = objPos.top + (point.y * objPos.height);
+    // Per oggetti multi-linea, seleziona il rettangolo appropriato basato su point.rectIndex
+    // oppure usa il primo rettangolo come default
+    const rectIndex = point.rectIndex !== undefined ? point.rectIndex : 0;
+    const rect = objPos.rects[rectIndex] || objPos.rects[0];
+    
+    // point è relativo (0-1) rispetto alle dimensioni del rettangolo selezionato
+    const x = rect.left + (point.x * rect.width);
+    let y = rect.top + (point.y * rect.height);
     
     // CORREZIONE: Se è un oggetto contenuto, aggiungi l'offset dell'header
     // perché le coordinate in contentObjectPositions sono relative al contenuto,
     // ma l'SVG delle connessioni è relativo all'intero blocco (header + contenuto)
-    if (objectId.startsWith('content-obj-') && gherkinBlockHeaderRef.current) {
+    // Verifica se l'oggetto è presente in contentObjectPositions invece di controllare il prefisso dell'ID
+    const isContentObject = contentObjectPositions.some(pos => pos.objectId === objectId);
+    if (isContentObject && gherkinBlockHeaderRef.current) {
       y += gherkinBlockHeaderRef.current.offsetHeight;
     }
     
@@ -5198,18 +5283,22 @@ Richiesta: ${state.prompt}`;
             range.setStart(startNode, startOffset);
             range.setEnd(endNode, endOffset);
             
-            const rangeRect = range.getBoundingClientRect();
+            // Usa getClientRects() per ottenere un rettangolo per ogni linea
+            const rangeRects = range.getClientRects();
             const labelRect = labelElement.getBoundingClientRect();
             
-            const left = rangeRect.left - labelRect.left;
-            const top = rangeRect.top - labelRect.top;
+            // Converti DOMRectList in array e calcola posizioni relative
+            const rects = Array.from(rangeRects).map(rect => ({
+              left: rect.left - labelRect.left,
+              top: rect.top - labelRect.top,
+              width: Math.max(rect.width, 10),
+              height: Math.max(rect.height, 16)
+            }));
             
             return {
               id: `header-obj-${idx}`,
-              left: left,
-              top: top,
-              width: Math.max(rangeRect.width, 10),
-              height: Math.max(rangeRect.height, 16),
+              objectId: obj.id || obj.ecObjectId,
+              rects: rects, // Array di rettangoli, uno per linea
               text: obj.text
             };
           }
@@ -5281,13 +5370,45 @@ Richiesta: ${state.prompt}`;
         const editorEl = seg ? codeEditorRefs.current[seg.id] : null;
         if (!editorEl) return null;
 
+        // Per gli oggetti nel content, usa anche getClientRects per gestire wrap
+        const preElement = editorEl.querySelector('pre');
+        
+        if (preElement && preElement.firstChild) {
+          try {
+            // Crea un range per il testo completo
+            const range = document.createRange();
+            range.selectNodeContents(preElement.firstChild);
+            const rangeRects = range.getClientRects();
+            
+            const rects = Array.from(rangeRects).map(rect => ({
+              left: rect.left - containerRect.left,
+              top: rect.top - containerRect.top,
+              width: Math.max(rect.width, 10),
+              height: Math.max(rect.height, 16)
+            }));
+            
+            return {
+              id: `content-obj-${idx}`,
+              objectId: obj.ecObjectId || obj.id,
+              rects: rects,
+              text: obj.text?.substring(0, 50) + (obj.text?.length > 50 ? '...' : '')
+            };
+          } catch (e) {
+            console.warn('Errore calcolo rects per content object:', e);
+          }
+        }
+        
+        // Fallback: usa getBoundingClientRect
         const rect = editorEl.getBoundingClientRect();
         return {
           id: `content-obj-${idx}`,
-          left: rect.left - containerRect.left,
-          top: rect.top - containerRect.top,
-          width: rect.width,
-          height: rect.height,
+          objectId: obj.ecObjectId || obj.id,
+          rects: [{
+            left: rect.left - containerRect.left,
+            top: rect.top - containerRect.top,
+            width: rect.width,
+            height: rect.height
+          }],
           text: obj.text?.substring(0, 50) + (obj.text?.length > 50 ? '...' : '')
         };
       }).filter(Boolean);
@@ -5557,15 +5678,10 @@ Richiesta: ${state.prompt}`;
             
             {/* Linea temporanea durante il drag (Alt + click destro) */}
             {isExpanded && connectingFrom && connectingMousePos && (() => {
-              // Trova l'oggetto FROM per determinare il punto di partenza
-              const fromObj = objects.find((obj) => {
-                const headerObjects = objects.filter(o => o.location === 'header');
-                const contentObjects = objects.filter(o => o.location === 'content');
-                const objId = obj.location === 'header' 
-                  ? `header-obj-${headerObjects.indexOf(obj)}`
-                  : `content-obj-${contentObjects.indexOf(obj)}`;
-                return objId === connectingFrom;
-              });
+              // Trova l'oggetto FROM usando ecObjectId o id (supporto per ID reali del database)
+              const fromObj = objects.find((obj) => 
+                obj.ecObjectId === connectingFrom || obj.id === connectingFrom
+              );
               
               if (!fromObj) return null;
               
@@ -5651,146 +5767,151 @@ Richiesta: ${state.prompt}`;
                 if (!gherkinLabelRef.current) return null;
                 const labelRect = gherkinLabelRef.current.getBoundingClientRect();
                 const headerRect = gherkinBlockHeaderRef.current.getBoundingClientRect();
-                const relativeTop = pos.top + (labelRect.top - headerRect.top);
                 
-                return (
-                  <div
-                    key={pos.id}
-                    className="gherkin-object-border header-object-border"
-                    style={{
-                      position: 'absolute',
-                      left: `${pos.left + (labelRect.left - headerRect.left)}px`,
-                      top: `${relativeTop}px`,
-                      width: `${pos.width}px`,
-                      height: `${pos.height}px`,
-                      border: connectingFrom && connectingFrom !== pos.id 
-                        ? '4px dashed #ff9800' 
-                        : '4px dashed #ff9800',
-                      borderRadius: '4px',
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
-                      backgroundColor: connectingFrom && connectingFrom !== pos.id 
-                        ? 'rgba(255, 152, 0, 0.1)' 
-                        : 'transparent',
-                      transition: 'background-color 0.2s'
-                    }}
-                    title={pos.text}
-                  >
-                    {/* Bordo cliccabile - solo il perimetro è interattivo */}
-                    {/* Bordo superiore */}
+                // Renderizza un div per ogni rettangolo (uno per linea)
+                return pos.rects.map((rect, rectIdx) => {
+                  const relativeTop = rect.top + (labelRect.top - headerRect.top);
+                  
+                  return (
                     <div
-                      className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      left: '-4px',
-                      right: '-4px',
-                      height: '4px',
-                      pointerEvents: 'auto',
-                        cursor: connectingFrom ? 'crosshair' : 'pointer'
-                    }}
-                      onMouseDown={(e) => {
-                        if (e.button === 2 && e.altKey) {
-                          e.preventDefault();
-                          startConnectionFrom(pos.id, e);
-                        }
-                      }}
-                      onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto header cliccato:', pos.text);
-                      }
-                    }}
-                    />
-                    {/* Bordo inferiore */}
-                    <div
-                      className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
+                      key={`${pos.id}-rect-${rectIdx}`}
+                      data-object-id={pos.objectId}
+                      className="gherkin-object-border header-object-border"
                       style={{
                         position: 'absolute',
-                        bottom: '-4px',
+                        left: `${rect.left + (labelRect.left - headerRect.left)}px`,
+                        top: `${relativeTop}px`,
+                        width: `${rect.width}px`,
+                        height: `${rect.height}px`,
+                        border: connectingFrom && connectingFrom !== pos.objectId 
+                          ? '4px dashed #ff9800' 
+                          : '4px dashed #ff9800',
+                        borderRadius: '4px',
+                        pointerEvents: 'none',
+                        boxSizing: 'border-box',
+                        backgroundColor: connectingFrom && connectingFrom !== pos.objectId 
+                          ? 'rgba(255, 152, 0, 0.1)' 
+                          : 'transparent',
+                        transition: 'background-color 0.2s'
+                      }}
+                      title={pos.text}
+                    >
+                      {/* Bordo cliccabile - solo il perimetro è interattivo */}
+                      {/* Bordo superiore */}
+                      <div
+                        className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: '-4px',
                         left: '-4px',
                         right: '-4px',
                         height: '4px',
                         pointerEvents: 'auto',
-                        cursor: connectingFrom ? 'crosshair' : 'pointer'
+                          cursor: connectingFrom ? 'crosshair' : 'pointer'
                       }}
-                      onMouseDown={(e) => {
-                        if (e.button === 2 && e.altKey) {
-                          e.preventDefault();
-                          startConnectionFrom(pos.id, e);
+                        onMouseDown={(e) => {
+                          if (e.button === 2 && e.altKey) {
+                            e.preventDefault();
+                            startConnectionFrom(pos.objectId, e);
+                          }
+                        }}
+                        onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto header cliccato:', pos.text);
                         }
                       }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto header cliccato:', pos.text);
-                      }
-                    }}
-                    />
-                    {/* Bordo sinistro */}
-                    <div
-                      className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                      style={{
-                        position: 'absolute',
-                        top: '-4px',
-                        left: '-4px',
-                        bottom: '-4px',
-                        width: '4px',
-                        pointerEvents: 'auto',
-                        cursor: connectingFrom ? 'crosshair' : 'pointer'
-                      }}
-                      onMouseDown={(e) => {
-                        if (e.button === 2 && e.altKey) {
-                          e.preventDefault();
-                          startConnectionFrom(pos.id, e);
+                      />
+                      {/* Bordo inferiore */}
+                      <div
+                        className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          bottom: '-4px',
+                          left: '-4px',
+                          right: '-4px',
+                          height: '4px',
+                          pointerEvents: 'auto',
+                          cursor: connectingFrom ? 'crosshair' : 'pointer'
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button === 2 && e.altKey) {
+                            e.preventDefault();
+                            startConnectionFrom(pos.objectId, e);
+                          }
+                        }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto header cliccato:', pos.text);
                         }
                       }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto header cliccato:', pos.text);
-                      }
-                    }}
-                    />
-                    {/* Bordo destro */}
-                    <div
-                      className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                      style={{
-                        position: 'absolute',
-                        top: '-4px',
-                        right: '-4px',
-                        bottom: '-4px',
-                        width: '4px',
-                        pointerEvents: 'auto',
-                        cursor: connectingFrom ? 'crosshair' : 'pointer'
-                      }}
-                      onMouseDown={(e) => {
-                        if (e.button === 2 && e.altKey) {
-                          e.preventDefault();
-                          startConnectionFrom(pos.id, e);
+                      />
+                      {/* Bordo sinistro */}
+                      <div
+                        className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          top: '-4px',
+                          left: '-4px',
+                          bottom: '-4px',
+                          width: '4px',
+                          pointerEvents: 'auto',
+                          cursor: connectingFrom ? 'crosshair' : 'pointer'
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button === 2 && e.altKey) {
+                            e.preventDefault();
+                            startConnectionFrom(pos.objectId, e);
+                          }
+                        }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto header cliccato:', pos.text);
                         }
                       }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto header cliccato:', pos.text);
-                      }
-                    }}
-                    />
-                  </div>
-                );
+                      />
+                      {/* Bordo destro */}
+                      <div
+                        className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          top: '-4px',
+                          right: '-4px',
+                          bottom: '-4px',
+                          width: '4px',
+                          pointerEvents: 'auto',
+                          cursor: connectingFrom ? 'crosshair' : 'pointer'
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button === 2 && e.altKey) {
+                            e.preventDefault();
+                            startConnectionFrom(pos.objectId, e);
+                          }
+                        }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto header cliccato:', pos.text);
+                        }
+                      }}
+                      />
+                    </div>
+                  );
+                });
               })}
             </div>
           )}
@@ -5812,183 +5933,184 @@ Richiesta: ${state.prompt}`;
             >
               {/* Bordi degli oggetti creati nel contenuto - unici elementi visibili e cliccabili */}
               {contentObjectPositions.map((pos) => {
-                const isEditing = editingToObject?.objectId === pos.id;
+                const isEditing = editingToObject?.objectId === pos.objectId;
                 
-                return (
-                <div
-                  key={pos.id}
-                  data-to-object-id={pos.id}
-                  className={`gherkin-object-border code-object-border ${isEditing ? 'editing' : 'locked'}`}
-                  style={{
-                    position: 'absolute',
-                    left: `${pos.left}px`,
-                    top: `${pos.top}px`,
-                    width: `${pos.width}px`,
-                    height: `${pos.height}px`,
-                    border: '4px dashed #ff9800',
-                    borderRadius: '4px',
-                    boxSizing: 'border-box',
-                    backgroundColor: isEditing 
-                      ? 'rgba(255, 152, 0, 0.25)' 
-                      : (connectingFrom && connectingFrom !== pos.id 
-                        ? 'rgba(255, 152, 0, 0.1)' 
-                        : 'transparent'),
-                    transition: 'background-color 0.2s',
-                    boxShadow: isEditing ? '0 0 10px rgba(255, 152, 0, 0.5)' : 'none',
-                    pointerEvents: 'none', // IMPORTANTE: Permette click alla textarea sottostante
-                    zIndex: isEditing ? 10 : 5 // Z-index più alto per stare sopra l'overlay quando in editing
-                  }}
-                  title={isEditing ? 'In modifica - clicca fuori per terminare' : `Oggetto TO: ${pos.text}`}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    // Double click disabled in favor of flag
-                  }}
-                >
-                  {/* EDIT ICON FOR EDITING - Deve avere pointerEvents auto */}
-                  {/* Show icon if not editing OR if editing THIS object (to allow toggle off) */}
-                  {(!isEditing || (editingToObject && editingToObject.objectId === pos.id)) && !connectingFrom && (
-                    <div 
-                      className="to-object-flag"
-                      title={isEditing ? "Termina modifica" : "Modifica testo (AI Guided)"}
-                      onClick={(e) => toggleToObjectEdit(pos.id, e)}
-                      style={{
-                        ...(isEditing ? { backgroundColor: '#e67e22', borderColor: '#e67e22' } : {}),
-                        pointerEvents: 'auto' // Riabilita click sull'icona
-                      }}
-                    >
-                      {isEditing ? (
-                        /* Checkmark icon for finishing edit */
-                        <svg viewBox="0 0 24 24">
-                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                        </svg>
-                      ) : (
-                        /* Pencil icon for starting edit */
-                        <svg viewBox="0 0 24 24">
-                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
+                // Renderizza un div per ogni rettangolo (uno per linea)
+                return pos.rects.map((rect, rectIdx) => (
+                  <div
+                    key={`${pos.id}-rect-${rectIdx}`}
+                    data-to-object-id={pos.objectId}
+                    className={`gherkin-object-border code-object-border ${isEditing ? 'editing' : 'locked'}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${rect.left}px`,
+                      top: `${rect.top}px`,
+                      width: `${rect.width}px`,
+                      height: `${rect.height}px`,
+                      border: '4px dashed #ff9800',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box',
+                      backgroundColor: isEditing 
+                        ? 'rgba(255, 152, 0, 0.25)' 
+                        : (connectingFrom && connectingFrom !== pos.objectId 
+                          ? 'rgba(255, 152, 0, 0.1)' 
+                          : 'transparent'),
+                      transition: 'background-color 0.2s',
+                      boxShadow: isEditing ? '0 0 10px rgba(255, 152, 0, 0.5)' : 'none',
+                      pointerEvents: 'none', // IMPORTANTE: Permette click alla textarea sottostante
+                      zIndex: isEditing ? 10 : 5 // Z-index più alto per stare sopra l'overlay quando in editing
+                    }}
+                    title={isEditing ? 'In modifica - clicca fuori per terminare' : `Oggetto TO: ${pos.text}`}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      // Double click disabled in favor of flag
+                    }}
+                  >
+                    {/* EDIT ICON FOR EDITING - Mostra solo sul primo rettangolo */}
+                    {rectIdx === 0 && (!isEditing || (editingToObject && editingToObject.objectId === pos.objectId)) && !connectingFrom && (
+                      <div 
+                        className="to-object-flag"
+                        title={isEditing ? "Termina modifica" : "Modifica testo (AI Guided)"}
+                        onClick={(e) => toggleToObjectEdit(pos.objectId, e)}
+                        style={{
+                          ...(isEditing ? { backgroundColor: '#e67e22', borderColor: '#e67e22' } : {}),
+                          pointerEvents: 'auto' // Riabilita click sull'icona
+                        }}
+                      >
+                        {isEditing ? (
+                          /* Checkmark icon for finishing edit */
+                          <svg viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                          </svg>
+                        ) : (
+                          /* Pencil icon for starting edit */
+                          <svg viewBox="0 0 24 24">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Bordo cliccabile - solo il perimetro è interattivo */}
-                  {/* Bordo superiore */}
-                  <div
-                    className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      left: '-4px',
-                      right: '-4px',
-                      height: '8px', // Aumentato per facilitare click
-                      pointerEvents: 'auto', // Riabilita click
-                      cursor: connectingFrom ? 'crosshair' : 'pointer',
-                      zIndex: 10
-                    }}
-                    onMouseDown={(e) => {
-                      if (e.button === 2 && e.altKey) {
-                        e.preventDefault();
-                        startConnectionFrom(pos.id, e);
-                      }
-                    }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto contenuto cliccato:', pos.text);
-                      }
-                    }}
-                  />
-                  {/* Bordo inferiore */}
-                  <div
-                    className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                    style={{
-                      position: 'absolute',
-                      bottom: '-4px',
-                      left: '-4px',
-                      right: '-4px',
-                      height: '8px', // Aumentato
-                      pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer',
-                      zIndex: 10
-                    }}
-                    onMouseDown={(e) => {
-                      if (e.button === 2 && e.altKey) {
-                        e.preventDefault();
-                        startConnectionFrom(pos.id, e);
-                      }
-                    }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto contenuto cliccato:', pos.text);
-                      }
-                    }}
-                  />
-                  {/* Bordo sinistro */}
-                  <div
-                    className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      left: '-4px',
-                      bottom: '-4px',
-                      width: '8px', // Aumentato
-                      pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer',
-                      zIndex: 10
-                    }}
-                    onMouseDown={(e) => {
-                      if (e.button === 2 && e.altKey) {
-                        e.preventDefault();
-                        startConnectionFrom(pos.id, e);
-                      }
-                    }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto contenuto cliccato:', pos.text);
-                      }
-                    }}
-                  />
-                  {/* Bordo destro */}
-                  <div
-                    className={`object-border-edge ${connectionHoverTarget === pos.id ? 'connection-hover-candidate' : ''}`}
-                    style={{
-                      position: 'absolute',
-                      top: '-4px',
-                      right: '-4px',
-                      bottom: '-4px',
-                      width: '8px', // Aumentato
-                      pointerEvents: 'auto',
-                      cursor: connectingFrom ? 'crosshair' : 'pointer',
-                      zIndex: 10
-                    }}
-                    onMouseDown={(e) => {
-                      if (e.button === 2 && e.altKey) {
-                        e.preventDefault();
-                        startConnectionFrom(pos.id, e);
-                      }
-                    }}
-                    onContextMenu={(e) => handleObjectContextMenu(e, pos.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connectingFrom) {
-                        handleObjectClickForConnection(pos.id, e);
-                      } else {
-                        console.log('Oggetto contenuto cliccato:', pos.text);
-                      }
-                    }}
-                  />
-                </div>
-              );})}
+                    {/* Bordo cliccabile - solo il perimetro è interattivo */}
+                    {/* Bordo superiore */}
+                    <div
+                      className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        left: '-4px',
+                        right: '-4px',
+                        height: '8px', // Aumentato per facilitare click
+                        pointerEvents: 'auto', // Riabilita click
+                        cursor: connectingFrom ? 'crosshair' : 'pointer',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 2 && e.altKey) {
+                          e.preventDefault();
+                          startConnectionFrom(pos.objectId, e);
+                        }
+                      }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto contenuto cliccato:', pos.text);
+                        }
+                      }}
+                    />
+                    {/* Bordo inferiore */}
+                    <div
+                      className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        bottom: '-4px',
+                        left: '-4px',
+                        right: '-4px',
+                        height: '8px', // Aumentato
+                        pointerEvents: 'auto',
+                        cursor: connectingFrom ? 'crosshair' : 'pointer',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 2 && e.altKey) {
+                          e.preventDefault();
+                          startConnectionFrom(pos.objectId, e);
+                        }
+                      }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto contenuto cliccato:', pos.text);
+                        }
+                      }}
+                    />
+                    {/* Bordo sinistro */}
+                    <div
+                      className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        left: '-4px',
+                        bottom: '-4px',
+                        width: '8px', // Aumentato
+                        pointerEvents: 'auto',
+                        cursor: connectingFrom ? 'crosshair' : 'pointer',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 2 && e.altKey) {
+                          e.preventDefault();
+                          startConnectionFrom(pos.objectId, e);
+                        }
+                      }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto contenuto cliccato:', pos.text);
+                        }
+                      }}
+                    />
+                    {/* Bordo destro */}
+                    <div
+                      className={`object-border-edge ${connectionHoverTarget === pos.objectId ? 'connection-hover-candidate' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        bottom: '-4px',
+                        width: '8px', // Aumentato
+                        pointerEvents: 'auto',
+                        cursor: connectingFrom ? 'crosshair' : 'pointer',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 2 && e.altKey) {
+                          e.preventDefault();
+                          startConnectionFrom(pos.objectId, e);
+                        }
+                      }}
+                      onContextMenu={(e) => handleObjectContextMenu(e, pos.objectId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connectingFrom) {
+                          handleObjectClickForConnection(pos.objectId, e);
+                        } else {
+                          console.log('Oggetto contenuto cliccato:', pos.text);
+                        }
+                      }}
+                    />
+                  </div>
+                ));
+              })}
 
               {/* Overlay per bloccare focus fuori dall'oggetto in editing */}
               {editingToObject && (
@@ -5997,36 +6119,45 @@ Richiesta: ${state.prompt}`;
                   {/* Implementato come 4 rettangoli attorno all'oggetto per creare un 'buco' */}
                   {/* Nota: questo è necessario perché 'pointer-events' non supporta 'forare' un div */}
                   {(() => {
-                    const activeObjPos = contentObjectPositions.find(p => p.id === editingToObject.objectId);
+                    const activeObjPos = contentObjectPositions.find(p => p.objectId === editingToObject.objectId);
                     if (!activeObjPos) return null;
 
-                    // Dimensioni totali (approssimate, dovrebbero coprire tutto l'editor visibile)
-                    // Dato che siamo inside layer-ec-content che ha width 100% e height del contenuto
-                    // Possiamo usare 100% width e height
+                    // Calcola bounding box complessivo per oggetti multi-linea
+                    const allRects = activeObjPos.rects;
+                    const minTop = Math.min(...allRects.map(r => r.top));
+                    const maxBottom = Math.max(...allRects.map(r => r.top + r.height));
+                    const minLeft = Math.min(...allRects.map(r => r.left));
+                    const maxRight = Math.max(...allRects.map(r => r.left + r.width));
+                    const boundingBox = {
+                      top: minTop,
+                      left: minLeft,
+                      width: maxRight - minLeft,
+                      height: maxBottom - minTop
+                    };
                     
                     return (
                       <>
                         {/* Top Mask */}
                         <div style={{
-                          position: 'absolute', top: 0, left: 0, right: 0, height: activeObjPos.top + 'px',
+                          position: 'absolute', top: 0, left: 0, right: 0, height: boundingBox.top + 'px',
                           backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
                         }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                         
                         {/* Bottom Mask */}
                         <div style={{
-                          position: 'absolute', top: (activeObjPos.top + activeObjPos.height) + 'px', left: 0, right: 0, bottom: 0,
+                          position: 'absolute', top: (boundingBox.top + boundingBox.height) + 'px', left: 0, right: 0, bottom: 0,
                           backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
                         }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                         
                         {/* Left Mask */}
                         <div style={{
-                          position: 'absolute', top: activeObjPos.top + 'px', left: 0, width: activeObjPos.left + 'px', height: activeObjPos.height + 'px',
+                          position: 'absolute', top: boundingBox.top + 'px', left: 0, width: boundingBox.left + 'px', height: boundingBox.height + 'px',
                           backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
                         }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                         
                         {/* Right Mask */}
                         <div style={{
-                          position: 'absolute', top: activeObjPos.top + 'px', left: (activeObjPos.left + activeObjPos.width) + 'px', right: 0, height: activeObjPos.height + 'px',
+                          position: 'absolute', top: boundingBox.top + 'px', left: (boundingBox.left + boundingBox.width) + 'px', right: 0, height: boundingBox.height + 'px',
                           backgroundColor: 'rgba(0,0,0,0.05)', pointerEvents: 'auto', zIndex: 4
                         }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                       </>

@@ -81,6 +81,23 @@ body {
   cursor: not-allowed;
 }
 
+.config-button {
+  padding: 8px 16px;
+  background-color: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.config-button:hover {
+  background-color: #F57C00;
+  transform: translateY(-1px);
+}
+
 .sessions-button {
   padding: 8px 16px;
   background-color: #2196F3;
@@ -665,6 +682,125 @@ input[type="file"]:hover {
 }
 
 .resource-selector {
+  margin-bottom: 15px;
+}
+
+/* Preliminary Code Editor Styles */
+.preliminary-code-editor {
+  margin-bottom: 20px;
+}
+
+.preliminary-code-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.preliminary-code-editor-label {
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+}
+
+.preliminary-code-save-button {
+  padding: 4px 12px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.preliminary-code-save-button:hover {
+  background-color: #218838;
+}
+
+.preliminary-code-editor-container {
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'Fira Code', 'Fira Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  min-height: 150px;
+  max-height: 300px;
+  overflow: auto;
+  border: 1px solid #444;
+}
+
+.preliminary-code-editor-container:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.preliminary-code-hint {
+  font-size: 11px;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* Read-only preliminary code display in TestCaseBuilder */
+.preliminary-code-display {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+}
+
+.preliminary-code-display-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.preliminary-code-display-title {
+  margin: 0;
+  color: #667eea;
+  font-size: 16px;
+}
+
+.preliminary-code-display-container {
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'Fira Code', 'Fira Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid #444;
+}
+
+.preliminary-code-display-hint {
+  font-size: 11px;
+  color: #666;
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-style: italic;
+}
+
+/* Cypress File Generation Section */
+.cypress-file-generation-section {
+  margin: 20px 0;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+}
+
+.cypress-file-generation-section h3 {
+  margin-top: 0;
+  color: #667eea;
+}
+
+.cypress-file-generation-section p {
+  color: #666;
   margin-bottom: 15px;
 }
 

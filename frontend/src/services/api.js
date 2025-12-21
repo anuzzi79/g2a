@@ -506,6 +506,31 @@ export const api = {
     }
     
     return response.json();
+  },
+
+  /**
+   * Gestione Codice Preliminare (imports, describe, beforeEach)
+   */
+  async savePreliminaryCode(sessionId, code) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/preliminary-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  async getPreliminaryCode(sessionId) {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/preliminary-code`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 };
 

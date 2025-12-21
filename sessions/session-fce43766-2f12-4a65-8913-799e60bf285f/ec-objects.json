@@ -1,0 +1,1601 @@
+{
+  "version": "1.0",
+  "createdAt": "2025-12-19T19:33:17.199Z",
+  "lastUpdated": "2025-12-21T01:47:13.736Z",
+  "objects": [
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-1-1766172797195",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 1,
+      "text": "I'm in equipment detail screen",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 41,
+      "createdAt": "2025-12-19T19:33:17.195Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Given that I'm in equipment detail screen",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-2-1766172799711",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "when",
+      "boxNumber": 2,
+      "text": "I click to create an observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 37,
+      "createdAt": "2025-12-19T19:33:19.711Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-3-1766172799737",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "when",
+      "boxNumber": 3,
+      "text": "I create a new one with draft status",
+      "location": "header",
+      "startIndex": 39,
+      "endIndex": 75,
+      "createdAt": "2025-12-19T19:33:19.737Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-4-1766172799757",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "when",
+      "boxNumber": 4,
+      "text": "I click save & exit",
+      "location": "header",
+      "startIndex": 75,
+      "endIndex": 94,
+      "createdAt": "2025-12-19T19:33:19.757Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-5-1766172801766",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "then",
+      "boxNumber": 5,
+      "text": "the observation created should be listed on the piece of equipment",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 71,
+      "createdAt": "2025-12-19T19:33:21.766Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the observation created should be listed on the piece of equipment with Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-6-1766172801790",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "then",
+      "boxNumber": 6,
+      "text": "Code = N/A",
+      "location": "header",
+      "startIndex": 77,
+      "endIndex": 87,
+      "createdAt": "2025-12-19T19:33:21.790Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Then the observation created should be listed on the piece of equipment with Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-7-1766172803804",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 7,
+      "text": "I created some observations with 'draft' status",
+      "location": "header",
+      "startIndex": 0,
+      "endIndex": 47,
+      "createdAt": "2025-12-19T19:33:23.804Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Given that I created some observations with \"draft\" status within that same piece of equipment",
+        "sourcePhase": "given",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-8-1766172803832",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "given",
+      "boxNumber": 8,
+      "text": "within that same piece of equipment",
+      "location": "header",
+      "startIndex": 59,
+      "endIndex": 94,
+      "createdAt": "2025-12-19T19:33:23.832Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Given that I created some observations with \"draft\" status within that same piece of equipment",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-9-1766172805715",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "when",
+      "boxNumber": 9,
+      "text": "I randomly access each observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 39,
+      "createdAt": "2025-12-19T19:33:25.715Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation, and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-10-1766172805736",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "when",
+      "boxNumber": 10,
+      "text": "change its status randomly according to the options",
+      "location": "header",
+      "startIndex": 45,
+      "endIndex": 96,
+      "createdAt": "2025-12-19T19:33:25.736Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation, and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-11-1766172807792",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "then",
+      "boxNumber": 11,
+      "text": "in the screen of equipment detail",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 38,
+      "createdAt": "2025-12-19T19:33:27.792Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Then in the screen of equipment detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-12-1766172807818",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "then",
+      "boxNumber": 12,
+      "text": "the observations should be in ascending order",
+      "location": "header",
+      "startIndex": 40,
+      "endIndex": 85,
+      "createdAt": "2025-12-19T19:33:27.818Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then in the screen of equipment detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-13-1766172809900",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "3",
+      "boxType": "given",
+      "boxNumber": 13,
+      "text": "I'm in the detail of an old observation",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 50,
+      "createdAt": "2025-12-19T19:33:29.900Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of an old observation",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-14-1766172811445",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "3",
+      "boxType": "when",
+      "boxNumber": 14,
+      "text": "I link that same equipment in the asset field",
+      "location": "header",
+      "startIndex": 0,
+      "endIndex": 45,
+      "createdAt": "2025-12-19T19:33:31.445Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link that same equipment in the \"asset\" field, and access the piece of equipment",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-15-1766172811469",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "3",
+      "boxType": "when",
+      "boxNumber": 15,
+      "text": "access the piece of equipment",
+      "location": "header",
+      "startIndex": 58,
+      "endIndex": 87,
+      "createdAt": "2025-12-19T19:33:31.469Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link that same equipment in the \"asset\" field, and access the piece of equipment",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-16-1766172813293",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "3",
+      "boxType": "then",
+      "boxNumber": 16,
+      "text": "the observation should be added to the list",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 48,
+      "createdAt": "2025-12-19T19:33:33.293Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Then the observation should be added to the list and should be sorted according to its \"code\" numbers.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-17-1766172813314",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "3",
+      "boxType": "then",
+      "boxNumber": 17,
+      "text": "the list should be sorted according to its code numbers",
+      "location": "header",
+      "startIndex": 48,
+      "endIndex": 103,
+      "createdAt": "2025-12-19T19:33:33.314Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the observation should be added to the list and should be sorted according to its \"code\" numbers.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-18-1766172815814",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "given",
+      "boxNumber": 18,
+      "text": "I'm in the detail of a equipment type",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 48,
+      "createdAt": "2025-12-19T19:33:35.814Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a equipment type",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-19-1766172817396",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "when",
+      "boxNumber": 19,
+      "text": "I click to create an observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 37,
+      "createdAt": "2025-12-19T19:33:37.396Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-20-1766172817422",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "when",
+      "boxNumber": 20,
+      "text": "I create a new one with draft status",
+      "location": "header",
+      "startIndex": 39,
+      "endIndex": 75,
+      "createdAt": "2025-12-19T19:33:37.422Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-21-1766172817442",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "when",
+      "boxNumber": 21,
+      "text": "I click save & exit",
+      "location": "header",
+      "startIndex": 75,
+      "endIndex": 94,
+      "createdAt": "2025-12-19T19:33:37.442Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, I create a new one with draft status, and click \"save & exit,\"",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-22-1766172818500",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "then",
+      "boxNumber": 22,
+      "text": "the observation created should be listed",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 45,
+      "createdAt": "2025-12-19T19:33:38.500Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "result",
+        "sourceText": "Then the observation created should be listed on the piece of equipment with Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-23-1766172818522",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "then",
+      "boxNumber": 23,
+      "text": "on the piece of equipment with Code = N/A",
+      "location": "header",
+      "startIndex": 46,
+      "endIndex": 87,
+      "createdAt": "2025-12-19T19:33:38.522Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Then the observation created should be listed on the piece of equipment with Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-24-1766172821127",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 24,
+      "text": "I created some observations",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 38,
+      "createdAt": "2025-12-19T19:33:41.127Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same equipment type",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-25-1766172821153",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 25,
+      "text": "with the 'draft' status",
+      "location": "header",
+      "startIndex": 38,
+      "endIndex": 61,
+      "createdAt": "2025-12-19T19:33:41.153Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same equipment type",
+        "sourcePhase": "given",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-26-1766172821173",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "given",
+      "boxNumber": 26,
+      "text": "within the same equipment type",
+      "location": "header",
+      "startIndex": 63,
+      "endIndex": 93,
+      "createdAt": "2025-12-19T19:33:41.173Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same equipment type",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-27-1766172822508",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "when",
+      "boxNumber": 27,
+      "text": "I randomly access each observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 39,
+      "createdAt": "2025-12-19T19:33:42.508Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-28-1766172822531",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "when",
+      "boxNumber": 28,
+      "text": "change its status randomly",
+      "location": "header",
+      "startIndex": 44,
+      "endIndex": 70,
+      "createdAt": "2025-12-19T19:33:42.531Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-29-1766172822564",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "when",
+      "boxNumber": 29,
+      "text": "according to the options",
+      "location": "header",
+      "startIndex": 71,
+      "endIndex": 95,
+      "createdAt": "2025-12-19T19:33:42.564Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-30-1766172824317",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "then",
+      "boxNumber": 30,
+      "text": "in the equipment type's detail",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 35,
+      "createdAt": "2025-12-19T19:33:44.317Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Then in the equipment type's detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-31-1766172824341",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "5",
+      "boxType": "then",
+      "boxNumber": 31,
+      "text": "the observations should be in ascending order",
+      "location": "header",
+      "startIndex": 37,
+      "endIndex": 82,
+      "createdAt": "2025-12-19T19:33:44.341Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then in the equipment type's detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-32-1766172825797",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "6",
+      "boxType": "given",
+      "boxNumber": 32,
+      "text": "I am in the detail of an old observation",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 51,
+      "createdAt": "2025-12-19T19:33:45.797Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I am in the detail of an old observation",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-33-1766172827398",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "6",
+      "boxType": "when",
+      "boxNumber": 33,
+      "text": "I link this same equipment type in the asset field",
+      "location": "header",
+      "startIndex": 0,
+      "endIndex": 50,
+      "createdAt": "2025-12-19T19:33:47.398Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link this same equipment type in the \"asset\" field and then access the equipment type",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-34-1766172827426",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "6",
+      "boxType": "when",
+      "boxNumber": 34,
+      "text": "I access the equipment type",
+      "location": "header",
+      "startIndex": 50,
+      "endIndex": 77,
+      "createdAt": "2025-12-19T19:33:47.426Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link this same equipment type in the \"asset\" field and then access the equipment type",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-35-1766172829322",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "6",
+      "boxType": "then",
+      "boxNumber": 35,
+      "text": "the observation should be added to the list",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 48,
+      "createdAt": "2025-12-19T19:33:49.322Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Then the observation should be added to the list and should be sorted according to its \"code\" numbers.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-36-1766172829356",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "6",
+      "boxType": "then",
+      "boxNumber": 36,
+      "text": "the list should be sorted according to its code numbers",
+      "location": "header",
+      "startIndex": 48,
+      "endIndex": 103,
+      "createdAt": "2025-12-19T19:33:49.356Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the observation should be added to the list and should be sorted according to its \"code\" numbers.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-37-1766172830647",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "given",
+      "boxNumber": 37,
+      "text": "I am in the detail of a system",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 41,
+      "createdAt": "2025-12-19T19:33:50.647Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I am in the detail of a system",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-38-1766172831687",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "when",
+      "boxNumber": 38,
+      "text": "I click to create an observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 37,
+      "createdAt": "2025-12-19T19:33:51.687Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, and create a new one with the draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-39-1766172831714",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "when",
+      "boxNumber": 39,
+      "text": "create a new one with the draft status",
+      "location": "header",
+      "startIndex": 43,
+      "endIndex": 81,
+      "createdAt": "2025-12-19T19:33:51.714Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, and create a new one with the draft status, and click \"save & exit,\"",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-40-1766172831739",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "when",
+      "boxNumber": 40,
+      "text": "click save & exit",
+      "location": "header",
+      "startIndex": 81,
+      "endIndex": 98,
+      "createdAt": "2025-12-19T19:33:51.739Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I click to create an observation, and create a new one with the draft status, and click \"save & exit,\"",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-41-1766172834064",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "then",
+      "boxNumber": 41,
+      "text": "the created observation should be listed in the system",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 59,
+      "createdAt": "2025-12-19T19:33:54.064Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the created observation should be listed in the system with the Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-42-1766172834090",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "then",
+      "boxNumber": 42,
+      "text": "the Code = N/A",
+      "location": "header",
+      "startIndex": 65,
+      "endIndex": 79,
+      "createdAt": "2025-12-19T19:33:54.090Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Then the created observation should be listed in the system with the Code = N/A.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-43-1766172835703",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "given",
+      "boxNumber": 43,
+      "text": "I created some observations",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 38,
+      "createdAt": "2025-12-19T19:33:55.703Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same system",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-44-1766172835731",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "given",
+      "boxNumber": 44,
+      "text": "with the 'draft' status",
+      "location": "header",
+      "startIndex": 38,
+      "endIndex": 61,
+      "createdAt": "2025-12-19T19:33:55.731Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same system",
+        "sourcePhase": "given",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-45-1766172835755",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "given",
+      "boxNumber": 45,
+      "text": "within the same system",
+      "location": "header",
+      "startIndex": 63,
+      "endIndex": 85,
+      "createdAt": "2025-12-19T19:33:55.755Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Given that I created some observations with the \"draft\" status within the same system",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-46-1766172837464",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "when",
+      "boxNumber": 46,
+      "text": "I randomly access each observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 39,
+      "createdAt": "2025-12-19T19:33:57.464Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-47-1766172837490",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "when",
+      "boxNumber": 47,
+      "text": "change its status randomly",
+      "location": "header",
+      "startIndex": 44,
+      "endIndex": 70,
+      "createdAt": "2025-12-19T19:33:57.490Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-48-1766172837517",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "when",
+      "boxNumber": 48,
+      "text": "according to the options",
+      "location": "header",
+      "startIndex": 71,
+      "endIndex": 95,
+      "createdAt": "2025-12-19T19:33:57.517Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "When I randomly access each observation and change its status randomly according to the options",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-49-1766172838430",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "then",
+      "boxNumber": 49,
+      "text": "in the system's detail",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 27,
+      "createdAt": "2025-12-19T19:33:58.430Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Then in the system's detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-50-1766172838452",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "8",
+      "boxType": "then",
+      "boxNumber": 50,
+      "text": "the observations should be in ascending order",
+      "location": "header",
+      "startIndex": 29,
+      "endIndex": 74,
+      "createdAt": "2025-12-19T19:33:58.452Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then in the system's detail, the observations should be in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-51-1766172840369",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "9",
+      "boxType": "given",
+      "boxNumber": 51,
+      "text": "I'm in the detail of an old observation",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 50,
+      "createdAt": "2025-12-19T19:34:00.369Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of an old observation",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-52-1766172841260",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "9",
+      "boxType": "when",
+      "boxNumber": 52,
+      "text": "I link that same system in the asset field",
+      "location": "header",
+      "startIndex": 0,
+      "endIndex": 42,
+      "createdAt": "2025-12-19T19:34:01.260Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link that same system in the \"asset\" field and then access the system",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-53-1766172841283",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "9",
+      "boxType": "when",
+      "boxNumber": 53,
+      "text": "I access the system",
+      "location": "header",
+      "startIndex": 42,
+      "endIndex": 61,
+      "createdAt": "2025-12-19T19:34:01.283Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I link that same system in the \"asset\" field and then access the system",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-54-1766172842153",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "9",
+      "boxType": "then",
+      "boxNumber": 54,
+      "text": "the observation should be added to the list",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 48,
+      "createdAt": "2025-12-19T19:34:02.153Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Then the observation should be added to the list and sorted according to its \"code\" numbers.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-55-1766172842178",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "9",
+      "boxType": "then",
+      "boxNumber": 55,
+      "text": "sorted according to its code numbers",
+      "location": "header",
+      "startIndex": 48,
+      "endIndex": 84,
+      "createdAt": "2025-12-19T19:34:02.178Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Then the observation should be added to the list and sorted according to its \"code\" numbers.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-56-1766172843716",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "given",
+      "boxNumber": 56,
+      "text": "I'm in the detail of a document",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 42,
+      "createdAt": "2025-12-19T19:34:03.716Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a document",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-57-1766172845037",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "when",
+      "boxNumber": 57,
+      "text": "I perform the action of linking an existing observation in the system",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 74,
+      "createdAt": "2025-12-19T19:34:05.037Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I perform the action of linking an existing observation in the system, and select the observation with the highest \"code\" from the list, and repeat the process a few times",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-58-1766172845063",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "when",
+      "boxNumber": 58,
+      "text": "select the observation with the highest code from the list",
+      "location": "header",
+      "startIndex": 74,
+      "endIndex": 132,
+      "createdAt": "2025-12-19T19:34:05.063Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I perform the action of linking an existing observation in the system, and select the observation with the highest \"code\" from the list, and repeat the process a few times",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-59-1766172845089",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "when",
+      "boxNumber": 59,
+      "text": "repeat the process a few times",
+      "location": "header",
+      "startIndex": 146,
+      "endIndex": 176,
+      "createdAt": "2025-12-19T19:34:05.089Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I perform the action of linking an existing observation in the system, and select the observation with the highest \"code\" from the list, and repeat the process a few times",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-60-1766172846524",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "then",
+      "boxNumber": 60,
+      "text": "the document's observations list should be listed",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 54,
+      "createdAt": "2025-12-19T19:34:06.524Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the document's observations list should be listed and sorted in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-61-1766172846553",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "10",
+      "boxType": "then",
+      "boxNumber": 61,
+      "text": "the document's observations list should be sorted in ascending order",
+      "location": "header",
+      "startIndex": 54,
+      "endIndex": 122,
+      "createdAt": "2025-12-19T19:34:06.553Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the document's observations list should be listed and sorted in ascending order.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-62-1766172850971",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "given",
+      "boxNumber": 62,
+      "text": "I'm in the detail of a document",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 42,
+      "createdAt": "2025-12-19T19:34:10.971Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a document with some linked observations",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-63-1766172850998",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "given",
+      "boxNumber": 63,
+      "text": "some linked observations",
+      "location": "header",
+      "startIndex": 48,
+      "endIndex": 72,
+      "createdAt": "2025-12-19T19:34:10.998Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a document with some linked observations",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-64-1766172852099",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "when",
+      "boxNumber": 64,
+      "text": "I perform the action of linking existing observations in the system",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 72,
+      "createdAt": "2025-12-19T19:34:12.099Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I perform the action of linking existing observations in the system, and link an observation with a \"draft\" status",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-65-1766172852128",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "when",
+      "boxNumber": 65,
+      "text": "link an observation with a draft status",
+      "location": "header",
+      "startIndex": 72,
+      "endIndex": 111,
+      "createdAt": "2025-12-19T19:34:12.128Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I perform the action of linking existing observations in the system, and link an observation with a \"draft\" status",
+        "sourcePhase": "when",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-66-1766172853528",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "then",
+      "boxNumber": 66,
+      "text": "the document's observations list should be listed",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 54,
+      "createdAt": "2025-12-19T19:34:13.528Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the document's observations list should be listed and sorted in ascending order except for those with a \"N/A\" status.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-67-1766172853552",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "then",
+      "boxNumber": 67,
+      "text": "the document's observations list should be sorted in ascending order",
+      "location": "header",
+      "startIndex": 54,
+      "endIndex": 122,
+      "createdAt": "2025-12-19T19:34:13.552Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then the document's observations list should be listed and sorted in ascending order except for those with a \"N/A\" status.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-68-1766172853575",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "11",
+      "boxType": "then",
+      "boxNumber": 68,
+      "text": "except for those with a 'N/A' status",
+      "location": "header",
+      "startIndex": 122,
+      "endIndex": 158,
+      "createdAt": "2025-12-19T19:34:13.575Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "condition",
+        "sourceText": "Then the document's observations list should be listed and sorted in ascending order except for those with a \"N/A\" status.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-69-1766172855832",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "given",
+      "boxNumber": 69,
+      "text": "I'm in the detail of a document",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 42,
+      "createdAt": "2025-12-19T19:34:15.832Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a document containing an observation with a \"N/A\" status",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-70-1766172855858",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "given",
+      "boxNumber": 70,
+      "text": "a document containing an observation",
+      "location": "header",
+      "startIndex": 42,
+      "endIndex": 78,
+      "createdAt": "2025-12-19T19:34:15.858Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "precondition",
+        "sourceText": "Given that I'm in the detail of a document containing an observation with a \"N/A\" status",
+        "sourcePhase": "given",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-71-1766172855879",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "given",
+      "boxNumber": 71,
+      "text": "an observation with a 'N/A' status",
+      "location": "header",
+      "startIndex": 78,
+      "endIndex": 112,
+      "createdAt": "2025-12-19T19:34:15.879Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the detail of a document containing an observation with a \"N/A\" status",
+        "sourcePhase": "given",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-72-1766172856986",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "when",
+      "boxNumber": 72,
+      "text": "I access that observation",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 30,
+      "createdAt": "2025-12-19T19:34:16.986Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I access that observation and change its status to any available option, and return to that document",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-73-1766172857016",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "when",
+      "boxNumber": 73,
+      "text": "change its status to any available option",
+      "location": "header",
+      "startIndex": 35,
+      "endIndex": 76,
+      "createdAt": "2025-12-19T19:34:17.016Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I access that observation and change its status to any available option, and return to that document",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-74-1766172857043",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "when",
+      "boxNumber": 74,
+      "text": "return to that document",
+      "location": "header",
+      "startIndex": 82,
+      "endIndex": 105,
+      "createdAt": "2025-12-19T19:34:17.043Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I access that observation and change its status to any available option, and return to that document",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-75-1766172857929",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "then",
+      "boxNumber": 75,
+      "text": "that modified observation should be in the list",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 52,
+      "createdAt": "2025-12-19T19:34:17.929Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "verification",
+        "sourceText": "Then that modified observation should be in the list organized in ascending order.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-76-1766172857983",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "12",
+      "boxType": "then",
+      "boxNumber": 76,
+      "text": "the list is organized in ascending order",
+      "location": "header",
+      "startIndex": 52,
+      "endIndex": 92,
+      "createdAt": "2025-12-19T19:34:17.983Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Then that modified observation should be in the list organized in ascending order.",
+        "sourcePhase": "then",
+        "positionNotFound": true
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCGIVEN-77-1766172859831",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "given",
+      "boxNumber": 77,
+      "text": "I'm in the SOR subtask list",
+      "location": "header",
+      "startIndex": 11,
+      "endIndex": 38,
+      "createdAt": "2025-12-19T19:34:19.831Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "Given that I'm in the SOR subtask list",
+        "sourcePhase": "given"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-78-1766172860561",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "when",
+      "boxNumber": 78,
+      "text": "I delete a subtask from the list",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 37,
+      "createdAt": "2025-12-19T19:34:20.561Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I delete a subtask from the list (e.g., SOR-6), and the order changes to 5>7, and I click the \"reorder subtask\" button",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-79-1766172860581",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "when",
+      "boxNumber": 79,
+      "text": "the order changes to 5>7",
+      "location": "header",
+      "startIndex": 57,
+      "endIndex": 81,
+      "createdAt": "2025-12-19T19:34:20.581Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "state",
+        "sourceText": "When I delete a subtask from the list (e.g., SOR-6), and the order changes to 5>7, and I click the \"reorder subtask\" button",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCWHEN-80-1766172860608",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "when",
+      "boxNumber": 80,
+      "text": "I click the \"reorder subtask\" button",
+      "location": "header",
+      "startIndex": 87,
+      "endIndex": 123,
+      "createdAt": "2025-12-19T19:34:20.608Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "When I delete a subtask from the list (e.g., SOR-6), and the order changes to 5>7, and I click the \"reorder subtask\" button",
+        "sourcePhase": "when"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-81-1766172861977",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "then",
+      "boxNumber": 81,
+      "text": "the list changes",
+      "location": "header",
+      "startIndex": 5,
+      "endIndex": 21,
+      "createdAt": "2025-12-19T19:34:21.977Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "action",
+        "sourceText": "Then the list changes to 5>6>7.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TCTHEN-82-1766172862001",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "13",
+      "boxType": "then",
+      "boxNumber": 82,
+      "text": "to 5>6>7",
+      "location": "header",
+      "startIndex": 22,
+      "endIndex": 30,
+      "createdAt": "2025-12-19T19:34:22.001Z",
+      "meta": {
+        "autoSegmented": true,
+        "semanticType": "result",
+        "sourceText": "Then the list changes to 5>6>7.",
+        "sourcePhase": "then"
+      }
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC1-GIVEN-2",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "given",
+      "boxNumber": 2,
+      "text": "c'´é qualcosa ui",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 16,
+      "createdAt": "2025-12-21T01:44:40.659Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC1-WHEN-4",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "when",
+      "boxNumber": 4,
+      "text": "qualcosa di cypre qui",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 21,
+      "createdAt": "2025-12-21T01:46:03.093Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC1-WHEN-5",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "1",
+      "boxType": "when",
+      "boxNumber": 5,
+      "text": "qualcosa anchr qui",
+      "location": "content",
+      "startIndex": 21,
+      "endIndex": 39,
+      "createdAt": "2025-12-21T01:46:16.825Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC2-THEN-AUTO-1766281633341-1197",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "2",
+      "boxType": "then",
+      "boxNumber": 983,
+      "text": "c'´é qualcosa ui",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 16,
+      "createdAt": "2025-12-21T01:47:13.341Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC4-WHEN-AUTO-1766281633491-7210",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "when",
+      "boxNumber": 986,
+      "text": "qualcosa di cypre qui",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 21,
+      "createdAt": "2025-12-21T01:47:13.491Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC4-WHEN-AUTO-1766281633638-2789",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "4",
+      "boxType": "when",
+      "boxNumber": 951,
+      "text": "qualcosa anchr qui",
+      "location": "content",
+      "startIndex": 23,
+      "endIndex": 41,
+      "createdAt": "2025-12-21T01:47:13.638Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC7-WHEN-AUTO-1766281633705-325",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "when",
+      "boxNumber": 991,
+      "text": "qualcosa di cypre qui",
+      "location": "content",
+      "startIndex": 0,
+      "endIndex": 21,
+      "createdAt": "2025-12-21T01:47:13.705Z"
+    },
+    {
+      "id": "session-fce43766-2f12-4a65-8913-799e60bf285f-TC7-WHEN-AUTO-1766281633730-4004",
+      "sessionId": "session-fce43766-2f12-4a65-8913-799e60bf285f",
+      "testCaseId": "7",
+      "boxType": "when",
+      "boxNumber": 951,
+      "text": "qualcosa anchr qui",
+      "location": "content",
+      "startIndex": 23,
+      "endIndex": 41,
+      "createdAt": "2025-12-21T01:47:13.730Z"
+    }
+  ]
+}
