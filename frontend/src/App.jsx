@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-javascript';
@@ -45,7 +45,43 @@ export default function App() {
   const [isAtomicSegmentationRunning, setIsAtomicSegmentationRunning] = useState(false);
   const [atomicSegmentationProgress, setAtomicSegmentationProgress] = useState(null);
   const [cypressFileName, setCypressFileName] = useState('');
-  const [cypressOutputDir, setCypressOutputDir] = useState('test_cases');
+  
+  // Use a ref to track if we've already loaded the directory from storage to prevent overwriting
+  const loadedOutputDirRef = useRef(false);
+
+  const [cypressOutputDir, setCypressOutputDir] = useState(() => {
+    // Initial state: try to get from localStorage (generic backup) or default
+    return localStorage.getItem('g2a_last_cypress_dir') || 'cypress/e2e/netest';
+  });
+
+  useEffect(() => {
+    // When session changes, try to load stored output directory
+    if (currentSession && currentSession.id) {
+        const storedDir = localStorage.getItem(`session-${currentSession.id}_cypress_output_dir`);
+        if (storedDir) {
+            setCypressOutputDir(storedDir);
+            loadedOutputDirRef.current = true;
+            logEvent('info', `📂 Directory output caricata da storage: ${storedDir}`);
+        } else {
+            loadedOutputDirRef.current = false;
+        }
+    }
+  }, [currentSession]);
+
+  // Save output directory whenever it changes (but only if it's a valid value)
+  useEffect(() => {
+    if (currentSession && currentSession.id && cypressOutputDir) {
+        localStorage.setItem(`session-${currentSession.id}_cypress_output_dir`, cypressOutputDir);
+    }
+  }, [cypressOutputDir, currentSession]);
+  
+  // Generic backup persistence for when session is not yet loaded
+  useEffect(() => {
+     if (cypressOutputDir) {
+         localStorage.setItem('g2a_last_cypress_dir', cypressOutputDir);
+     }
+  }, [cypressOutputDir]);
+
   const [generatingCypressFile, setGeneratingCypressFile] = useState(false);
   const [preliminaryCode, setPreliminaryCode] = useState('');
 
@@ -2094,6 +2130,34 @@ export default function App() {
   };
 
   // Funzione per generare il file Cypress completo
+  const [selectedTestIds, setSelectedTestIds] = useState([]);
+
+  // Initialize selectedTestIds when testCases changes
+  useEffect(() => {
+    if (testCases.length > 0) {
+        // By default select all test cases (so they are normal 'it')
+        setSelectedTestIds(testCases.map(tc => tc.id));
+    }
+  }, [testCases]);
+
+  const handleToggleTest = (id) => {
+      setSelectedTestIds(prev => {
+          if (prev.includes(id)) {
+              return prev.filter(tid => tid !== id);
+          } else {
+              return [...prev, id];
+          }
+      });
+  };
+
+  const handleSelectAll = () => {
+      setSelectedTestIds(testCases.map(tc => tc.id));
+  };
+
+  const handleSelectNone = () => {
+      setSelectedTestIds([]);
+  };
+
   const handleGenerateCypressFile = async () => {
     console.log('🔍 DEBUG handleGenerateCypressFile chiamata');
     console.log('- currentSession:', currentSession?.id);
@@ -2129,9 +2193,38 @@ export default function App() {
 
       logEvent('info', `🚀 Avvio generazione file Cypress: ${cypressFileName}`);
       
+      // Calculate execution mode for each test case
+      const totalTests = testCases.length;
+      const selectedCount = selectedTestIds.length;
+      
+      const testCasesWithMode = testCases.map(tc => {
+          let mode = 'default'; // default means 'it' without skip/only
+          
+          if (selectedCount === 0) {
+              // NONE selected -> ALL skipped
+              mode = 'skip';
+          } else if (selectedCount === totalTests) {
+              // ALL selected -> ALL default (no .only)
+              mode = 'default';
+          } else {
+              // MIXED -> Selected get .only, others get default (effectively ignored)
+              if (selectedTestIds.includes(tc.id)) {
+                  mode = 'only';
+              } else {
+                  mode = 'default';
+              }
+          }
+          
+          return {
+              ...tc,
+              executionMode: mode
+          };
+      });
+
       console.log('📤 Invio richiesta a backend:', {
         suiteName: currentSession.name || 'Test Suite',
         testCases: testCases.length,
+        selectedCount,
         fileName: cypressFileName,
         outputDir: cypressOutputDir,
         preliminaryCode: preliminaryCode ? 'presente' : 'vuoto'
@@ -2143,7 +2236,7 @@ export default function App() {
         body: JSON.stringify({
           sessionId: currentSession.id,
           suiteName: currentSession.name || 'Test Suite',
-          testCases: testCases,
+          testCases: testCasesWithMode,
           fileName: cypressFileName,
           outputDir: cypressOutputDir,
           preliminaryCode: preliminaryCode
@@ -3011,34 +3104,76 @@ export default function App() {
               )}
             </div>
             
-            <h2>Test Cases Caricati ({testCases.length})</h2>
-            <div className="test-cases-list" key={refreshKey}>
-              {testCases.map((tc, idx) => {
-                const automationStatus = checkAutomationStatus(tc.id);
-                const globalAutocompleteMeta = getGlobalAutocompleteMetadata(tc.id);
-                const objectAutocompleteMeta = getObjectAutocompleteMetadata(tc.id);
-                return (
-                  <div 
-                    key={idx} 
-                    className="test-case-card clickable"
-                    onClick={() => {
-                      setSelectedTestCase(tc);
-                      setStep('builder');
-                      logEvent('info', `Test case #${tc.id} selezionato`);
-                    }}
-                  >
-                    <div className="test-case-card-header">
-                      <h3>Test Case #{tc.id}</h3>
-                      <div 
-                        className={`automation-status ${automationStatus}`}
-                        title={automationStatus === 'ready' ? 'Automation Ready' : 'Automation Pending'}
-                      >
-                        <span className="status-dot"></span>
-                        <span className="status-text">
-                          {automationStatus === 'ready' ? 'Automation Ready' : 'Automation Pending'}
-                        </span>
+            <div className="test-cases-list-container">
+              <div className="test-cases-header-row">
+                  <h2>Test Cases Caricati ({testCases.length})</h2>
+                  <div className="test-cases-controls">
+                      <div className="control-item" onClick={handleSelectAll}>
+                          <input 
+                              type="radio" 
+                              name="selection-mode" 
+                              checked={selectedTestIds.length === testCases.length && testCases.length > 0}
+                              readOnly 
+                              className="round-checkbox"
+                          />
+                          <label>All</label>
                       </div>
-                    </div>
+                      <div className="control-item" onClick={handleSelectNone}>
+                          <input 
+                              type="radio" 
+                              name="selection-mode" 
+                              checked={selectedTestIds.length === 0}
+                              readOnly 
+                              className="round-checkbox"
+                          />
+                          <label>None</label>
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="test-cases-scroll-area">
+                <div className="test-cases-list" key={refreshKey}>
+                  {testCases.map((tc, idx) => {
+                    const automationStatus = checkAutomationStatus(tc.id);
+                    const globalAutocompleteMeta = getGlobalAutocompleteMetadata(tc.id);
+                    const objectAutocompleteMeta = getObjectAutocompleteMetadata(tc.id);
+                    const isSelected = selectedTestIds.includes(tc.id);
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className="test-case-card clickable"
+                        onClick={() => {
+                          setSelectedTestCase(tc);
+                          setStep('builder');
+                          logEvent('info', `Test case #${tc.id} selezionato`);
+                        }}
+                      >
+                        <div className="test-case-card-header">
+                          <div className="header-left">
+                              <input 
+                                  type="checkbox" 
+                                  className="round-checkbox"
+                                  checked={isSelected}
+                                  onClick={(e) => {
+                                      e.stopPropagation(); // Prevent opening the builder
+                                      handleToggleTest(tc.id);
+                                  }}
+                                  onChange={() => {}} // Controlled component
+                              />
+                              <h3>Test Case #{tc.id}</h3>
+                          </div>
+                          
+                          <div 
+                            className={`automation-status ${automationStatus}`}
+                            title={automationStatus === 'ready' ? 'Automation Ready' : 'Automation Pending'}
+                          >
+                            <span className="status-dot"></span>
+                            <span className="status-text">
+                              {automationStatus === 'ready' ? 'Automation Ready' : 'Automation Pending'}
+                            </span>
+                          </div>
+                        </div>
                     
                     {/* Indicatori Global Autocomplete */}
                     {globalAutocompleteMeta && (
@@ -3199,6 +3334,8 @@ export default function App() {
                 );
               })}
             </div>
+          </div>
+        </div>
           </div>
         )}
 

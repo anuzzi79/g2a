@@ -135,9 +135,17 @@ class TestGeneratorService {
     const whenText = this.escapeString(testCase.when || '');
     const thenText = this.escapeString(testCase.then || '');
     
-    return `  it('${description}', () => {
+    // Determine the it variant based on executionMode
+    let itVariant = 'it';
+    if (testCase.executionMode === 'only') {
+      itVariant = 'it.only';
+    } else if (testCase.executionMode === 'skip') {
+      itVariant = 'it.skip';
+    }
+    
+    return `  ${itVariant}('${description}', () => {
     // Given: ${givenText}
-${this.indentCode(givenCode, 4)}
+    ${this.indentCode(givenCode, 4)}
 
     // When: ${whenText}
 ${this.indentCode(whenCode, 4)}

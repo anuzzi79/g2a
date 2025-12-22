@@ -417,10 +417,87 @@ input[type="file"]:hover {
   background: #5a6268;
 }
 
+.test-cases-list-container {
+    margin-top: 20px;
+}
+
+.test-cases-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.test-cases-header-row h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.test-cases-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.control-item label {
+    font-weight: 600;
+    cursor: pointer;
+    color: #555;
+    font-size: 14px;
+}
+
+/* Round Checkbox Styling */
+.round-checkbox {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 2px solid #667eea;
+    border-radius: 50%;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.round-checkbox:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.round-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background-color: #4CAF50;
+    border-radius: 50%;
+}
+
+.test-cases-scroll-area {
+    height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #fcfcfc;
+}
+
 .test-cases-list {
   display: grid;
   gap: 20px;
-  margin-top: 20px;
+  /* margin-top: 20px; Removed as it's now inside container */
 }
 
 .test-case-card {
@@ -438,10 +515,18 @@ input[type="file"]:hover {
   margin-bottom: 15px;
 }
 
+/* Header Left for Title and Checkbox */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
 .test-case-card h3 {
   color: #667eea;
   margin: 0;
-  flex: 1;
+  /* flex: 1; Removed to allow header-left to manage layout */
 }
 
 .automation-status {
@@ -803,4 +888,3 @@ input[type="file"]:hover {
   color: #666;
   margin-bottom: 15px;
 }
-
